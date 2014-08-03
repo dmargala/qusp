@@ -8,7 +8,6 @@ import math
 import argparse
 
 import numpy
-import matplotlib.pyplot as plt
 
 from astropy.io import fits
 
@@ -51,13 +50,13 @@ def main():
     parser.add_argument("--first-target", type=int, default=0,
         help = "index of first target to use")
     parser.add_argument("--boss-root", type=str, default=None,
-        help = "path to dir containing BOSS data (ex: /data/boss)")
+        help = "path to root directory containing BOSS data (ex: /data/boss)")
     parser.add_argument("--boss-version", type=str, default=None,
         help = "boss pipeline version tag (ex: v5_7_0)")
     parser.add_argument("--skim", type=str, default="dr12v1",
         help = "name of skim to use")
-    parser.add_argument("--save", type=str, default="stack.npy",
-        help = "save stacked spectrum")
+    parser.add_argument("--out-prefix", type=str, default="root",
+        help = "output file prefix")
     parser.add_argument("--verbose", action="store_true",
         help = "more verbose output")
     parser.add_argument("--use-fits", action="store_true",
@@ -91,7 +90,7 @@ def main():
 
     # read target list
     targets = []
-    with open(args.input,"r") as targetlist:
+    with open(args.input,'r') as targetlist:
         for line in targetlist:
             words = line.strip().split()
 
@@ -103,8 +102,23 @@ def main():
     ntargets = len(targets)
     firstTarget = args.first_target
     endTarget = firstTarget + args.ntargets
-    if args.verbose:
-        print "Read %d targets (using %d:%d) from %s" % (ntargets,firstTarget,endTarget,args.input)
+
+    print 'Read %d targets (using %d:%d) from %s' % (ntargets,firstTarget,endTarget,args.input)
+
+    # open output files ahead of time
+    stackName = args.out_prefix+'_stack.npy'
+    wstackName = args.out_prefix+'_wstack.npy'
+
+    print 'Will save (un)weighted stack to %s (%s)' % (wstackName, stackName)
+
+    try:
+        stackFile = open(stackName,'w')
+    except IOError:
+        print 'Failed to open output file: ' % stackName 
+    try:
+        wstackFile = open(wstackName,'w')
+    except IOError:
+        print 'Failed to open output file: ' % wstackName
 
     # initialize stack arrays
     arraySize = 4800
@@ -129,11 +143,10 @@ def main():
             continue
         zbin = int((target.z - zmin)/(zmax - zmin)*nzbins)
         if zbin >= nzbins:
-            print "woh! zbin out of range!"
+            print 'woh! zbin out of range!'
             continue
 
         # read spectrum
-
         flux = []
         wflux = []
         ivar = []
@@ -142,10 +155,10 @@ def main():
 
         if args.use_fits:
             # load the spectrum file
-            if plateFileName != "spPlate-%s-%s.fits" % (target.plate, target.mjd):
-                plateFileName = "spPlate-%s-%s.fits" % (target.plate, target.mjd)
+            if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
+                plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
                 if args.verbose:
-                    print "Opening plate file %s..." % os.path.join(skimPath,plateFileName)
+                    print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
                 plateFile = fits.open(os.path.join(fitsPath,str(target.plate),plateFileName)) 
                 # when does the file close?
 
@@ -159,15 +172,15 @@ def main():
 
         else:
             # load the spectrum file
-            if plateFileName != "plate-%s-%s.root" % (target.plate, target.mjd):
-                plateFileName = "plate-%s-%s.root" % (target.plate, target.mjd)
+            if plateFileName != 'plate-%s-%s.root' % (target.plate, target.mjd):
+                plateFileName = 'plate-%s-%s.root' % (target.plate, target.mjd)
                 if args.verbose:
-                    print "Opening plate file %s..." % os.path.join(skimPath,plateFileName)
+                    print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
                 plateFile = ROOT.TFile(os.path.join(skimPath,plateFileName))
                 # when does the file close?
-                plateTree = plateFile.Get("skim")
+                plateTree = plateFile.Get('skim')
 
-            combined = plateFile.Get("combined_%s" % target.fiber)
+            combined = plateFile.Get('combined_%s' % target.fiber)
             numPixels = combined.GetN()
 
             xBuffer = combined.GetX()
@@ -182,17 +195,18 @@ def main():
             fluxErr = numpy.frombuffer(yErrBuffer,count=numPixels)
 
             ivar = numpy.zeros(numPixels)
-            ivar[numpy.nonzero(fluxErr)] = 1/(fluxErr[numpy.nonzero(fluxErr)]**2)
+            nonzeroEntries = numpy.nonzero(fluxErr)
+            ivar[nonzeroEntries] = 1/(fluxErr[nonzeroEntries]**2)
 
             wflux = flux*ivar
 
         # determine pixel offset
         offset = getFiducialPixelIndexOffset(coeff0)
         if numPixels + offset > arraySize:
-            print "woh! sprectrum out of range!"
+            print 'woh! sprectrum out of range!'
             continue
 
-        # add spetrum to stack
+        # add spectrum to stack
         pixelSlice = slice(offset,offset+numPixels)
         stack[pixelSlice,zbin] += flux
         counts[pixelSlice,zbin] += numpy.ones(numPixels)
@@ -203,11 +217,13 @@ def main():
     stack[numpy.nonzero(counts)] /= counts[numpy.nonzero(counts)]
     wstack[numpy.nonzero(weight)] /= weight[numpy.nonzero(weight)]
 
-    # save the stacked spectrum
-    with open(args.save,'w') as outfile:
-        if args.verbose:
-            print 'Saving stack to %s' % args.save
-        numpy.save(outfile,wstack)
+    # save the stacked spectrum matrix
+    print 'Saving (un)weighted stack to %s (%s)' % (wstackName, stackName)
+    numpy.save(stackFile,stack)
+    numpy.save(wstackFile,wstack)
+
+    stackFile.close()
+    wstackFile.close()
 
 
 if __name__ == '__main__':
