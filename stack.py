@@ -124,6 +124,10 @@ def main():
     wstackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
+    specialz = int((2.4 - zmin)/(zmax - zmin)*nzbins)
+    nonforestflux = []
+    forestflux = []
+
     # work on targets
     plateFileName = None
     for targetIndex in range(ntargets):
@@ -220,6 +224,12 @@ def main():
         stacksq[pixelSlice,zbin] += flux*flux
         counts[pixelSlice,zbin] += numpy.ones(numPixels)
 
+        if zbin == specialz:
+            forestpixel = int(getFiducialWavelengthRatio(1120)) - offset
+            forestflux.append(flux[forestpixel])
+            nonforestpixel = int(getFiducialWavelengthRatio(1500)) - offset
+            nonforestflux.append(flux[nonforestpixel])
+
         wflux = flux*ivar
         wstack[pixelSlice,zbin] += wflux
         wstacksq[pixelSlice,zbin] += wflux*wflux
@@ -246,6 +256,9 @@ def main():
     outfile.create_dataset('sn', data=sn)
     outfile.create_dataset('stackvar', data=stackvar)
     outfile.create_dataset('wstackvar', data=wstackvar)
+
+    outfile.create_dataset('forest', data=forestflux)
+    outfile.create_dataset('nonforest', data=nonforestflux)
 
     outfile.close()
 
