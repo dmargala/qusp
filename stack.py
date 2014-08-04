@@ -225,9 +225,9 @@ def main():
         counts[pixelSlice,zbin] += numpy.ones(numPixels)
 
         if zbin == specialz:
-            forestpixel = int(getFiducialWavelengthRatio(1120)) - offset
+            forestpixel = int(getFiducialWavelengthRatio((1+target.z)*1120)) - offset
             forestflux.append(flux[forestpixel])
-            nonforestpixel = int(getFiducialWavelengthRatio(1500)) - offset
+            nonforestpixel = int(getFiducialWavelengthRatio((1+target.z)*1500)) - offset
             nonforestflux.append(flux[nonforestpixel])
 
         wflux = flux*ivar
