@@ -202,7 +202,6 @@ def main():
             obshi = (1+target.z)*1290
             normlo = int(getFiducialWavelengthRatio(obslo)) - offset
             normhi = int(getFiducialWavelengthRatio(obshi)) - offset
-            print offset, normlo, normhi, getFiducialWavelength(normlo+offset)/(1+target.z)
             norm = 0
             normweight = 0
             for pixel in range(normlo,normhi+1):
