@@ -12,6 +12,7 @@ import numpy
 from astropy.io import fits
 
 import ROOT
+import h5py
 
 class Target(object):
     def __init__(self, plate, mjd, fiber):
@@ -71,15 +72,8 @@ def main():
     args = parser.parse_args()
 
     # set up paths
-    if args.boss_root is None:
-        boss_root = os.getenv('BOSS_ROOT', None)
-    else:
-        boss_root = args.boss_root
-
-    if args.boss_version is None:
-        boss_version = os.getenv('BOSS_VERSION', None)
-    else:
-        boss_version = args.boss_version
+    boss_root = args.boss_root if args.boss_root is not None else os.getenv('BOSS_ROOT', None)
+    boss_version = args.boss_version if args.boss_version is not None else os.getenv('BOSS_VERSION', None)
 
     if boss_root is None or boss_version is None:
         print 'Must speciy --boss-(root|version) or env var BOSS_(ROOT|VERSION)'
@@ -105,20 +99,12 @@ def main():
 
     print 'Read %d targets (using %d:%d) from %s' % (ntargets,firstTarget,endTarget,args.input)
 
-    # open output files ahead of time
-    stackName = args.out_prefix+'_stack.npy'
-    wstackName = args.out_prefix+'_wstack.npy'
-
-    print 'Will save (un)weighted stack to %s (%s)' % (wstackName, stackName)
-
+    # open output files ahead of time to catch potential io errors before processing data
     try:
-        stackFile = open(stackName,'w')
+        outfilename = args.out_prefix+'.hdf5'
+        outfile = h5py.File(outfilename, 'w')
     except IOError:
-        print 'Failed to open output file: ' % stackName 
-    try:
-        wstackFile = open(wstackName,'w')
-    except IOError:
-        print 'Failed to open output file: ' % wstackName
+        print 'Failed to open output file: ' % outfilename 
 
     # initialize stack arrays
     arraySize = 4800
@@ -218,12 +204,14 @@ def main():
     wstack[numpy.nonzero(weight)] /= weight[numpy.nonzero(weight)]
 
     # save the stacked spectrum matrix
-    print 'Saving (un)weighted stack to %s (%s)' % (wstackName, stackName)
-    numpy.save(stackFile,stack)
-    numpy.save(wstackFile,wstack)
+    print 'Saving stack to %s' % outfilename
 
-    stackFile.close()
-    wstackFile.close()
+    outfile.create_dataset('stack', data=stack)
+    outfile.create_dataset('wstack', data=wstack)
+    outfile.create_dataset('counts', data=counts)
+    outfile.create_dataset('weights', data=weight)
+
+    outfile.close()
 
 
 if __name__ == '__main__':
