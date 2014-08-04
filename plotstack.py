@@ -29,7 +29,7 @@ def main():
 
     infile = h5py.File(args.input,'r')
 
-    for dataset in ('stack','wstack','counts','weights'):
+    for dataset in ('stack','wstack','counts','weights','sn','wstackvar','stackvar'):
 
         wstack = infile[dataset]
 

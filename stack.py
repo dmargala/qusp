@@ -69,6 +69,8 @@ def main():
         help = "maximum quasar redshift to include")
     parser.add_argument("--nzbins", type=float, default=100,
         help = "number of redshift bins")
+    parser.add_argument("--norm", action="store_true",
+        help = "normalize spectra using window: 1280 +/- 10 Ang")
     args = parser.parse_args()
 
     # set up paths
@@ -116,6 +118,11 @@ def main():
     counts = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     wstack = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     weight = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    stacksq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    stackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wstacksq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wstackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
     # work on targets
     plateFileName = None
@@ -154,7 +161,6 @@ def main():
             index = target.fiber-1
             flux = plateFile[0].data[index]
             ivar = plateFile[1].data[index]
-            wflux = flux*ivar
 
         else:
             # load the spectrum file
@@ -184,24 +190,52 @@ def main():
             nonzeroEntries = numpy.nonzero(fluxErr)
             ivar[nonzeroEntries] = 1/(fluxErr[nonzeroEntries]**2)
 
-            wflux = flux*ivar
-
         # determine pixel offset
         offset = getFiducialPixelIndexOffset(coeff0)
         if numPixels + offset > arraySize:
             print 'woh! sprectrum out of range!'
             continue
 
+        # normalize spectrum using flux window: 1280 +/- 10 Ang
+        if args.norm:
+            obslo = (1+target.z)*1270
+            obshi = (1+target.z)*1290
+            normlo = int(getFiducialWavelengthRatio(obslo)) - offset
+            normhi = int(getFiducialWavelengthRatio(obshi)) - offset
+            print offset, normlo, normhi, getFiducialWavelength(normlo+offset)/(1+target.z)
+            norm = 0
+            normweight = 0
+            for pixel in range(normlo,normhi+1):
+                if ivar[pixel] > 0:
+                    norm += ivar[pixel]*flux[pixel]
+                    normweight += ivar[pixel]
+            if normweight == 0:
+                continue
+            norm /= normweight
+            flux /= norm
+            ivar *= norm*norm
+
         # add spectrum to stack
         pixelSlice = slice(offset,offset+numPixels)
         stack[pixelSlice,zbin] += flux
+        stacksq[pixelSlice,zbin] += flux*flux
         counts[pixelSlice,zbin] += numpy.ones(numPixels)
+
+        wflux = flux*ivar
         wstack[pixelSlice,zbin] += wflux
+        wstacksq[pixelSlice,zbin] += wflux*wflux
         weight[pixelSlice,zbin] += ivar
 
     # divide by weights/number of entries
-    stack[numpy.nonzero(counts)] /= counts[numpy.nonzero(counts)]
-    wstack[numpy.nonzero(weight)] /= weight[numpy.nonzero(weight)]
+    stackSlice = numpy.nonzero(counts)
+    stack[stackSlice] /= counts[stackSlice]
+    stackvar[stackSlice] = stacksq[stackSlice]/counts[stackSlice] - stack[stackSlice]**2
+
+    weightSlice = numpy.nonzero(weight)
+    wstack[weightSlice] /= weight[weightSlice]
+    wstackvar[weightSlice] = wstacksq[weightSlice]/weight[weightSlice] - wstack[weightSlice]**2
+
+    sn = stack*numpy.sqrt(weight)
 
     # save the stacked spectrum matrix
     print 'Saving stack to %s' % outfilename
@@ -210,6 +244,9 @@ def main():
     outfile.create_dataset('wstack', data=wstack)
     outfile.create_dataset('counts', data=counts)
     outfile.create_dataset('weights', data=weight)
+    outfile.create_dataset('sn', data=sn)
+    outfile.create_dataset('stackvar', data=stackvar)
+    outfile.create_dataset('wstackvar', data=wstackvar)
 
     outfile.close()
 
