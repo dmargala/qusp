@@ -114,15 +114,12 @@ def main():
     zmin = args.zmin
     zmax = args.zmax
 
-    stack = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    fluxsum = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     counts = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    wstack = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    weight = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    stacksq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    stackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    wstacksq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    wstackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wfluxsum = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    weights = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    fluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wfluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
     sqrtwflux = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     sqrtw = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
@@ -171,6 +168,8 @@ def main():
 
             flux = plateFile[0].data[index]
             ivar = plateFile[1].data[index]
+
+            ivar[andmask > 0] = 0
 
         else:
             # load the spectrum file
@@ -226,9 +225,11 @@ def main():
 
         # add spectrum to stack
         pixelSlice = slice(offset,offset+numPixels)
-        stack[pixelSlice,zbin] += flux
-        stacksq[pixelSlice,zbin] += flux*flux
-        counts[pixelSlice,zbin] += numpy.ones(numPixels)
+        i = ivar > 0
+        flux[ivar == 0] = 0
+        fluxsum[pixelSlice,zbin] += flux
+        fluxsq[pixelSlice,zbin] += flux*flux
+        counts[pixelSlice,zbin] += i
 
         if zbin == specialz:
             forestpixel = int(getFiducialWavelengthRatio((1+target.z)*1120)) - offset
@@ -236,46 +237,54 @@ def main():
             nonforestpixel = int(getFiducialWavelengthRatio((1+target.z)*1500)) - offset
             nonforestflux.append(flux[nonforestpixel])
 
+        wflux = numpy.zeros(numPixels)
         wflux = flux*ivar
-        wstack[pixelSlice,zbin] += wflux
-        wstacksq[pixelSlice,zbin] += wflux*wflux
-        weight[pixelSlice,zbin] += ivar
+        wfluxsum[pixelSlice,zbin] += wflux
+        wfluxsq[pixelSlice,zbin] += wflux*wflux
+        weights[pixelSlice,zbin] += ivar
 
         isigma = numpy.sqrt(ivar)
-        sqrtwflux[pixelSlice,zbin] += flux*isigma
         sqrtw[pixelSlice,zbin] += isigma
+        sqrtwflux[pixelSlice,zbin] += isigma*flux
 
         wfluxsq[pixelSlice,zbin] += wflux*flux
 
 
     # divide by weights/number of entries
-    stackSlice = numpy.nonzero(counts)
-    stack[stackSlice] /= counts[stackSlice]
+    fluxmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    c = numpy.nonzero(counts)
+    fluxmean[c] = fluxsum[c]/counts[c]
 
-    weightSlice = numpy.nonzero(weight)
-    wstack[weightSlice] /= weight[weightSlice]
+    wfluxmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    w = numpy.nonzero(weights)
+    wfluxmean[w] = wfluxsum[w]/weights[w]
 
     pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     pullvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
-    pullmean[weightSlice] = (sqrtwflux[weightSlice] - wstack[weightSlice]*sqrtw[weightSlice])/counts[weightSlice]
-    pullvar[weightSlice] = (wfluxsq[weightSlice] - (wstack[weightSlice]**2)*weight[weightSlice])/counts[weightSlice]
+    pullmean[c] = (sqrtwflux[c] - wfluxmean[c]*sqrtw[c])/counts[c]
+    pullvar[c] = (wfluxsq[c] - (wfluxmean[c]**2)*weights[c])/counts[c]
 
-    sn = stack*numpy.sqrt(weight)
+    sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    sn[c] = sqrtwflux[c]/counts[c]
 
     # save the stacked spectrum matrix
     print 'Saving stack to %s' % outfilename
 
-    outfile.create_dataset('stack', data=stack)
-    outfile.create_dataset('wstack', data=wstack)
-    outfile.create_dataset('counts', data=counts)
-    outfile.create_dataset('weights', data=weight)
-    outfile.create_dataset('sn', data=sn)
-    outfile.create_dataset('pullmean', data=pullmean)
-    outfile.create_dataset('pullvar', data=pullvar)
+    def createDataset(name, data):
+        dset = outfile.create_dataset(name, data=data)
+        dset.attrs['zmin'] = args.zmin
+        dset.attrs['zmax'] = args.zmax
+    createDataset('fluxmean', fluxmean)
+    createDataset('wfluxmean', wfluxmean)
+    createDataset('counts', counts)
+    createDataset('weights', weights)
+    createDataset('sn', sn)
+    createDataset('pullmean', pullmean)
+    createDataset('pullvar', pullvar)
 
-    outfile.create_dataset('forest', data=forestflux)
-    outfile.create_dataset('nonforest', data=nonforestflux)
+    createDataset('forest', forestflux)
+    createDataset('nonforest', nonforestflux)
 
     outfile.close()
 
