@@ -258,8 +258,8 @@ def main():
     pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     pullvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
-    pullmean[stackSlice] = (sqrtwflux[stackSlice] - wstack[stackSlice]*sqrtw[stackSlice])/counts[stackSlice]
-    pullvar[stackSlice] = (wfluxsq[stackSlice] - wstack[stackSlice]*weight[stackSlice])/counts[stackSlice]
+    pullmean[weightSlice] = (sqrtwflux[weightSlice] - wstack[weightSlice]*sqrtw[weightSlice])/counts[weightSlice]
+    pullvar[weightSlice] = (wfluxsq[weightSlice] - (wstack[weightSlice]**2)*weight[weightSlice])/counts[weightSlice]
 
     sn = stack*numpy.sqrt(weight)
 
@@ -271,8 +271,8 @@ def main():
     outfile.create_dataset('counts', data=counts)
     outfile.create_dataset('weights', data=weight)
     outfile.create_dataset('sn', data=sn)
-    outfile.create_dataset('pullmean', data=stackvar)
-    outfile.create_dataset('pullvar', data=wstackvar)
+    outfile.create_dataset('pullmean', data=pullmean)
+    outfile.create_dataset('pullvar', data=pullvar)
 
     outfile.create_dataset('forest', data=forestflux)
     outfile.create_dataset('nonforest', data=nonforestflux)
