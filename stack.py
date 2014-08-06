@@ -124,6 +124,13 @@ def main():
     wstackvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
+    sqrtwflux = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    sqrtw = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wfluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+
+    pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    pullrms = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+
     specialz = int((2.4 - zmin)/(zmax - zmin)*nzbins)
     nonforestflux = []
     forestflux = []
@@ -163,6 +170,8 @@ def main():
             coeff0 = plateFile[0].header['COEFF0']
 
             index = target.fiber-1
+            andmask = plateFile[2].data[index]
+
             flux = plateFile[0].data[index]
             ivar = plateFile[1].data[index]
 
@@ -235,14 +244,22 @@ def main():
         wstacksq[pixelSlice,zbin] += wflux*wflux
         weight[pixelSlice,zbin] += ivar
 
+        isigma = numpy.sqrt(ivar)
+        sqrtwflux[pixelSlice,zbin] += flux*isigma
+        sqrtw[pixelSlice,zbin] += isigma
+
+        wfluxsq[pixelSlice,zbin] += wflux*flux
+
+
     # divide by weights/number of entries
     stackSlice = numpy.nonzero(counts)
     stack[stackSlice] /= counts[stackSlice]
-    stackvar[stackSlice] = stacksq[stackSlice]/counts[stackSlice] - stack[stackSlice]**2
 
     weightSlice = numpy.nonzero(weight)
     wstack[weightSlice] /= weight[weightSlice]
-    wstackvar[weightSlice] = wstacksq[weightSlice]/weight[weightSlice] - wstack[weightSlice]**2
+
+    pullmean[stackSlice] = (sqrtwflux[stackSlice] - wstack[stackSlice]*sqrtw[stackSlice])/counts[stackSlice]
+    pullrms[stackSlice] = numpy.sqrt((wfluxsq[stackSlice] - wstack[stackSlice]*weight[stackSlice])/counts[stackSlice])
 
     sn = stack*numpy.sqrt(weight)
 
@@ -254,8 +271,8 @@ def main():
     outfile.create_dataset('counts', data=counts)
     outfile.create_dataset('weights', data=weight)
     outfile.create_dataset('sn', data=sn)
-    outfile.create_dataset('stackvar', data=stackvar)
-    outfile.create_dataset('wstackvar', data=wstackvar)
+    outfile.create_dataset('pullmean', data=stackvar)
+    outfile.create_dataset('pullrms', data=wstackvar)
 
     outfile.create_dataset('forest', data=forestflux)
     outfile.create_dataset('nonforest', data=nonforestflux)
