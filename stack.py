@@ -126,6 +126,8 @@ def main():
     wfluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
     specialz = int((2.4 - zmin)/(zmax - zmin)*nzbins)
+    forestwave = 1120
+    nonforestwave = 1500
     nonforestflux = []
     forestflux = []
 
@@ -232,15 +234,13 @@ def main():
         counts[pixelSlice,zbin] += i
 
         if zbin == specialz:
-            forestpixel = int(getFiducialWavelengthRatio((1+target.z)*1120)) - offset
+            forestpixel = int(getFiducialWavelengthRatio((1+target.z)*forestwave)) - offset
             forestflux.append(flux[forestpixel])
-            nonforestpixel = int(getFiducialWavelengthRatio((1+target.z)*1500)) - offset
+            nonforestpixel = int(getFiducialWavelengthRatio((1+target.z)*nonforestwave)) - offset
             nonforestflux.append(flux[nonforestpixel])
 
-        wflux = numpy.zeros(numPixels)
         wflux = flux*ivar
         wfluxsum[pixelSlice,zbin] += wflux
-        wfluxsq[pixelSlice,zbin] += wflux*wflux
         weights[pixelSlice,zbin] += ivar
 
         isigma = numpy.sqrt(ivar)
@@ -262,8 +262,8 @@ def main():
     pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     pullvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
-    pullmean[c] = (sqrtwflux[c] - wfluxmean[c]*sqrtw[c])/counts[c]
-    pullvar[c] = (wfluxsq[c] - (wfluxmean[c]**2)*weights[c])/counts[c]
+    pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
+    pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
 
     sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     sn[c] = sqrtwflux[c]/counts[c]
@@ -283,8 +283,12 @@ def main():
     createDataset('pullmean', pullmean)
     createDataset('pullvar', pullvar)
 
-    createDataset('forest', forestflux)
-    createDataset('nonforest', nonforestflux)
+    dset = outfile.create_dataset('forest', data=forestflux)
+    dset.attrs['wavelength'] = forestwave
+    dset.attrs['z'] = specialz
+    dset = outfile.create_dataset('nonforest', data=nonforestflux)
+    dset.attrs['wavelength'] = nonforestwave
+    dset.attrs['z'] = specialz
 
     outfile.close()
 
