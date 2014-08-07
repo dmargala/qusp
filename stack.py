@@ -26,6 +26,9 @@ class Target(object):
         plate, mjd, fiber = targetString.split('-')
         return cls(plate, mjd, fiber);
 
+    def __str__(self):
+        return '%d-%d-%d' % (self.plate,self.mjd,self.fiber)
+
 def getFiducialWavelength(pixelIndex):
     return 3500.26*(10**(1e-4*pixelIndex))
 
@@ -70,7 +73,11 @@ def main():
     parser.add_argument("--nzbins", type=float, default=100,
         help = "number of redshift bins")
     parser.add_argument("--norm", action="store_true",
-        help = "normalize spectra using window: 1280 +/- 10 Ang")
+        help = "normalize spectra using mean flux value in a specified window")
+    parser.add_argument("--norm-lo", type=float, default=1270,
+        help = "min wavelength for normalization window")
+    parser.add_argument("--norm-hi", type=float, default=1290,
+        help = "max wavelength for normalization window")
     args = parser.parse_args()
 
     # set up paths
@@ -209,17 +216,21 @@ def main():
 
         # normalize spectrum using flux window: 1280 +/- 10 Ang
         if args.norm:
-            obslo = (1+target.z)*1270
-            obshi = (1+target.z)*1290
+            obslo = (1+target.z)*args.norm_lo
+            obshi = (1+target.z)*args.norm_hi
             normlo = int(getFiducialWavelengthRatio(obslo)) - offset
-            normhi = int(getFiducialWavelengthRatio(obshi)) - offset
-            norm = 0
-            normweight = 0
-            for pixel in range(normlo,normhi+1):
-                if ivar[pixel] > 0:
-                    norm += ivar[pixel]*flux[pixel]
-                    normweight += ivar[pixel]
+            normhi = int(getFiducialWavelengthRatio(obshi)) - offset + 1
+            # limit norm window to spectrum 
+            if normlo < 0:
+                normlo = 0
+            if normhi > numPixels or args.norm_hi < args.norm_lo:
+                normhi = numPixels
+            # calucuate mean flux in window
+            normSlice = slice(normlo,normhi)
+            norm = numpy.sum(ivar[normSlice]*flux[normSlice])
+            normweight = numpy.sum(ivar[normSlice])
             if normweight == 0:
+                print 'skipping %s: 0 ivar in flux normalization range' % target
                 continue
             norm /= normweight
             flux /= norm
@@ -233,6 +244,7 @@ def main():
         fluxsq[pixelSlice,zbin] += flux*flux
         counts[pixelSlice,zbin] += i
 
+        # save values for special bins for sanity checks
         if zbin == specialz:
             forestpixel = int(getFiducialWavelengthRatio((1+target.z)*forestwave)) - offset
             forestflux.append(flux[forestpixel])
@@ -266,22 +278,35 @@ def main():
     pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
 
     sn = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    sn[c] = sqrtwflux[c]/counts[c]
+    sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
 
     # save the stacked spectrum matrix
     print 'Saving stack to %s' % outfilename
 
-    def createDataset(name, data):
-        dset = outfile.create_dataset(name, data=data)
-        dset.attrs['zmin'] = args.zmin
-        dset.attrs['zmax'] = args.zmax
-    createDataset('fluxmean', fluxmean)
-    createDataset('wfluxmean', wfluxmean)
-    createDataset('counts', counts)
-    createDataset('weights', weights)
-    createDataset('sn', sn)
-    createDataset('pullmean', pullmean)
-    createDataset('pullvar', pullvar)
+    grp = outfile.create_group('hists2d')
+    grp.attrs['zmin'] = args.zmin
+    grp.attrs['zmax'] = args.zmax
+
+    dset = grp.create_dataset('fluxmean', data=fluxmean)
+    dset.attrs['label'] = 'Mean Flux ($10^{-17} erg/cm^2/s/\AA$)'
+
+    dset = grp.create_dataset('wfluxmean', data=wfluxmean)
+    dset.attrs['label'] = 'Weighted Mean Flux ($10^{-17} erg/cm^2/s/\AA$)'
+
+    dset = grp.create_dataset('counts', data=counts)
+    dset.attrs['label'] = 'Counts'
+
+    dset = grp.create_dataset('weights', data=weights)
+    dset.attrs['label'] = 'Weights $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
+
+    dset = grp.create_dataset('sn', data=sn)
+    dset.attrs['label'] = 'Signal to Noise'
+
+    dset = grp.create_dataset('pullmean', data=pullmean)
+    dset.attrs['label'] = 'Pull Mean'
+
+    dset = grp.create_dataset('pullvar', data=pullvar)
+    dset.attrs['label'] = 'Pull Variance'
 
     dset = outfile.create_dataset('forest', data=forestflux)
     dset.attrs['wavelength'] = forestwave

@@ -25,13 +25,14 @@ def main():
 
     infile = h5py.File(args.input,'r')
 
-    for dataset in ('fluxmean','wfluxmean','counts','weights','sn','pullvar','pullmean'):
+    hists2d = infile['hists2d']
+    zmin = hists2d.attrs['zmin']
+    zmax = hists2d.attrs['zmax']
 
-        dset = infile[dataset]
-        data = dset.value
-        zmin = dset.attrs['zmin']
-        zmax = dset.attrs['zmax']
+    for name in ('fluxmean','wfluxmean','counts','weights','sn','pullvar','pullmean'):
 
+        data = hists2d[name].value
+        label = hists2d[name].attrs['label']
 
         nzbins = data.shape[1]
         npixels = data.shape[0]
@@ -43,27 +44,26 @@ def main():
         X,Y = numpy.meshgrid(x,y)
 
         # 2D histogram
-        fig = plt.figure(figsize=(24,5))
+        fig = plt.figure(figsize=(24,10))
         ax1 = fig.add_subplot(111)
 
         vmax = args.vmax if args.vmax > 0 else numpy.percentile(data,99)
-        vmin = 0 if dataset != 'pullmean' else -vmax
+        vmin = 0 if name != 'pullmean' else -vmax
 
-        if dataset == 'pullvar':
-            # vmax = 10
-            mean = infile['pullmean'].value
+        if name == 'pullvar':
+            vmax = 5
+            mean = hists2d['pullmean'].value
             data = numpy.sqrt(data - mean**2)
-            dataset = 'pullrms'
+            name = 'pullrms'
 
         cmap = plt.get_cmap('Blues')
-        if dataset == 'pullmean':
+        if name == 'pullmean':
             cmap = plt.get_cmap('bwr')
 
         # clip color manually, reduce colorbar pad from 0.05 -> 0.01
         mappable = ax1.pcolormesh(X, Y, numpy.transpose(data), vmin=vmin, vmax=vmax, cmap=cmap)
         cbar = fig.colorbar(mappable, pad=.01)
-        cbar.set_label(dataset)
-        #cbar.set_label('Mean Flux ($10^{-17} erg/cm^2/s/\AA$)')
+        cbar.set_label(label)
 
         # Label standard axes
         ax1.set_ylabel('Redshift (z)')
@@ -78,7 +78,7 @@ def main():
         for tl in ax2.get_xticklabels():
             tl.set_color('r')
 
-        fig.savefig('%s_%s.png' % (args.save, dataset), bbox_inches='tight')
+        fig.savefig('%s_%s.png' % (args.save, name), bbox_inches='tight')
 
     fig = plt.figure()
     forest = infile['forest'].value
