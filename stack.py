@@ -125,6 +125,7 @@ def main():
     counts = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     wfluxsum = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     weights = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    weightssq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     fluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     wfluxsq = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
 
@@ -137,6 +138,8 @@ def main():
     nonforestwave = 1500
     nonforestflux = []
     forestflux = []
+
+    skipcounter = 0
 
     # work on targets
     plateFileName = None
@@ -151,7 +154,7 @@ def main():
         zbin = int((target.z - zmin)/(zmax - zmin)*nzbins)
         if zbin >= nzbins:
             print 'woh! zbin out of range!'
-            continue
+            exit(1)
 
         # read spectrum
         flux = []
@@ -212,7 +215,7 @@ def main():
         offset = getFiducialPixelIndexOffset(coeff0)
         if numPixels + offset > arraySize:
             print 'woh! sprectrum out of range!'
-            continue
+            exit(1)
 
         # normalize spectrum using flux window: 1280 +/- 10 Ang
         if args.norm:
@@ -230,7 +233,8 @@ def main():
             norm = numpy.sum(ivar[normSlice]*flux[normSlice])
             normweight = numpy.sum(ivar[normSlice])
             if normweight == 0:
-                print 'skipping %s: 0 ivar in flux normalization range' % target
+                skipcounter += 1
+                print 'skipping %s (z=%.2f): 0 ivar in flux normalization range' % (target, target.z)
                 continue
             norm /= normweight
             flux /= norm
@@ -254,6 +258,7 @@ def main():
         wflux = flux*ivar
         wfluxsum[pixelSlice,zbin] += wflux
         weights[pixelSlice,zbin] += ivar
+        weightssq[pixelSlice,zbin] += ivar**2
 
         isigma = numpy.sqrt(ivar)
         sqrtw[pixelSlice,zbin] += isigma
@@ -261,6 +266,7 @@ def main():
 
         wfluxsq[pixelSlice,zbin] += wflux*flux
 
+    print 'Skipped %d targets...' % skipcounter
 
     # divide by weights/number of entries
     fluxmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
@@ -268,8 +274,11 @@ def main():
     fluxmean[c] = fluxsum[c]/counts[c]
 
     wfluxmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wfluxvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     w = numpy.nonzero(weights)
     wfluxmean[w] = wfluxsum[w]/weights[w]
+
+    wfluxvar[w] = weights[w]/(weights[w]**2 - weightssq[w])*(wfluxsq[w] - (wfluxmean[w]**2)*weights[w])
 
     pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     pullvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
@@ -288,10 +297,13 @@ def main():
     grp.attrs['zmax'] = args.zmax
 
     dset = grp.create_dataset('fluxmean', data=fluxmean)
-    dset.attrs['label'] = 'Mean Flux ($10^{-17} erg/cm^2/s/\AA$)'
+    dset.attrs['label'] = 'Flux Mean $(10^{-17} erg/cm^2/s/\AA)$'
 
     dset = grp.create_dataset('wfluxmean', data=wfluxmean)
-    dset.attrs['label'] = 'Weighted Mean Flux ($10^{-17} erg/cm^2/s/\AA$)'
+    dset.attrs['label'] = 'Weighted Flux Mean $(10^{-17} erg/cm^2/s/\AA)$'
+
+    dset = grp.create_dataset('wfluxvar', data=wfluxmean)
+    dset.attrs['label'] = 'Weighted Flux Variance $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
 
     dset = grp.create_dataset('counts', data=counts)
     dset.attrs['label'] = 'Counts'
@@ -300,7 +312,7 @@ def main():
     dset.attrs['label'] = 'Weights $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
 
     dset = grp.create_dataset('sn', data=sn)
-    dset.attrs['label'] = 'Signal to Noise'
+    dset.attrs['label'] = 'Signal to Noise Ratio'
 
     dset = grp.create_dataset('pullmean', data=pullmean)
     dset.attrs['label'] = 'Pull Mean'

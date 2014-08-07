@@ -29,7 +29,7 @@ def main():
     zmin = hists2d.attrs['zmin']
     zmax = hists2d.attrs['zmax']
 
-    for name in ('fluxmean','wfluxmean','counts','weights','sn','pullvar','pullmean'):
+    for name in ('fluxmean','wfluxmean','wfluxvar','counts','weights','sn','pullvar','pullmean'):
 
         data = hists2d[name].value
         label = hists2d[name].attrs['label']
@@ -55,6 +55,7 @@ def main():
             mean = hists2d['pullmean'].value
             data = numpy.sqrt(data - mean**2)
             name = 'pullrms'
+            label = 'Pull RMS'
 
         cmap = plt.get_cmap('Blues')
         if name == 'pullmean':
