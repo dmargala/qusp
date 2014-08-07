@@ -258,7 +258,7 @@ def main():
         wflux = flux*ivar
         wfluxsum[pixelSlice,zbin] += wflux
         weights[pixelSlice,zbin] += ivar
-        weightssq[pixelSlice,zbin] += ivar**2
+        weightssq[pixelSlice,zbin] += ivar*ivar
 
         isigma = numpy.sqrt(ivar)
         sqrtw[pixelSlice,zbin] += isigma
@@ -274,11 +274,13 @@ def main():
     fluxmean[c] = fluxsum[c]/counts[c]
 
     wfluxmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
-    wfluxvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     w = numpy.nonzero(weights)
     wfluxmean[w] = wfluxsum[w]/weights[w]
 
-    wfluxvar[w] = weights[w]/(weights[w]**2 - weightssq[w])*(wfluxsq[w] - (wfluxmean[w]**2)*weights[w])
+    wwdenom = weights**2 - weightssq
+    ww = numpy.nonzero(wwdenom)
+    wfluxvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
+    wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
 
     pullmean = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
     pullvar = numpy.zeros(shape=(arraySize,nzbins), dtype=numpy.float64)
@@ -302,7 +304,7 @@ def main():
     dset = grp.create_dataset('wfluxmean', data=wfluxmean)
     dset.attrs['label'] = 'Weighted Flux Mean $(10^{-17} erg/cm^2/s/\AA)$'
 
-    dset = grp.create_dataset('wfluxvar', data=wfluxmean)
+    dset = grp.create_dataset('wfluxvar', data=wfluxvar)
     dset.attrs['label'] = 'Weighted Flux Variance $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
 
     dset = grp.create_dataset('counts', data=counts)
