@@ -70,7 +70,7 @@ def main():
         help = "minimum quasar redshift to include")
     parser.add_argument("--zmax", type=float, default=3,
         help = "maximum quasar redshift to include")
-    parser.add_argument("--nzbins", type=float, default=100,
+    parser.add_argument("--nrestbins", type=float, default=1000,
         help = "number of redshift bins")
     parser.add_argument("--norm", action="store_true",
         help = "normalize spectra using mean flux value in a specified window")
@@ -121,7 +121,7 @@ def main():
 
     restmin = 530
     restmax = 7000
-    nrestbins = 4800
+    nrestbins = args.nrestbins
 
     fluxsum = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
     counts = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
@@ -245,19 +245,19 @@ def main():
         i = ivar > 0
         flux[ivar == 0] = 0
         fluxsum[obsindices,restindices] += flux
-        fluxsq[obsindices,restindices] += flux*flux
+        # fluxsq[obsindices,restindices] += flux*flux
         counts[obsindices,restindices] += i
 
         wflux = flux*ivar
         wfluxsum[obsindices,restindices] += wflux
         weights[obsindices,restindices] += ivar
-        weightssq[obsindices,restindices] += ivar*ivar
+        # weightssq[obsindices,restindices] += ivar*ivar
 
-        isigma = numpy.sqrt(ivar)
-        sqrtw[obsindices,restindices] += isigma
-        sqrtwflux[obsindices,restindices] += isigma*flux
+        # isigma = numpy.sqrt(ivar)
+        # sqrtw[obsindices,restindices] += isigma
+        # sqrtwflux[obsindices,restindices] += isigma*flux
 
-        wfluxsq[obsindices,restindices] += wflux*flux
+        # wfluxsq[obsindices,restindices] += wflux*flux
 
     print 'Skipped %d targets...' % skipcounter
 
@@ -270,19 +270,19 @@ def main():
     w = numpy.nonzero(weights)
     wfluxmean[w] = wfluxsum[w]/weights[w]
 
-    wwdenom = weights**2 - weightssq
-    ww = numpy.nonzero(wwdenom)
-    wfluxvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
+    # wwdenom = weights**2 - weightssq
+    # ww = numpy.nonzero(wwdenom)
+    # wfluxvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    # wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
 
-    pullmean = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    pullvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    # pullmean = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    # pullvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
 
-    pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
-    pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
+    # pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
+    # pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
 
-    sn = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
+    # sn = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    # sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
 
     # save the stacked spectrum matrix
     print 'Saving stack to %s' % outfilename
@@ -303,8 +303,8 @@ def main():
     dset = grp.create_dataset('wfluxmean', data=wfluxmean)
     dset.attrs['label'] = 'Normalized Weighted Flux Mean'# $(10^{-17} erg/cm^2/s/\AA)$'
 
-    dset = grp.create_dataset('wfluxvar', data=wfluxvar)
-    dset.attrs['label'] = 'Normalized Weighted Flux Variance'# $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
+    # dset = grp.create_dataset('wfluxvar', data=wfluxvar)
+    # dset.attrs['label'] = 'Normalized Weighted Flux Variance'# $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
 
     dset = grp.create_dataset('counts', data=counts)
     dset.attrs['label'] = 'Counts'
@@ -312,14 +312,14 @@ def main():
     dset = grp.create_dataset('weights', data=weights)
     dset.attrs['label'] = 'Normalized Weights'# $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
 
-    dset = grp.create_dataset('sn', data=sn)
-    dset.attrs['label'] = 'Signal to Noise Ratio'
+    # dset = grp.create_dataset('sn', data=sn)
+    # dset.attrs['label'] = 'Signal to Noise Ratio'
 
-    dset = grp.create_dataset('pullmean', data=pullmean)
-    dset.attrs['label'] = 'Pull Mean'
+    # dset = grp.create_dataset('pullmean', data=pullmean)
+    # dset.attrs['label'] = 'Pull Mean'
 
-    dset = grp.create_dataset('pullvar', data=pullvar)
-    dset.attrs['label'] = 'Pull Variance'
+    # dset = grp.create_dataset('pullvar', data=pullvar)
+    # dset.attrs['label'] = 'Pull Variance'
 
     outfile.close()
 
