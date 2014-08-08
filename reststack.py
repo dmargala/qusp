@@ -70,6 +70,10 @@ def main():
         help = "minimum quasar redshift to include")
     parser.add_argument("--zmax", type=float, default=3,
         help = "maximum quasar redshift to include")
+    parser.add_argument("--restmin", type=float, default=750,
+        help = "restframe wavelength minimum")
+    parser.add_argument("--restmax", type=float, default=3500,
+        help = "restframe wavelength maximum")
     parser.add_argument("--nrestbins", type=float, default=1000,
         help = "number of redshift bins")
     parser.add_argument("--norm", action="store_true",
@@ -119,8 +123,8 @@ def main():
     zmin = args.zmin
     zmax = args.zmax
 
-    restmin = 530
-    restmax = 7000
+    restmin = args.restmin
+    restmax = args.restmax
     nrestbins = args.nrestbins
 
     fluxsum = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
