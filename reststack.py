@@ -252,7 +252,6 @@ def main():
             obswave = xbincenters[slice(offset,offset+numPixels)]
             restwave = obswave/(1+target.z)
             restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
-            print restindices
             # if numpy.any(restindices >= nybins) or numpy.any(restindices < 0):
             #     raise RuntimeError('woh! rest wavelength out of range!')
             validbins = numpy.logical_and(restindices < nybins, restindices >= 0)
