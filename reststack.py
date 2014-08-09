@@ -70,9 +70,11 @@ def main():
         help = "minimum quasar redshift to include")
     parser.add_argument("--zmax", type=float, default=3,
         help = "maximum quasar redshift to include")
-    parser.add_argument("--restmin", type=float, default=750,
+    parser.add_argument("--nzbins", type=float, default=100,
+        help = "number of redshift bins")
+    parser.add_argument("--restmin", type=float, default=530,
         help = "restframe wavelength minimum")
-    parser.add_argument("--restmax", type=float, default=3500,
+    parser.add_argument("--restmax", type=float, default=7000,
         help = "restframe wavelength maximum")
     parser.add_argument("--nrestbins", type=float, default=1000,
         help = "number of redshift bins")
@@ -82,6 +84,10 @@ def main():
         help = "min wavelength for normalization window")
     parser.add_argument("--norm-hi", type=float, default=1290,
         help = "max wavelength for normalization window")
+    parser.add_argument("--resty", action="store_true",
+        help = "use rest frame wavelength for y binning")
+    parser.add_argument("--compression", type=str, default="gzip",
+        help = "compress output file using specified scheme")
     args = parser.parse_args()
 
     # set up paths
@@ -119,25 +125,32 @@ def main():
         print 'Failed to open output file: ' % outfilename 
 
     # initialize stack arrays
-    arraySize = 4800
+    nxbins = 4800
+    xbincenters = 3500.26*numpy.power(10, 1e-4*(numpy.arange(0, nxbins)))
+
     zmin = args.zmin
     zmax = args.zmax
+    nzbins = args.nzbins
 
     restmin = args.restmin
     restmax = args.restmax
     nrestbins = args.nrestbins
 
-    fluxsum = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    counts = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    wfluxsum = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    weights = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    weightssq = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    fluxsq = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    wfluxsq = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
+    nybins = nrestbins if args.resty else nzbins
+    ymin = restmin if args.resty else zmin
+    ymax = restmax if args.resty else zmax
 
-    sqrtwflux = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    sqrtw = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
-    wfluxsq = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float64)
+    fluxsum = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    counts = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    wfluxsum = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    weights = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    weightssq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    fluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    wfluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+
+    sqrtwflux = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    sqrtw = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    wfluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
 
     skipcounter = 0
 
@@ -209,12 +222,8 @@ def main():
 
         # determine pixel offset
         offset = getFiducialPixelIndexOffset(coeff0)
-        if numPixels + offset > arraySize:
+        if numPixels + offset > nxbins:
             raise RuntimeError('woh! sprectrum out of range!')
-
-        obswave = (10**coeff0)*numpy.power(10, 1e-4*(numpy.arange(0, numPixels)))
-        restwave = obswave/(1+target.z)
-        restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
 
         # normalize spectrum using flux window: 1280 +/- 10 Ang
         if args.norm:
@@ -239,91 +248,104 @@ def main():
             flux /= norm
             ivar *= norm*norm
 
+        if args.resty:
+            obswave = xbincenters[slice(offset,offset+numPixels)]
+            restwave = obswave/(1+target.z)
+            restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
+            print restindices
+            # if numpy.any(restindices >= nybins) or numpy.any(restindices < 0):
+            #     raise RuntimeError('woh! rest wavelength out of range!')
+            validbins = numpy.logical_and(restindices < nybins, restindices >= 0)
+            ivar = ivar[validbins]
+            flux = flux[validbins]
+            yslice = restindices[validbins]
+            xslice = numpy.arange(offset,offset+numPixels)[validbins]
+        else:
+            zbin = int((target.z - zmin)/(zmax - zmin)*nzbins)
+            if zbin >= nzbins:
+                raise RuntimeError('woh! zbin out of range!')
+            yslice = zbin
+            xslice = slice(offset,offset+numPixels)
+
         # add spectrum to stack
-        #pixelSlice = slice(offset,offset+numPixels)
-        obsindices = numpy.arange(offset,offset+numPixels)
-
-        r = numpy.logical_or(restindices < 0, restindices >= nrestbins)
-        ivar[r] = 0
-
         i = ivar > 0
         flux[ivar == 0] = 0
-        fluxsum[obsindices,restindices] += flux
-        # fluxsq[obsindices,restindices] += flux*flux
-        counts[obsindices,restindices] += i
+        fluxsum[xslice,yslice] += flux
+        fluxsq[xslice,yslice] += flux*flux
+        counts[xslice,yslice] += i
 
         wflux = flux*ivar
-        wfluxsum[obsindices,restindices] += wflux
-        weights[obsindices,restindices] += ivar
-        # weightssq[obsindices,restindices] += ivar*ivar
+        wfluxsum[xslice,yslice] += wflux
+        weights[xslice,yslice] += ivar
+        weightssq[xslice,yslice] += ivar*ivar
 
-        # isigma = numpy.sqrt(ivar)
-        # sqrtw[obsindices,restindices] += isigma
-        # sqrtwflux[obsindices,restindices] += isigma*flux
+        isigma = numpy.sqrt(ivar)
+        sqrtw[xslice,yslice] += isigma
+        sqrtwflux[xslice,yslice] += isigma*flux
 
-        # wfluxsq[obsindices,restindices] += wflux*flux
+        wfluxsq[xslice,yslice] += wflux*flux
 
     print 'Skipped %d targets...' % skipcounter
 
     # divide by weights/number of entries
-    fluxmean = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    fluxmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
     c = numpy.nonzero(counts)
     fluxmean[c] = fluxsum[c]/counts[c]
 
-    wfluxmean = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    wfluxmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
     w = numpy.nonzero(weights)
     wfluxmean[w] = wfluxsum[w]/weights[w]
 
-    # wwdenom = weights**2 - weightssq
-    # ww = numpy.nonzero(wwdenom)
-    # wfluxvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    # wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
+    wwdenom = weights**2 - weightssq
+    ww = numpy.nonzero(wwdenom)
+    wfluxvar = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
+    wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
 
-    # pullmean = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    # pullvar = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
+    pullmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
+    pullvar = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
 
-    # pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
-    # pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
+    pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
+    pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
 
-    # sn = numpy.zeros(shape=(arraySize,nrestbins), dtype=numpy.float32)
-    # sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
+    sn = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
+    sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
 
     # save the stacked spectrum matrix
     print 'Saving stack to %s' % outfilename
 
     grp = outfile.create_group('hists2d')
 
-    xaxis = 3500.26*numpy.power(10, 1e-4*(numpy.arange(0, arraySize+1)-0.5))
-    dset = grp.create_dataset('xbinedges', data=xaxis)
-    dset.attrs['label'] = 'Observed Wavelength ($\AA$)'
+    def saveDataset(name, data, label, units=None, norm=False):
+        dset = grp.create_dataset(name, data=data, compression=args.compression)
+        if norm:
+            label = 'Normalized %s' % label
+        elif units:
+            label = '%s %s' % (label,units)
+        dset.attrs['label'] = label
+        return dset
 
-    yaxis = numpy.linspace(restmin,restmax,nrestbins+1,endpoint=True)
-    dset = grp.create_dataset('ybinedges', data=yaxis)
-    dset.attrs['label'] = 'Rest Wavelength ($\AA$)'
+    xbinedges = 3500.26*numpy.power(10, 1e-4*(numpy.arange(0, nxbins+1)-0.5))
+    xdset = saveDataset('xbinedges', xbinedges, 'Observed Wavelength', '$(\AA)$')
 
-    dset = grp.create_dataset('fluxmean', data=fluxmean)
-    dset.attrs['label'] = 'Normalized Flux Mean'# $(10^{-17} erg/cm^2/s/\AA)$'
+    if not args.resty:
+        xdset.attrs['x2label'] = 'Restframe (z = %.1f) Wavelength ($\AA$)' % zmax
+        xdset.attrs['x2min'] = xbinedges[0]/(1+ymax)
+        xdset.attrs['x2max'] = xbinedges[-1]/(1+ymax)
 
-    dset = grp.create_dataset('wfluxmean', data=wfluxmean)
-    dset.attrs['label'] = 'Normalized Weighted Flux Mean'# $(10^{-17} erg/cm^2/s/\AA)$'
+    ybinedges = numpy.linspace(ymin,ymax,nybins+1,endpoint=True)
+    ylabel = 'Rest Wavelength' if args.resty else 'Redshift'
+    yunits = '$(\AA)$' if not args.resty else '(z)'
+    saveDataset('ybinedges', ybinedges, ylabel, yunits)
 
-    # dset = grp.create_dataset('wfluxvar', data=wfluxvar)
-    # dset.attrs['label'] = 'Normalized Weighted Flux Variance'# $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
+    saveDataset('fluxmean', fluxmean, 'Flux Mean', '$(10^{-17} erg/cm^2/s/\AA)$', args.norm)
+    saveDataset('counts', counts, 'Counts')
+    saveDataset('wfluxmean', wfluxmean, 'Weighted Flux Mean', '$(10^{-17} erg/cm^2/s/\AA)$', args.norm)
+    saveDataset('weights', weights, 'Weights', '$(10^{-17} erg/cm^2/s/\AA)^{-2}$', args.norm)
 
-    dset = grp.create_dataset('counts', data=counts)
-    dset.attrs['label'] = 'Counts'
-
-    dset = grp.create_dataset('weights', data=weights)
-    dset.attrs['label'] = 'Normalized Weights'# $(10^{-17} erg/cm^2/s/\AA)^{-2}$'
-
-    # dset = grp.create_dataset('sn', data=sn)
-    # dset.attrs['label'] = 'Signal to Noise Ratio'
-
-    # dset = grp.create_dataset('pullmean', data=pullmean)
-    # dset.attrs['label'] = 'Pull Mean'
-
-    # dset = grp.create_dataset('pullvar', data=pullvar)
-    # dset.attrs['label'] = 'Pull Variance'
+    saveDataset('wfluxvar', wfluxvar, 'Flux Variance', '$(10^{-17} erg/cm^2/s/\AA)^{2}$', args.norm)
+    saveDataset('sn', sn, 'Signal to Noise Ratio')
+    saveDataset('pullmean', pullmean, 'Pull Mean')
+    saveDataset('pullvar', pullvar, 'Pull Variance')
 
     outfile.close()
 
