@@ -23,12 +23,20 @@ def main():
         help="print verbose output")
     parser.add_argument("--max-iter", type=int, default=100,
         help="max number of iterations to use in lsqr")
-    parser.add_argument("--atol", type=float, default=1e-8,
+    parser.add_argument("--atol", type=float, default=1e-2,
         help="a stopping tolerance")
     parser.add_argument("--btol", type=float, default=1e-8,
         help="b stopping tolerance")
     parser.add_argument("--csr", action="store_true",
         help="convert sparse matrix to csr instead of csc format")
+    parser.add_argument("--rest-min", type=float, default=0,
+        help="minimum rest wavelength to include")
+    parser.add_argument("--rest-max", type=float, default=7000,
+        help="maximum rest wavelength to include")
+    parser.add_argument("--obs-min", type=float, default=3450,
+        help="minimum obs wavelength to include")
+    parser.add_argument("--obs-max", type=float, default=10650,
+        help="maximum obs wavelength to include")
     args = parser.parse_args()
 
     # Read input data
@@ -36,17 +44,43 @@ def main():
 
     hists2d = infile['hists2d']
 
-    # Convert pixel edges to pixel centers
-    obsWaveEdges = hists2d['xbinedges']
+    # Open output file
+    outfile = h5py.File(args.output+'.hdf5','w')
+
+    # Convert pixel edges to pixel centers and trim input data while we're at its
+    xBinEdges = hists2d['xbinedges']
+    obsMinIndex = numpy.argmax(xBinEdges.value > args.obs_min)
+    obsMaxIndex = numpy.argmax(xBinEdges.value > args.obs_max)
+
+    if obsMaxIndex <= obsMinIndex:
+        obsMaxIndex = xBinEdges.len()
+    obsWaveSlice = slice(obsMinIndex,obsMaxIndex)
+    
+    obsWaveEdges = outfile.create_dataset('xbinedges', data=xBinEdges[obsWaveSlice])
+    obsWaveEdges.attrs['label'] = 'Observed Wavelength $(\AA)$'
+
     obsWaveCenters = (obsWaveEdges[:-1] + obsWaveEdges[1:])/2
     obsNPixels = len(obsWaveCenters)
 
-    restWaveEdges = hists2d['ybinedges']
+    yBinEdges = hists2d['ybinedges']
+    restMinIndex = numpy.argmax(yBinEdges.value > args.rest_min)
+    restMaxIndex = numpy.argmax(yBinEdges.value > args.rest_max)
+
+    if restMaxIndex <= restMinIndex:
+        restMaxIndex = yBinEdges.len()
+    restWaveSlice = slice(restMinIndex,restMaxIndex)
+    
+    restWaveEdges = outfile.create_dataset('ybinedges', data=yBinEdges[restWaveSlice])
+    restWaveEdges.attrs['label'] = 'Rest Wavelength $(\AA)$'
+
     restWaveCenters = (restWaveEdges[:-1] + restWaveEdges[1:])/2
     restNPixels = len(restWaveCenters)
 
-    flux = hists2d['wfluxmean'].value
-    counts = hists2d['counts'].value
+    print 'Input data dimensions: (%d,%d)' % (xBinEdges.len()-1,yBinEdges.len()-1)
+    print 'Dimensions after trimming: (%d,%d)' % (obsNPixels, restNPixels)
+
+    flux = hists2d['wfluxmean'][obsWaveSlice,restWaveSlice]
+    counts = hists2d['counts'][obsWaveSlice,restWaveSlice]
 
     # We only want pixels that have data and positive flux
     # since we are working with logF
@@ -74,7 +108,7 @@ def main():
     print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (A.data.nbytes, A.indptr.nbytes, A.indices.nbytes)
 
     # Perform least squares iteration
-    soln = scipy.sparse.linalg.lsqr(A, logFlux, show=True, iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
+    soln = scipy.sparse.linalg.lsqr(A, logFlux, show=args.verbose, iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
 
     # Construct rest and obs frame model components
     obsModelPixels = 10**soln[0][:obsNPixels]
@@ -87,6 +121,15 @@ def main():
     model = numpy.outer(obsModel(obsWaveCenters),restModel(restWaveCenters))
     res = numpy.zeros(shape=flux.shape)
     res[iGood] = model[iGood] - flux[iGood]
+
+    # Save HDF5 file with results
+    grp = outfile.create_group('T')
+    dset = grp.create_dataset('y', data=obsModelPixels)
+    dset = grp.create_dataset('x', data=obsWaveCenters)
+
+    grp = outfile.create_group('C')
+    dset = grp.create_dataset('y', data=restModelPixels)
+    dset = grp.create_dataset('x', data=restWaveCenters)
 
     # Save 2D plots
     saveName = args.output+'-data.png'
@@ -125,6 +168,8 @@ def main():
     plt.ylim([0, 2])
 
     fig.savefig(args.output+'-trans.png', bbox_inches='tight')
+
+    outfile.close()
 
 if __name__ == '__main__':
     main()
