@@ -37,6 +37,8 @@ def main():
         help="minimum obs wavelength to include")
     parser.add_argument("--obs-max", type=float, default=10650,
         help="maximum obs wavelength to include")
+    parser.add_argument("--sklearn", action="store_true",
+        help="use sklearn linear regression")
     args = parser.parse_args()
 
     # Read input data
@@ -108,11 +110,18 @@ def main():
     print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (A.data.nbytes, A.indptr.nbytes, A.indices.nbytes)
 
     # Perform least squares iteration
-    soln = scipy.sparse.linalg.lsqr(A, logFlux, show=args.verbose, iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
+    if args.sklearn:
+        import sklearn
+        regr = sklearn.linear_model.LinearRegression()
+        regr.fit(A, logFlux)
+        coef = regr.coef_
+    else:
+        soln = scipy.sparse.linalg.lsqr(A, logFlux, show=args.verbose, iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
+        coef = soln[0]
 
     # Construct rest and obs frame model components
-    obsModelPixels = 10**soln[0][:obsNPixels]
-    restModelPixels = 10**soln[0][obsNPixels:obsNPixels+restNPixels]
+    obsModelPixels = 10**coef[:obsNPixels]
+    restModelPixels = 10**coef[obsNPixels:obsNPixels+restNPixels]
 
     obsModel = scipy.interpolate.UnivariateSpline(obsWaveCenters, obsModelPixels, s=0)
     restModel = scipy.interpolate.UnivariateSpline(restWaveCenters, restModelPixels, s=0)
