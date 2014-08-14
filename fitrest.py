@@ -39,6 +39,8 @@ def main():
         help="maximum obs wavelength to include")
     parser.add_argument("--sklearn", action="store_true",
         help="use sklearn linear regression")
+    parser.add_argument("--beta", type=float, default=3.92,
+        help="optical depth power law parameter")
     args = parser.parse_args()
 
     # Read input data
@@ -56,13 +58,13 @@ def main():
 
     if obsMaxIndex <= obsMinIndex:
         obsMaxIndex = xBinEdges.len()
-    obsWaveSlice = slice(obsMinIndex,obsMaxIndex)
     
-    obsWaveEdges = outfile.create_dataset('xbinedges', data=xBinEdges[obsWaveSlice])
+    obsWaveEdges = outfile.create_dataset('xbinedges', data=xBinEdges[obsMinIndex:obsMaxIndex])
     obsWaveEdges.attrs['label'] = 'Observed Wavelength $(\AA)$'
 
     obsWaveCenters = (obsWaveEdges[:-1] + obsWaveEdges[1:])/2
     obsNPixels = len(obsWaveCenters)
+    obsWaveSlice = slice(obsMinIndex,obsMinIndex+obsNPixels)
 
     yBinEdges = hists2d['ybinedges']
     restMinIndex = numpy.argmax(yBinEdges.value > args.rest_min)
@@ -70,13 +72,13 @@ def main():
 
     if restMaxIndex <= restMinIndex:
         restMaxIndex = yBinEdges.len()
-    restWaveSlice = slice(restMinIndex,restMaxIndex)
-    
-    restWaveEdges = outfile.create_dataset('ybinedges', data=yBinEdges[restWaveSlice])
+
+    restWaveEdges = outfile.create_dataset('ybinedges', data=yBinEdges[restMinIndex:restMaxIndex])
     restWaveEdges.attrs['label'] = 'Rest Wavelength $(\AA)$'
 
     restWaveCenters = (restWaveEdges[:-1] + restWaveEdges[1:])/2
     restNPixels = len(restWaveCenters)
+    restWaveSlice = slice(restMinIndex,restMinIndex+restNPixels)
 
     print 'Input data dimensions: (%d,%d)' % (xBinEdges.len()-1,yBinEdges.len()-1)
     print 'Dimensions after trimming: (%d,%d)' % (obsNPixels, restNPixels)
@@ -89,30 +91,36 @@ def main():
     iGood = numpy.logical_and(counts > 0, flux > 0)
     iBad = numpy.logical_or(counts <= 0, flux <= 0)
 
-    logFlux = numpy.log10(flux[iGood])
+    logFlux = numpy.log(flux[iGood])
     logFluxNPixels = len(logFlux)
 
+    print 'Entries in data matrix: %d' % logFluxNPixels
+
     # Build sparse matrix representation of model
-    modelNPixels = obsNPixels + restNPixels
+    modelNPixels = obsNPixels + 2*restNPixels
 
     iObs, iRest = numpy.indices((obsNPixels, restNPixels))
     iObsGood = iObs[iGood]
     iRestGood = iRest[iGood]
     iArray = numpy.arange(0,logFluxNPixels)
 
-    Arows = numpy.concatenate([iArray,iArray])
-    Acols = numpy.concatenate([iObsGood,obsNPixels+iRestGood])
+    Arows = numpy.concatenate([iArray,iArray,iArray])
+    Acols = numpy.concatenate([iObsGood,obsNPixels+iRestGood,obsNPixels+restNPixels+iRestGood])
 
-    A = scipy.sparse.coo_matrix((numpy.ones(2*logFluxNPixels),(Arows,Acols)), 
-        shape=(logFluxNPixels,modelNPixels), dtype=numpy.int8)
+    beta = args.beta
+    alphaCoefs = -numpy.power(obsWaveCenters[iObsGood]/(restWaveCenters[iRestGood]),beta)
+    Avalues = numpy.concatenate([numpy.ones(2*logFluxNPixels),alphaCoefs])
+
+    A = scipy.sparse.coo_matrix((Avalues,(Arows,Acols)),
+        shape=(logFluxNPixels,modelNPixels), dtype=numpy.float32)
     A = A.tocsr() if args.csr else A.tocsc()
 
     print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (A.data.nbytes, A.indptr.nbytes, A.indices.nbytes)
 
     # Perform least squares iteration
     if args.sklearn:
-        import sklearn
-        regr = sklearn.linear_model.LinearRegression()
+        from sklearn import linear_model
+        regr = linear_model.LinearRegression()
         regr.fit(A, logFlux)
         coef = regr.coef_
     else:
@@ -120,14 +128,18 @@ def main():
         coef = soln[0]
 
     # Construct rest and obs frame model components
-    obsModelPixels = 10**coef[:obsNPixels]
-    restModelPixels = 10**coef[obsNPixels:obsNPixels+restNPixels]
+    obsModelPixels = numpy.exp(coef[:obsNPixels])
+    restModelPixels = numpy.exp(coef[obsNPixels:obsNPixels+restNPixels])
+    alphaModelPixels = coef[obsNPixels+restNPixels:]
 
     obsModel = scipy.interpolate.UnivariateSpline(obsWaveCenters, obsModelPixels, s=0)
     restModel = scipy.interpolate.UnivariateSpline(restWaveCenters, restModelPixels, s=0)
+    alphaModel = scipy.interpolate.UnivariateSpline(restWaveCenters, alphaModelPixels, s=0)
 
     # Calculate residuals
-    model = numpy.outer(obsModel(obsWaveCenters),restModel(restWaveCenters))
+    xgrid = numpy.outer(obsWaveCenters,1.0/(restWaveCenters))
+    zevo = numpy.exp(-alphaModelPixels*numpy.power(xgrid,beta))
+    model = numpy.outer(obsModel(obsWaveCenters),restModel(restWaveCenters))*zevo
     res = numpy.zeros(shape=flux.shape)
     res[iGood] = model[iGood] - flux[iGood]
 
@@ -139,6 +151,40 @@ def main():
     grp = outfile.create_group('C')
     dset = grp.create_dataset('y', data=restModelPixels)
     dset = grp.create_dataset('x', data=restWaveCenters)
+
+    # Save 1D plots
+    fig = plt.figure(figsize=(10,6))
+
+    #plt.plot(restWaveCenters, restModelPixels, '+')
+    for iz,z in enumerate([0,1,2,3]): 
+        ls = '-' #if iz % 2 == 0 else '.'
+        x = (1+z)
+        plt.plot(restWaveCenters, restModelPixels*numpy.exp(-alphaModelPixels*(x**beta)),ls=ls)
+    plt.xlim([restWaveCenters[0],restWaveCenters[-1]])
+    plt.xlabel(r'Rest Wavelength $\lambda_{rest}$')
+    plt.ylabel(r'$C(\lambda_{rest},z=%.1f)$' % z)
+
+    fig.savefig(args.output+'-cont.png', bbox_inches='tight')
+
+    fig = plt.figure(figsize=(10,6))
+
+    plt.plot(restWaveCenters, alphaModelPixels, '+')
+    plt.xlim([restWaveCenters[0],restWaveCenters[-1]])
+    plt.xlabel(r'Rest Wavelength $\lambda_{rest}$')
+    plt.ylabel(r'$\alpha(\lambda_{rest})$')
+
+    fig.savefig(args.output+'-alpha.png', bbox_inches='tight')
+
+    fig = plt.figure(figsize=(20,6))
+
+    plt.axhline(y=1, xmin=0, xmax=1, color='gray', linestyle='--')
+    plt.plot(obsWaveCenters, obsModelPixels, '+')
+    plt.xlim([obsWaveCenters[0],obsWaveCenters[-1]])
+    plt.xlabel(r'Observed Wavelength $\lambda_{obs}$')
+    plt.ylabel(r'$T(\lambda_{obs})$')
+    plt.ylim([.5, 1.5])
+
+    fig.savefig(args.output+'-trans.png', bbox_inches='tight')
 
     # Save 2D plots
     saveName = args.output+'-data.png'
@@ -156,27 +202,6 @@ def main():
     plotstack.plothist2d(res, saveName, 
         obsWaveEdges, restWaveEdges, 'Residuals', 
         vmin=-resAbsMax, vmax=resAbsMax, cmap=plt.get_cmap('bwr'))
-
-    # Save 1D plots
-    fig = plt.figure(figsize=(10,6))
-
-    plt.plot(restWaveCenters, restModelPixels, '+')
-    plt.xlim([restWaveCenters[0],restWaveCenters[-1]])
-    plt.xlabel('Rest Wavelength $\lambda_{rest}$')
-    plt.ylabel('$C(\lambda_{rest})$')
-
-    fig.savefig(args.output+'-cont.png', bbox_inches='tight')
-
-    fig = plt.figure(figsize=(20,6))
-
-    plt.axhline(y=1, xmin=0, xmax=1, color='gray', linestyle='--')
-    plt.plot(obsWaveCenters, obsModelPixels, '+')
-    plt.xlim([obsWaveCenters[0],obsWaveCenters[-1]])
-    plt.xlabel('Observed Wavelength $\lambda_{obs}$')
-    plt.ylabel('$T(\lambda_{obs})$')
-    plt.ylim([0, 2])
-
-    fig.savefig(args.output+'-trans.png', bbox_inches='tight')
 
     outfile.close()
 
