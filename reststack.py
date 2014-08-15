@@ -4,108 +4,15 @@ Stacks BOSS spectra
 """
 
 import os
-import math
 import argparse
 
-import numpy
+import numpy as np
 
 from astropy.io import fits
-
 import ROOT
 import h5py
 
-class Target(object):
-    def __init__(self, plate, mjd, fiber):
-        self.plate = int(plate)
-        self.mjd = int(mjd)
-        self.fiber = int(fiber)
-
-    @classmethod
-    def fromString(cls, targetString):
-        targetString = targetString.strip().split()[0]
-        plate, mjd, fiber = targetString.split('-')
-        return cls(plate, mjd, fiber);
-
-    def __str__(self):
-        return '%d-%d-%d' % (self.plate,self.mjd,self.fiber)
-
-def getFiducialWavelength(pixelIndex):
-    return 3500.26*(10**(1e-4*pixelIndex))
-
-def getFiducialWavelengthRatio(lambda1, lambda2=3500.26):
-    return 1e4*math.log10(lambda1/lambda2)
-
-def getFiducialPixelIndexOffset(coeff0, coeff1=1e-4):
-    if coeff1 != 1e-4:
-        return 0
-    delta = (math.log10(3500.26)-coeff0)/coeff1
-    offset = int(math.floor(delta+0.5))
-    if math.fabs(delta-offset) > 0.01:
-        return 0
-    return -offset
-
-
-class Spectrum:
-    def __init__(self, wavelength, flux, inverseVariance):
-        self.wavelength = wavelength
-        self.flux = flux
-        self.inverseVariance = inverseVariance
-        self.nPixels = len(wavelength)
-        self.nZeroIvarPixels = numpy.sum(inverseVariance == 0)
-        self.nMaskedPixels = 0
-
-    def findPixel(self, wavelength):
-        if wavelength <= self.wavelength[0]:
-            return -1
-        if wavelength >= self.wavelength[-1]:
-            return self.nPixels-1
-        return numpy.argmax(self.wavelength >= wavelength)
-
-    def getMeanFlux(self, minWavelength, maxWavelength, ivarWeighting=True):
-        minPixel = self.findPixel(minWavelength)+1
-        maxPixel = self.findPixel(maxWavelength)
-        if minPixel > maxPixel:
-            return 0
-        s = slice(minPixel,maxPixel)
-        weights = self.inverseVariance[s]
-        nonzero = numpy.nonzero(weights)
-        weights = weights[nonzero] if ivarWeighting else numpy.ones(len(nonzero))
-        wsum = numpy.sum(weights)
-        if wsum <= 0:
-            return 0
-        wfluxsum = numpy.sum(weights*self.flux[s][nonzero])
-        return wfluxsum/wsum
-
-    def getMedianSignalToNoise(self, minWavelength, maxWavelength):
-        minPixel = self.findPixel(minWavelength)+1
-        maxPixel = self.findPixel(maxWavelength)
-        if minPixel > maxPixel:
-            return 0
-        s = slice(minPixel,maxPixel)
-        sn = numpy.fabs(self.flux[s])*numpy.sqrt(self.inverseVariance[s])
-        return numpy.median(sn[sn.nonzero()])
-
-def readCombinedSpectrum(spPlate, fiber, andVeto=None, orVeto=None, filetype='fits'):
-        index = fiber - 1
-
-        coeff0 = spPlate[0].header['COEFF0']
-        coeff1 = spPlate[0].header['COEFF1']
-
-        flux = spPlate[0].data[index]
-        numPixels = len(flux)
-        inverseVariance = spPlate[1].data[index]
-        andMask = spPlate[2].data[index]
-        orMask = spPlate[3].data[index]
-        pixelDispersion = spPlate[4].data[index]
-        # Calculate the wavelength sequence to use.
-        wavelength = numpy.power(10,coeff0 + coeff1*numpy.arange(0, numPixels))
-
-        # Build the spectrum (no masking yet).
-        spectrum = Spectrum(wavelength, flux, inverseVariance)
-        # Filter on the AND mask?
-        spectrum.inverseVariance[andMask > 0] = 0
-        # Filter on the OR mask?
-        return spectrum
+import bosslya
 
 def main():
     # parse command-line arguments
@@ -165,15 +72,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = []
-    with open(args.input,'r') as targetlist:
-        for line in targetlist:
-            words = line.strip().split()
-
-            target = Target.fromString(line)
-
-            target.z = float(words[3])
-            targets.append(target)
+    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
 
     ntargets = len(targets)
     firstTarget = args.first_target
@@ -181,16 +80,9 @@ def main():
 
     print 'Read %d targets (using %d:%d) from %s' % (ntargets,firstTarget,endTarget,args.input)
 
-    # open output files ahead of time to catch potential io errors before processing data
-    try:
-        outfilename = args.out_prefix+'.hdf5'
-        outfile = h5py.File(outfilename, 'w')
-    except IOError:
-        print 'Failed to open output file: ' % outfilename 
-
     # initialize stack arrays
     nxbins = 4800
-    xbincenters = 3500.26*numpy.power(10, 1e-4*(numpy.arange(0, nxbins)))
+    xbincenters = bosslya.getFiducialWavelength(np.arange(nxbins))
 
     zmin = args.zmin
     zmax = args.zmax
@@ -204,17 +96,17 @@ def main():
     ymin = restmin if args.resty else zmin
     ymax = restmax if args.resty else zmax
 
-    fluxsum = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    counts = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    wfluxsum = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    weights = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    weightssq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    fluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    wfluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    fluxsum = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    counts = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    wfluxsum = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    weights = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    weightssq = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    fluxsq = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    wfluxsq = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
 
-    sqrtwflux = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    sqrtw = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
-    wfluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
+    sqrtwflux = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    sqrtw = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
+    wfluxsq = np.zeros(shape=(nxbins,nybins), dtype=np.float64)
 
     skipcounter = 0
     sncounter = 0
@@ -238,22 +130,23 @@ def main():
             spPlate = fits.open(os.path.join(fitsPath,str(target.plate),plateFileName)) 
 
         # read this target's combined spectrum
-        combined = readCombinedSpectrum(spPlate, target.fiber)
+        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
 
         # determine pixel offset
-        offset = getFiducialPixelIndexOffset(numpy.log10(combined.wavelength[0]))
+        offset = bosslya.getFiducialPixelIndexOffset(np.log10(combined.wavelength[0]))
         if combined.nPixels + offset > nxbins:
             raise RuntimeError('woh! sprectrum out of range!')
 
         flux = combined.flux
-        ivar = combined.inverseVariance
-        numPixels = combined.nPixels
+        ivar = combined.ivar
+        nPixels = combined.nPixels
 
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
         # print 'Median SN: %f' % mediansn
-
         if mediansn > args.min_sn:
             sncounter += 1
+        else:
+            continue
 
         # normalize spectrum using flux window: 1280 +/- 10 Ang
         if args.norm:
@@ -262,30 +155,27 @@ def main():
             norm = combined.getMeanFlux(obslo, obshi, ivarWeighting=True)
             if norm == 0:
                 skipcounter += 1
-                print 'skipping %s (z=%.2f): weighted mean flux in norm range is 0' % (target, target.z)
+                print 'skipping %s (z=%.2f): weighted mean flux in norm range is 0' % (str(target), target.z)
                 continue
             flux /= norm
             ivar *= norm*norm
             # print 'Norm (%f-%f): %f' % (args.norm_lo, args.norm_hi, norm)
 
-        if args.skip_stack:
-            continue
-
         if args.resty:
-            obswave = xbincenters[slice(offset,offset+numPixels)]
+            obswave = xbincenters[slice(offset,offset+nPixels)]
             restwave = obswave/(1+target.z)
             restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
-            validbins = numpy.logical_and(restindices < nybins, restindices >= 0)
+            validbins = np.logical_and(restindices < nybins, restindices >= 0)
             ivar = ivar[validbins]
             flux = flux[validbins]
             yslice = restindices[validbins]
-            xslice = numpy.arange(offset,offset+numPixels)[validbins]
+            xslice = np.arange(offset,offset+nPixels)[validbins]
         else:
             zbin = int((target.z - zmin)/(zmax - zmin)*nzbins)
             if zbin >= nzbins:
                 raise RuntimeError('woh! zbin out of range!')
             yslice = zbin
-            xslice = slice(offset,offset+numPixels)
+            xslice = slice(offset,offset+nPixels)
 
         # add spectrum to stack
         i = ivar > 0
@@ -299,7 +189,7 @@ def main():
         weights[xslice,yslice] += ivar
         weightssq[xslice,yslice] += ivar*ivar
 
-        isigma = numpy.sqrt(ivar)
+        isigma = np.sqrt(ivar)
         sqrtw[xslice,yslice] += isigma
         sqrtwflux[xslice,yslice] += isigma*flux
 
@@ -308,33 +198,35 @@ def main():
     print 'Skipped %d targets...' % skipcounter
     print 'Number of targets with median SN > %.2f: %d' % (args.min_sn, sncounter) 
 
-    if args.skip_stack:
-        return -1
-
     # divide by weights/number of entries
-    fluxmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
-    c = numpy.nonzero(counts)
+    fluxmean = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
+    c = np.nonzero(counts)
     fluxmean[c] = fluxsum[c]/counts[c]
 
-    wfluxmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
-    w = numpy.nonzero(weights)
+    wfluxmean = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
+    w = np.nonzero(weights)
     wfluxmean[w] = wfluxsum[w]/weights[w]
 
     wwdenom = weights**2 - weightssq
-    ww = numpy.nonzero(wwdenom)
-    wfluxvar = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
+    ww = np.nonzero(wwdenom)
+    wfluxvar = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
     wfluxvar[ww] = weights[ww]/(wwdenom[ww])*(wfluxsq[ww] - (wfluxmean[ww]**2)*weights[ww])
 
-    pullmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
-    pullvar = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
+    pullmean = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
+    pullvar = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
 
     pullmean[w] = (sqrtwflux[w] - wfluxmean[w]*sqrtw[w])/counts[w]
     pullvar[w] = (wfluxsq[w] - (wfluxmean[w]**2)*weights[w])/counts[w]
 
-    sn = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
-    sn[c] = numpy.sqrt(wfluxsq[c]/counts[c])
+    sn = np.zeros(shape=(nxbins,nybins), dtype=np.float32)
+    sn[c] = np.sqrt(wfluxsq[c]/counts[c])
 
     # save the stacked spectrum matrix
+    try:
+        outfilename = args.out_prefix+'.hdf5'
+        outfile = h5py.File(outfilename, 'w')
+    except IOError:
+        print 'Failed to open output file: ' % outfilename 
     print 'Saving stack to %s' % outfilename
 
     grp = outfile.create_group('hists2d')
@@ -348,7 +240,7 @@ def main():
         dset.attrs['label'] = label
         return dset
 
-    xbinedges = 3500.26*numpy.power(10, 1e-4*(numpy.arange(0, nxbins+1)-0.5))
+    xbinedges = bosslya.getFiducialWavelength(np.arange(0, nxbins+1)-0.5) 
     xdset = saveDataset('xbinedges', xbinedges, 'Observed Wavelength', '$(\AA)$')
 
     if not args.resty:
@@ -356,7 +248,7 @@ def main():
         xdset.attrs['x2min'] = xbinedges[0]/(1+ymax)
         xdset.attrs['x2max'] = xbinedges[-1]/(1+ymax)
 
-    ybinedges = numpy.linspace(ymin,ymax,nybins+1,endpoint=True)
+    ybinedges = np.linspace(ymin,ymax,nybins+1,endpoint=True)
     ylabel = 'Rest Wavelength' if args.resty else 'Redshift'
     yunits = '$(\AA)$' if not args.resty else '(z)'
     saveDataset('ybinedges', ybinedges, ylabel, yunits)
