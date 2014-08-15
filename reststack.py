@@ -9,7 +9,6 @@ import argparse
 import numpy as np
 
 from astropy.io import fits
-import ROOT
 import h5py
 
 import bosslya
@@ -27,8 +26,6 @@ def main():
         help = "path to root directory containing BOSS data (ex: /data/boss)")
     parser.add_argument("--boss-version", type=str, default=None,
         help = "boss pipeline version tag (ex: v5_7_0)")
-    parser.add_argument("--skim", type=str, default="dr12v1",
-        help = "name of skim to use")
     parser.add_argument("--out-prefix", type=str, default="stack",
         help = "output file prefix")
     parser.add_argument("--verbose", action="store_true",
@@ -55,10 +52,6 @@ def main():
         help = "use rest frame wavelength for y binning")
     parser.add_argument("--compression", type=str, default="gzip",
         help = "compress output file using specified scheme")
-    parser.add_argument("--min-sn", type=float, default=0,
-        help = "minimum sn to include")
-    parser.add_argument("--skip-stack", action="store_true",
-        help = "skip stacking")
     args = parser.parse_args()
 
     # set up paths
@@ -68,7 +61,6 @@ def main():
     if boss_root is None or boss_version is None:
         raise RuntimeError('Must speciy --boss-(root|version) or env var BOSS_(ROOT|VERSION)')
 
-    skimPath = os.path.join(boss_root, 'skim', args.skim)
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
@@ -125,9 +117,10 @@ def main():
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
             plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
+            fullPath = os.path.join(fitsPath,str(target.plate),plateFileName)
             if args.verbose:
-                print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
-            spPlate = fits.open(os.path.join(fitsPath,str(target.plate),plateFileName)) 
+                print 'Opening plate file %s...' % fullPath
+            spPlate = fits.open(fullPath) 
 
         # read this target's combined spectrum
         combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)

@@ -45,9 +45,6 @@ def main():
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
-    skipcounter = 0
-    sncounter = 0
-
     # loop over targets
     plateFileName = None
     for targetIndex in range(ntargets):

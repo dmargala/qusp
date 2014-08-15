@@ -21,7 +21,7 @@ class Spectrum:
         maxPixel = self.findPixel(maxWavelength)
         if minPixel > maxPixel:
             return 0
-        s = slice(minPixel,maxPixel)
+        s = slice(minPixel,maxPixel+1)
         weights = self.ivar[s]
         nonzero = np.nonzero(weights)
         weights = weights[nonzero] if ivarWeighting else np.ones(len(nonzero))
@@ -36,9 +36,12 @@ class Spectrum:
         maxPixel = self.findPixel(maxWavelength)
         if minPixel > maxPixel:
             return 0
-        s = slice(minPixel,maxPixel)
+        s = slice(minPixel,maxPixel+1)
         sn = np.fabs(self.flux[s])*np.sqrt(self.ivar[s])
-        return np.median(sn[sn.nonzero()])
+        nonzero = np.nonzero(sn)
+        if len(nonzero) <= 1:
+            return 0
+        return np.median(sn[nonzero])
 
 def readCombinedSpectrum(spPlate, fiber):
         index = fiber - 1
