@@ -79,8 +79,6 @@ class Spectrum:
     def getMedianSignalToNoise(self, minWavelength, maxWavelength):
         minPixel = self.findPixel(minWavelength)+1
         maxPixel = self.findPixel(maxWavelength)
-
-        print minPixel, maxPixel
         if minPixel > maxPixel:
             return 0
         s = slice(minPixel,maxPixel)
