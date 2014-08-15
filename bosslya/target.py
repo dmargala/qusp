@@ -1,5 +1,13 @@
 from collections import namedtuple
 
+class Target(namedtuple('Target',('plate','mjd','fiber'))):
+    def __str__(self):
+        return '%d-%d-%d' % (self.plate,self.mjd,self.fiber)
+    @classmethod
+    def fromString(cls, targetString):
+        plate, mjd, fiber = targetString.split('-')
+        return cls(int(plate), int(mjd), int(fiber))
+
 def readTargetList(filename, fields=[]):
     namedFields = [('plate',int),('mjd',int),('fiber',int)] + fields
     name, dtype = zip(*namedFields)
