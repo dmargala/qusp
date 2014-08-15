@@ -84,19 +84,6 @@ def main():
 
         plothist2d(data, savename, xdata, ydata, label, vmin=vmin, vmax=vmax, cmap=cmap)
 
-    # fig = plt.figure()
-    # forest = infile['forest'].value
-    # nonforest = infile['nonforest'].value
-    # plt.plot(forest,'b+')
-    # plt.plot(nonforest,'r+')
-
-    # ymax = 1.1*max(numpy.percentile(forest,99.5),numpy.percentile(nonforest,99.5))
-
-    # plt.ylim([-ymax,ymax])
-    # plt.xlim([0,len(forest)])
-
-    # fig.savefig('%s_%s.png' % (args.save, '2.4'), bbox_inches='tight')
-
 
 if __name__ == '__main__':
     main()
