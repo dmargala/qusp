@@ -44,6 +44,71 @@ def getFiducialPixelIndexOffset(coeff0, coeff1=1e-4):
         return 0
     return -offset
 
+
+class Spectrum:
+    def __init__(self, wavelength, flux, inverseVariance):
+        self.wavelength = wavelength
+        self.flux = flux
+        self.inverseVariance = inverseVariance
+        self.nPixels = len(wavelength)
+        self.nZeroIvarPixels = numpy.sum(inverseVariance == 0)
+        self.nMaskedPixels = 0
+
+    def findPixel(self, wavelength):
+        if wavelength <= self.wavelength[0]:
+            return -1
+        if wavelength >= self.wavelength[-1]:
+            return self.nPixels-1
+        return numpy.argmax(self.wavelength >= wavelength)
+
+    def getMeanFlux(self, minWavelength, maxWavelength, ivarWeighting=True):
+        minPixel = self.findPixel(minWavelength)+1
+        maxPixel = self.findPixel(maxWavelength)
+        if minPixel > maxPixel:
+            return 0
+        s = slice(minPixel,maxPixel)
+        weights = self.inverseVariance[s]
+        nonzero = numpy.nonzero(weights)
+        weights = weights[nonzero] if ivarWeighting else numpy.ones(len(nonzero))
+        wsum = numpy.sum(weights)
+        if wsum <= 0:
+            return 0
+        wfluxsum = numpy.sum(weights*self.flux[s][nonzero])
+        return wfluxsum/wsum
+
+    def getMedianSignalToNoise(self, minWavelength, maxWavelength):
+        minPixel = self.findPixel(minWavelength)+1
+        maxPixel = self.findPixel(maxWavelength)
+
+        print minPixel, maxPixel
+        if minPixel > maxPixel:
+            return 0
+        s = slice(minPixel,maxPixel)
+        sn = numpy.fabs(self.flux[s])*numpy.sqrt(self.inverseVariance[s])
+        return numpy.median(sn[sn.nonzero()])
+
+def readCombinedSpectrum(spPlate, fiber, andVeto=None, orVeto=None, filetype='fits'):
+        index = fiber - 1
+
+        coeff0 = spPlate[0].header['COEFF0']
+        coeff1 = spPlate[0].header['COEFF1']
+
+        flux = spPlate[0].data[index]
+        numPixels = len(flux)
+        inverseVariance = spPlate[1].data[index]
+        andMask = spPlate[2].data[index]
+        orMask = spPlate[3].data[index]
+        pixelDispersion = spPlate[4].data[index]
+        # Calculate the wavelength sequence to use.
+        wavelength = numpy.power(10,coeff0 + coeff1*numpy.arange(0, numPixels))
+
+        # Build the spectrum (no masking yet).
+        spectrum = Spectrum(wavelength, flux, inverseVariance)
+        # Filter on the AND mask?
+        spectrum.inverseVariance[andMask > 0] = 0
+        # Filter on the OR mask?
+        return spectrum
+
 def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -59,13 +124,10 @@ def main():
         help = "boss pipeline version tag (ex: v5_7_0)")
     parser.add_argument("--skim", type=str, default="dr12v1",
         help = "name of skim to use")
-    parser.add_argument("--out-prefix", type=str, default="root",
+    parser.add_argument("--out-prefix", type=str, default="stack",
         help = "output file prefix")
     parser.add_argument("--verbose", action="store_true",
         help = "more verbose output")
-    parser.add_argument("--use-fits", action="store_true",
-        help = "read spectra from PLATE/spPlate-PLATE-MJD.fits files, \
-        otherwise use skim/plate-PLATE-MJD.root files")
     parser.add_argument("--zmin", type=float, default=2.1,
         help = "minimum quasar redshift to include")
     parser.add_argument("--zmax", type=float, default=3,
@@ -88,6 +150,10 @@ def main():
         help = "use rest frame wavelength for y binning")
     parser.add_argument("--compression", type=str, default="gzip",
         help = "compress output file using specified scheme")
+    parser.add_argument("--min-sn", type=float, default=0,
+        help = "minimum sn to include")
+    parser.add_argument("--skip-stack", action="store_true",
+        help = "skip stacking")
     args = parser.parse_args()
 
     # set up paths
@@ -153,6 +219,7 @@ def main():
     wfluxsq = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float64)
 
     skipcounter = 0
+    sncounter = 0
 
     # work on targets
     plateFileName = None
@@ -165,95 +232,51 @@ def main():
         if target.z < zmin or target.z > zmax:
             continue
 
-        # read spectrum
-        flux = []
-        wflux = []
-        ivar = []
-        numPixels = 0
-        coeff0 = 0
+        # load the spectrum file
+        if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
+            plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
+            if args.verbose:
+                print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
+            spPlate = fits.open(os.path.join(fitsPath,str(target.plate),plateFileName)) 
 
-        if args.use_fits:
-            # load the spectrum file
-            if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
-                plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
-                if args.verbose:
-                    print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
-                plateFile = fits.open(os.path.join(fitsPath,str(target.plate),plateFileName)) 
-                # when does the file close?
-
-            numPixels = plateFile[0].header['NAXIS1']
-            coeff0 = plateFile[0].header['COEFF0']
-
-            index = target.fiber-1
-            andmask = plateFile[2].data[index]
-
-            flux = plateFile[0].data[index]
-            ivar = plateFile[1].data[index]
-
-            ivar[andmask > 0] = 0
-
-        else:
-            # load the spectrum file
-            if plateFileName != 'plate-%s-%s.root' % (target.plate, target.mjd):
-                plateFileName = 'plate-%s-%s.root' % (target.plate, target.mjd)
-                if args.verbose:
-                    print 'Opening plate file %s...' % os.path.join(skimPath,plateFileName)
-                plateFile = ROOT.TFile(os.path.join(skimPath,plateFileName))
-                # when does the file close?
-                plateTree = plateFile.Get('skim')
-
-            combined = plateFile.Get('combined_%s' % target.fiber)
-            numPixels = combined.GetN()
-
-            xBuffer = combined.GetX()
-            wavelength = numpy.frombuffer(xBuffer,count=numPixels)
-
-            coeff0 = math.log10(wavelength[0])
-
-            yBuffer = combined.GetY()
-            flux = numpy.frombuffer(yBuffer,count=numPixels)
-
-            yErrBuffer = combined.GetEY()
-            fluxErr = numpy.frombuffer(yErrBuffer,count=numPixels)
-
-            ivar = numpy.zeros(numPixels)
-            nonzeroEntries = numpy.nonzero(fluxErr)
-            ivar[nonzeroEntries] = 1/(fluxErr[nonzeroEntries]**2)
+        # read this target's combined spectrum
+        combined = readCombinedSpectrum(spPlate, target.fiber)
 
         # determine pixel offset
-        offset = getFiducialPixelIndexOffset(coeff0)
-        if numPixels + offset > nxbins:
+        offset = getFiducialPixelIndexOffset(numpy.log10(combined.wavelength[0]))
+        if combined.nPixels + offset > nxbins:
             raise RuntimeError('woh! sprectrum out of range!')
+
+        flux = combined.flux
+        ivar = combined.inverseVariance
+        numPixels = combined.nPixels
+
+        mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
+        print 'Median SN: %f' % mediansn
+
+        if mediansn > args.min_sn:
+            sncounter += 1
 
         # normalize spectrum using flux window: 1280 +/- 10 Ang
         if args.norm:
             obslo = (1+target.z)*args.norm_lo
             obshi = (1+target.z)*args.norm_hi
-            normlo = int(getFiducialWavelengthRatio(obslo)) - offset
-            normhi = int(getFiducialWavelengthRatio(obshi)) - offset + 1
-            # limit norm window to spectrum 
-            if normlo < 0:
-                normlo = 0
-            if normhi > numPixels or args.norm_hi < args.norm_lo:
-                normhi = numPixels
-            # calucuate mean flux in window
-            normSlice = slice(normlo,normhi)
-            norm = numpy.sum(ivar[normSlice]*flux[normSlice])
-            normweight = numpy.sum(ivar[normSlice])
-            if normweight == 0:
+            norm = combined.getMeanFlux(obslo, obshi, ivarWeighting=True)
+            if norm == 0:
                 skipcounter += 1
-                print 'skipping %s (z=%.2f): 0 ivar in flux normalization range' % (target, target.z)
+                print 'skipping %s (z=%.2f): weighted mean flux in norm range is 0' % (target, target.z)
                 continue
-            norm /= normweight
             flux /= norm
             ivar *= norm*norm
+            print 'Norm (%f-%f): %f' % (args.norm_lo, args.norm_hi, norm)
+
+        if args.skip_stack:
+            continue
 
         if args.resty:
             obswave = xbincenters[slice(offset,offset+numPixels)]
             restwave = obswave/(1+target.z)
             restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
-            # if numpy.any(restindices >= nybins) or numpy.any(restindices < 0):
-            #     raise RuntimeError('woh! rest wavelength out of range!')
             validbins = numpy.logical_and(restindices < nybins, restindices >= 0)
             ivar = ivar[validbins]
             flux = flux[validbins]
@@ -285,6 +308,10 @@ def main():
         wfluxsq[xslice,yslice] += wflux*flux
 
     print 'Skipped %d targets...' % skipcounter
+    print 'Number of targets with median SN > %.2f: %d' % (args.min_sn, sncounter) 
+
+    if args.skip_stack:
+        return -1
 
     # divide by weights/number of entries
     fluxmean = numpy.zeros(shape=(nxbins,nybins), dtype=numpy.float32)
