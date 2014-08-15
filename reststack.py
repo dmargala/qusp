@@ -252,7 +252,7 @@ def main():
         numPixels = combined.nPixels
 
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
-        print 'Median SN: %f' % mediansn
+        # print 'Median SN: %f' % mediansn
 
         if mediansn > args.min_sn:
             sncounter += 1
@@ -268,7 +268,7 @@ def main():
                 continue
             flux /= norm
             ivar *= norm*norm
-            print 'Norm (%f-%f): %f' % (args.norm_lo, args.norm_hi, norm)
+            # print 'Norm (%f-%f): %f' % (args.norm_lo, args.norm_hi, norm)
 
         if args.skip_stack:
             continue
