@@ -151,6 +151,8 @@ def main():
     targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
+    targets = sorted(targets[:ntargets])
+
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
@@ -179,7 +181,7 @@ def main():
 
     # loop over targets
     plateFileName = None
-    for targetIndex, target in enumerate(targets[:ntargets]):
+    for targetIndex, target in enumerate(targets):
 
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
@@ -233,8 +235,8 @@ def main():
     if args.alpha:
         outfile.create_dataset('alpha', data=alphaModelValues)
 
-    outfile.create_dataset('targets', data=[str(target) for target in targets[:ntargets]])
-    outfile.create_dataset('redshifts', data=[target.z for target in targets[:ntargets]])
+    outfile.create_dataset('targets', data=[str(target) for target in targets])
+    outfile.create_dataset('redshifts', data=[target.z for target in targets])
 
     outfile.close()
 
