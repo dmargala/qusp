@@ -14,8 +14,102 @@ import matplotlib.pyplot as plt
 
 import bosslya
 
-def main():
+class QuasarModel():
+    def __init__(self, params, obsWaveCenters, restWaveCenters):
+        self.params = params
+        self.nParams = len(params)
+        self.obsWaveCenters = obsWaveCenters
+        self.nObs = len(obsWaveCenters)
+        self.restWaveCenters = restWaveCenters
+        self.nRest = len(restWaveCenters)
+        self.rowIndices = []
+        self.colIndices = []
+        self.coefficients = []
+        self.logFluxes = []
+        self.nTotalPixels = 0
+        self.nTargets = 0
+        self.nModelPixels = 0
+        for name, param in params.items():
+            if param['type'] is 'obs':
+                self.nModelPixels += self.nObs
+            elif param['type'] is 'rest':
+                self.nModelPixels += self.nRest
+        print self.nModelPixels
 
+    def addQuasar(self, logFlux, obsSlice, restSlice):
+        nPixels = len(logFlux)
+
+        self.logFluxes.append(logFlux)
+
+        fluxIndices = self.nTotalPixels+np.arange(nPixels)
+        self.rowIndices.append(np.tile(fluxIndices,self.nParams))
+
+        colIndices = []
+        coefficients = []
+        offset = 0
+        for i,name in enumerate(self.params.keys()):
+            if self.params[name]['type'] is 'obs':
+                coefs = np.ones(nPixels)
+                colIndices.append(offset+obsSlice)
+                offset += self.nObs
+            elif self.params[name]['type'] is 'rest':
+                if 'coef' in self.params[name].keys():
+                    coefs = self.params[name][coef](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice])
+                else:
+                    coefs = np.ones(nPixels)
+                colIndices.append(offset+restSlice)
+                offset += self.nRest
+            elif self.params[name]['type'] is 'target':
+                coefs = np.ones(nPixels)
+                colIndices.append(offset+self.nTargets*np.ones(nPixels))
+                offset += 1
+            coefficients.append(coefs)
+        self.colIndices.append(np.concatenate(colIndices))
+        self.coefficients.append(np.concatenate(coefficients))
+
+        self.nTargets += 1
+        self.nTotalPixels += nPixels
+
+    def fit(self, atol=1e-8, btol=1e-8, max_iter=100, verbose=False, sklearn=False):
+        self.nModelPixels += self.nTargets
+
+        rowIndices = np.concatenate(self.rowIndices)
+        colIndices = np.concatenate(self.colIndices)
+        coefficients = np.concatenate(self.coefficients)
+        logFluxes = np.concatenate(self.logFluxes)
+
+        model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
+            shape=(self.nTotalPixels,self.nModelPixels), dtype=np.float32)
+        model = model.tocsc()
+
+        if verbose:
+            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (model.data.nbytes, model.indptr.nbytes, model.indices.nbytes)
+
+        if sklearn:
+            from sklearn import linear_model
+            regr = linear_model.LinearRegression()
+            regr.fit(model, logFluxes)
+            self.soln = regr.coef_
+        else:
+            soln = scipy.sparse.linalg.lsqr(model, logFluxes, show=verbose, iter_lim=max_iter, atol=atol, btol=btol)
+            self.soln = soln[0]
+
+    def getParams(self):
+        results = {}
+        offset = 0
+        for i,name in enumerate(self.params.keys()):
+            if self.params[name]['type'] is 'obs':
+                npixels = self.nObs
+            elif self.params[name]['type'] is 'rest':
+                npixels = self.nRest
+            elif self.params[name]['type'] is 'target':
+                npixels = self.nTargets
+            results[name] = self.soln[offset:offset+npixels]
+            offset += npixels
+
+        return results
+
+def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i","--input", type=str, default=None,
@@ -30,7 +124,7 @@ def main():
         help="print verbose output")
     parser.add_argument("--max-iter", type=int, default=100,
         help="max number of iterations to use in lsqr")
-    parser.add_argument("--atol", type=float, default=1e-2,
+    parser.add_argument("--atol", type=float, default=1e-4,
         help="a stopping tolerance")
     parser.add_argument("--btol", type=float, default=1e-8,
         help="b stopping tolerance")
@@ -40,6 +134,8 @@ def main():
         help="optical depth power law parameter")
     parser.add_argument("-o","--output", type=str, default=None,
         help = "output filename")
+    parser.add_argument("--alpha", action="store_true",
+        help = "add z evolution term")
     args = parser.parse_args()
 
     # set up paths
@@ -60,23 +156,26 @@ def main():
 
     # initialize binning arrays
     nobsbins = 4800
-    obswavecenters = bosslya.getFiducialWavelength(np.arange(nobsbins))
+    obsWaveCenters = bosslya.getFiducialWavelength(np.arange(nobsbins))
 
     restmin = 850
     restmax = 1850
     nrestbins = 250
     drest = float(restmax-restmin)/nrestbins
-    restwavecenters = np.linspace(restmin,restmax,nrestbins) + drest/2
+    restWaveCenters = np.linspace(restmin,restmax,nrestbins) + drest/2
 
-    modelRowIndices = []
-    modelColIndices = []
-    modelCoefficients = []
 
-    logFluxes = []
+    params = {}
+    params['T'] = {'type':'obs'}
+    params['C'] = {'type':'rest'}
+    params['A'] = {'type':'target'}
 
-    nTotalPixels = 0
+    if args.alpha:
+        def alphaCoef(obs, rest):
+            return -np.power(obs/rest, args.beta)
+        params['alpha'] = {'type':'rest','coef':alphaCoef}
 
-    nModelPixels = nobsbins + 2*nrestbins + ntargets
+    model = QuasarModel(params, obsWaveCenters, restWaveCenters)
 
     # loop over targets
     plateFileName = None
@@ -99,7 +198,7 @@ def main():
         # this spectrum's wavelength axis pixel offset
         offset = bosslya.getFiducialPixelIndexOffset(np.log10(wavelength[0]))
 
-        obswave = obswavecenters[slice(offset,offset+combined.nPixels)]
+        obswave = obsWaveCenters[slice(offset,offset+combined.nPixels)]
         restwave = obswave/(1+target.z)
         restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
 
@@ -109,59 +208,30 @@ def main():
         restSlice = restindices[validbins]
         obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
 
-        # Build sparse matrix representation of model
-        nPixels = len(logFlux)
-        logFluxes.append(logFlux)
+        model.addQuasar(logFlux, obsSlice, restSlice)
 
-        normSlice = targetIndex*np.ones(nPixels)
+    model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
+    results = model.getParams()
 
-        fluxIndices = nTotalPixels+np.arange(nPixels)
-        modelRowIndices.append(np.concatenate([fluxIndices,fluxIndices,fluxIndices,fluxIndices]))
-        modelColIndices.append(np.concatenate([obsSlice,nobsbins+restSlice,nobsbins+nrestbins+restSlice,nobsbins+2*nrestbins+normSlice]))
+    obsModelValues = np.exp(results['T'])
+    restModelValues = np.exp(results['C'])
+    targetModelValues = np.exp(results['A'])
 
-        beta = args.beta
-        alphaCoefs = -np.power(obswavecenters[obsSlice]/(restwavecenters[restSlice]),beta)
-
-        modelCoefficients.append(np.concatenate([np.ones(2*nPixels),alphaCoefs,np.ones(nPixels)]))
-
-        nTotalPixels += nPixels
-
-    modelRowIndices = np.concatenate(modelRowIndices)
-    modelColIndices = np.concatenate(modelColIndices)
-    modelCoefficients = np.concatenate(modelCoefficients)
-    logFluxVector = np.concatenate(logFluxes)
-
-    modelMatrix = scipy.sparse.coo_matrix((modelCoefficients,(modelRowIndices,modelColIndices)), 
-        shape=(nTotalPixels,nModelPixels), dtype=np.float32)
-    modelMatrix = modelMatrix.tocsc()
-
-    if args.verbose:
-        print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (modelMatrix.data.nbytes, modelMatrix.indptr.nbytes, modelMatrix.indices.nbytes)
-
-    if args.sklearn:
-        from sklearn import linear_model
-        regr = linear_model.LinearRegression()
-        regr.fit(modelMatrix, logFluxVector)
-        coef = regr.coef_
-    else:
-        soln = scipy.sparse.linalg.lsqr(modelMatrix, logFluxVector, show=args.verbose, iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
-        coef = soln[0]
-
-    obsModelValues = np.exp(coef[:nobsbins])
-    restModelValues = np.exp(coef[nobsbins:nobsbins+nrestbins])
-    alphaModelValues = coef[nobsbins+nrestbins:nobsbins+2*nrestbins]
-    targetModelValues = np.exp(coef[nobsbins+2*nrestbins:])
+    if args.alpha:
+        alphaModelValues = results['alpha']
 
     # Save HDF5 file with results
     outfile = h5py.File(args.output,'w')
 
-    outfile.create_dataset('obsWaveCenters', data=obswavecenters)
-    outfile.create_dataset('restWaveCenters', data=restwavecenters)
+    outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
+    outfile.create_dataset('restWaveCenters', data=restWaveCenters)
 
     outfile.create_dataset('T', data=obsModelValues)
     outfile.create_dataset('C', data=restModelValues)
-    outfile.create_dataset('alpha', data=alphaModelValues)
     outfile.create_dataset('A', data=targetModelValues)
+
+    if args.alpha:
+        outfile.create_dataset('alpha', data=alphaModelValues)
 
     outfile.create_dataset('targets', data=[str(target) for target in targets[:ntargets]])
     outfile.create_dataset('redshifts', data=[target.z for target in targets[:ntargets]])
