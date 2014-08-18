@@ -44,6 +44,7 @@ class ContinuumFitter():
         of the corresponding logFlux values.
         """
         nPixels = len(logFlux)
+        assert len(logFlux) > 0, ('Empty flux array')
         assert len(obsSlice) == nPixels and len(restSlice) == nPixels, (
             'Input data array sizes do not match')
         assert np.amax(obsSlice) < self.nObs and np.amax(restSlice) < self.nRest, (
@@ -162,6 +163,12 @@ def main():
         help = "output filename")
     parser.add_argument("--alpha", action="store_true",
         help = "add z evolution term")
+    parser.add_argument("--nrestbins", type=int, default=250,
+        help="number of restframe bins")
+    parser.add_argument("--restmax", type=float, default=1850,
+        help="rest wavelength minimum")
+    parser.add_argument("--restmin", type=float, default=850,
+        help="rest wavelength maximum")
     args = parser.parse_args()
 
     # set up paths
@@ -186,9 +193,9 @@ def main():
     nobsbins = 4800
     obsWaveCenters = bosslya.getFiducialWavelength(np.arange(nobsbins))
 
-    restmin = 850
-    restmax = 1850
-    nrestbins = 500
+    restmin = args.restmin
+    restmax = args.restmax
+    nrestbins = args.nrestbins
     drest = float(restmax-restmin)/nrestbins
     restWaveCenters = np.linspace(restmin,restmax,nrestbins) + drest/2
 
