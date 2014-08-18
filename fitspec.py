@@ -36,8 +36,9 @@ class ContinuumFitter():
         self.logFluxes = []
         self.nTotalPixels = 0
         self.nTargets = 0
+        self.soln = None
 
-    def addObservation(self, logFlux, obsSlice, restSlice):
+    def addObservation(self, logFlux, obsSlice, restSlice, weights=None):
         """
         Adds an observation to be fit. Each of logFlux, restSlice, restSlice should 
         have the same length. The obsSlice and restSlice specify the model pixel indices
@@ -51,7 +52,13 @@ class ContinuumFitter():
             'Invalid model index value')
 
         # Save logFlux values
-        self.logFluxes.append(logFlux)
+        if weights is None:
+            sqrtw = np.ones(nPixels)
+        else:
+            assert len(weights) == nPixels, (
+                'Weights array size does not match data')
+            sqrtw = np.sqrt(weights)
+        self.logFluxes.append(sqrtw*logFlux)
 
         # Each row corresponds to single flux value, the model matrix
         # will have nParams entries per row
@@ -75,13 +82,13 @@ class ContinuumFitter():
                 colOffset += 1
         self.colIndices.append(np.concatenate(colIndices))
 
-        # The coefficients in the model matrix are 1, unless a 'coef'
+        # The coefficients in the model matrix are the weights, unless a 'coef'
         # function is specified in the param dictionary
         for i,param in enumerate(self.params):
             if 'coef' in param.keys():
-                coefficients.append(param['coef'](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
+                coefficients.append(sqrtw*param['coef'](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
             else:
-                coefficients.append(np.ones(nPixels))
+                coefficients.append(sqrtw)
         self.coefficients.append(np.concatenate(coefficients))
 
         # Increment the total number of pixel values and the number of observations
@@ -120,9 +127,14 @@ class ContinuumFitter():
             self.soln = soln[0]
 
         # return results
-        return self.getParams()
+        return self.getResults()
 
-    def getParams(self):
+    def getResults(self):
+        """
+        Return a dictionary containing fit results
+        """
+        assert self.soln is not None, (
+            'Can\'t request results before fitting')
         results = {}
         offset = 0
         for i,param in enumerate(self.params):
@@ -171,6 +183,8 @@ def main():
         help="rest wavelength maximum")
     parser.add_argument("--restnorm", type=float, default=1280,
         help="restframe wavelength to normalize at")
+    parser.add_argument("--unweighted", action="store_true",
+        help="perform unweighted least squares fit")
     args = parser.parse_args()
 
     # set up paths
@@ -252,12 +266,16 @@ def main():
         logFlux = np.log(flux[validbins])
         restSlice = restindices[validbins]
         obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
+        if args.unweighted:
+            weights = None
+        else:
+            weights = ivar[validbins]
 
         if len(logFlux) <= 0:
             continue
 
         # Add this observation to our fitter
-        model.addObservation(logFlux, obsSlice, restSlice)
+        model.addObservation(logFlux, obsSlice, restSlice, weights)
         fitTargets.append(target)
 
     # run the fitter
