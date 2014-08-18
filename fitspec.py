@@ -197,7 +197,7 @@ def main():
     restmax = args.restmax
     nrestbins = args.nrestbins
     drest = float(restmax-restmin)/nrestbins
-    restWaveCenters = np.linspace(restmin,restmax,nrestbins) + drest/2
+    restWaveCenters = np.linspace(restmin,restmax,nrestbins,endpoint=False) + drest/2
 
     # Initialize model
     params = []
