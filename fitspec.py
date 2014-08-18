@@ -79,7 +79,7 @@ class ContinuumFitter():
         # function is specified in the param dictionary
         for i,param in enumerate(self.params):
             if 'coef' in param.keys():
-                coefficients.append(param[coef](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
+                coefficients.append(param['coef'](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
             else:
                 coefficients.append(np.ones(nPixels))
         self.coefficients.append(np.concatenate(coefficients))
