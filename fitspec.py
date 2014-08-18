@@ -220,6 +220,7 @@ def main():
 
     # loop over targets
     plateFileName = None
+    fitTargets = []
     for targetIndex, target in enumerate(targets):
 
         # load the spectrum file
@@ -254,6 +255,7 @@ def main():
 
         # Add this observation to our fitter
         model.addObservation(logFlux, obsSlice, restSlice)
+        fitTargets.append(target)
 
     # run the fitter
     results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
@@ -271,8 +273,8 @@ def main():
     outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
     outfile.create_dataset('restWaveCenters', data=restWaveCenters)
 
-    outfile.create_dataset('targets', data=[str(target) for target in targets])
-    outfile.create_dataset('redshifts', data=[target.z for target in targets])
+    outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
+    outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
 
     outfile.create_dataset('T', data=obsModelValues)
     outfile.create_dataset('C', data=restModelValues)
