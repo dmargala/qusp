@@ -202,7 +202,13 @@ def main():
     # Initialize model
     params = []
     params.append({'name':'T','type':'obs'})
-    params.append({'name':'C','type':'rest'})
+
+    def continuum(obs, rest):
+        coefs = np.ones(len(obs))
+        coefs[np.argmax(rest > 1280)] = 0
+        return coefs
+
+    params.append({'name':'C','type':'rest','coef':continuum})
     params.append({'name':'A','type':'target'})
 
     if args.alpha:
