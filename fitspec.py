@@ -169,6 +169,8 @@ def main():
         help="rest wavelength minimum")
     parser.add_argument("--restmin", type=float, default=850,
         help="rest wavelength maximum")
+    parser.add_argument("--restnorm", type=float, default=1280,
+        help="restframe wavelength to normalize at")
     args = parser.parse_args()
 
     # set up paths
@@ -205,7 +207,8 @@ def main():
 
     def continuum(obs, rest):
         coefs = np.ones(len(obs))
-        coefs[np.argmax(rest > 1280)] = 0
+        if args.restnorm > 0:
+            coefs[np.argmax(rest > args.restnorm)] = 0
         return coefs
 
     params.append({'name':'C','type':'rest','coef':continuum})
