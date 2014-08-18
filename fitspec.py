@@ -243,6 +243,9 @@ def main():
         restSlice = restindices[validbins]
         obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
 
+        if len(logFlux) > 0:
+            continue
+            
         # Add this observation to our fitter
         model.addObservation(logFlux, obsSlice, restSlice)
 
