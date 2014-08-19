@@ -35,12 +35,14 @@ class Spectrum:
         if minPixel > maxPixel:
             return 0
         s = slice(minPixel,maxPixel+1)
-        weights = self.ivar[s]
-        nonzero = np.nonzero(weights)
-        weights = weights[nonzero] if ivarWeighting else np.ones(len(nonzero))
-        wsum = np.sum(weights)
-        if wsum <= 0:
+        # only use "good" pixels
+        nonzero = np.nonzero(self.ivar[s])
+        if len(nonzero) == 0:
             return 0
+        # use weights?
+        weights = self.ivar[s][nonzero] if ivarWeighting else np.ones(len(nonzero))
+        # calculate mean
+        wsum = np.sum(weights)
         wfluxsum = np.sum(weights*self.flux[s][nonzero])
         return wfluxsum/wsum
 
@@ -53,11 +55,14 @@ class Spectrum:
         if minPixel > maxPixel:
             return 0
         s = slice(minPixel,maxPixel+1)
-        sn = np.fabs(self.flux[s])*np.sqrt(self.ivar[s])
-        nonzero = np.nonzero(sn)
-        if len(nonzero) <= 1:
+        # only use "good" pixels
+        nonzero = np.nonzero(self.ivar[s])
+        if len(nonzero) == 0:
             return 0
-        return np.median(sn[nonzero])
+        # calculate signal to noise
+        sn = np.fabs(self.flux[s][nonzero])*np.sqrt(self.ivar[s][nonzero])
+        # return median
+        return np.median(sn)
 
 def readCombinedSpectrum(spPlate, fiber):
     """
