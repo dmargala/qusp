@@ -1,4 +1,5 @@
 import numpy as np
+from wavelength import *
 
 class Spectrum:
     def __init__(self, wavelength, flux, ivar):
@@ -7,16 +8,28 @@ class Spectrum:
         self.ivar = ivar
         self.nPixels = len(wavelength)
         self.nZeroIvarPixels = np.sum(ivar == 0)
-        self.nMaskedPixels = 0
 
     def findPixel(self, wavelength):
+        """
+        Returns the corresponding pixel index of the specified wavelength
+        """
         if wavelength <= self.wavelength[0]:
             return -1
         if wavelength >= self.wavelength[-1]:
             return self.nPixels-1
-        return np.argmax(self.wavelength >= wavelength)
+        # find first pixel with a central wavelength greater than wavelength
+        candidate = np.argmax(self.wavelength >= wavelength)
+        # compare wavelength with this pixel's lower boundary
+        if wavelength > getFiducialWavelength(candidate-0.5):
+            return candidate
+        else:
+            return candidate - 1
 
     def getMeanFlux(self, minWavelength, maxWavelength, ivarWeighting=True):
+        """
+        Returns the mean flux between the specified wavelengths. Use ivarWeighting=False
+        option to turn ignore weights.
+        """
         minPixel = self.findPixel(minWavelength)+1
         maxPixel = self.findPixel(maxWavelength)
         if minPixel > maxPixel:
@@ -32,6 +45,9 @@ class Spectrum:
         return wfluxsum/wsum
 
     def getMedianSignalToNoise(self, minWavelength, maxWavelength):
+        """
+        Returns the median signal to noise ratio between the specified wavelengths.
+        """
         minPixel = self.findPixel(minWavelength)+1
         maxPixel = self.findPixel(maxWavelength)
         if minPixel > maxPixel:
@@ -44,23 +60,27 @@ class Spectrum:
         return np.median(sn[nonzero])
 
 def readCombinedSpectrum(spPlate, fiber):
-        index = fiber - 1
+    """
+    Returns the combined spectrum of the specified fiber from the provided spPlate.
+    """
+    # those pesky fiber numbers start at 1
+    index = fiber - 1
 
-        coeff0 = spPlate[0].header['COEFF0']
-        coeff1 = spPlate[0].header['COEFF1']
+    coeff0 = spPlate[0].header['COEFF0']
+    coeff1 = spPlate[0].header['COEFF1']
 
-        flux = spPlate[0].data[index]
-        nPixels = len(flux)
-        ivar = spPlate[1].data[index]
-        andMask = spPlate[2].data[index]
-        orMask = spPlate[3].data[index]
-        pixelDispersion = spPlate[4].data[index]
-        # Calculate the wavelength sequence to use.
-        wavelength = np.power(10,coeff0 + coeff1*np.arange(0, nPixels))
+    flux = spPlate[0].data[index]
+    ivar = spPlate[1].data[index]
+    andMask = spPlate[2].data[index]
+    orMask = spPlate[3].data[index]
+    pixelDispersion = spPlate[4].data[index]
+    # Calculate the wavelength sequence to use.
+    nPixels = len(flux)
+    wavelength = np.power(10,coeff0 + coeff1*np.arange(0, nPixels))
 
-        # Build the spectrum (no masking yet).
-        spectrum = Spectrum(wavelength, flux, ivar)
-        # Filter on the AND mask?
-        spectrum.ivar[andMask > 0] = 0
-        # Filter on the OR mask?
-        return spectrum
+    # Build the spectrum (no masking yet).
+    spectrum = Spectrum(wavelength, flux, ivar)
+    # Filter on the AND mask
+    spectrum.ivar[andMask > 0] = 0
+
+    return spectrum
