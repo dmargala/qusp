@@ -269,7 +269,7 @@ def main():
         if args.unweighted:
             weights = None
         else:
-            weights = ivar[validbins]
+            weights = ivar[validbins]**(-2)/flux[validbins]**4
 
         if len(logFlux) <= 0:
             continue
