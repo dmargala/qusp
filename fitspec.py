@@ -95,6 +95,27 @@ class ContinuumFitter():
         self.nTotalPixels += nPixels
         self.nTargets += 1
 
+    def addConstraint(self, paramName, logFlux, index, coef):
+
+        assert len(index) == len(coef), ('index and coef must be same length')  
+
+        colOffset = 0
+        for i,param in enumerate(self.params):
+            if param['name'] is paramName:
+                self.colIndices.append(colOffset+index)
+            if param['type'] is 'obs':
+                colOffset += self.nObs
+            elif param['type'] is 'rest':
+                colOffset += self.nRest
+            elif param['type'] is 'target':
+                colOffset += 1
+
+        self.coefficients.append(coef)
+        self.rowIndices.append(self.nTotalPixels*np.ones(len(index)))
+        self.logFluxes.append([logFlux])
+
+        self.nTotalPixels += 1
+
     def fit(self, atol=1e-8, btol=1e-8, max_iter=100, sklearn=False, verbose=False):
         """
         Does final assembly of the sparse matrix representing the model and performs least
@@ -114,7 +135,8 @@ class ContinuumFitter():
         model = model.tocsc()
 
         if verbose:
-            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (model.data.nbytes, model.indptr.nbytes, model.indices.nbytes)
+            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (
+                model.data.nbytes, model.indptr.nbytes, model.indices.nbytes)
 
         # perform fit
         if sklearn:
@@ -221,8 +243,8 @@ def main():
 
     def continuum(obs, rest):
         coefs = np.ones(len(obs))
-        if args.restnorm > 0:
-            coefs[np.argmax(rest > args.restnorm)] = 0
+        # if args.restnorm > 0:
+        #     coefs[np.argmax(rest > args.restnorm)] = 0
         return coefs
 
     params.append({'name':'C','type':'rest','coef':continuum})
@@ -239,7 +261,6 @@ def main():
     plateFileName = None
     fitTargets = []
     for targetIndex, target in enumerate(targets):
-
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
             plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
@@ -277,6 +298,11 @@ def main():
         # Add this observation to our fitter
         model.addObservation(logFlux, obsSlice, restSlice, weights)
         fitTargets.append(target)
+
+    normRange = np.arange(np.argmax(restWaveCenters > 1270), np.argmax(restWaveCenters > 1290))
+    normCoefs = np.ones(len(normRange))/len(normRange)
+
+    model.addConstraint('C', 0, normRange, normCoefs)
 
     # run the fitter
     results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
