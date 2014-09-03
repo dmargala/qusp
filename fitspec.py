@@ -163,7 +163,7 @@ class ContinuumFitter():
 
     def getResults(self):
         """
-        Return a dictionary containing fit results
+        Returns a dictionary containing fit results
         """
         assert self.soln is not None, ('Can\'t request results before fitting')
         results = {}
@@ -178,6 +178,15 @@ class ContinuumFitter():
             results[param['name']] = self.soln[offset:offset+npixels]
             offset += npixels
         return results
+
+    def getChiSquare(self):
+        """
+        Returns chi square of best fit
+        """
+        assert self.soln is not None, ('Can\'t request results before fitting')
+        logFluxes = np.concatenate(self.logFluxes)
+        residuals = logFluxes - self.model.dot(self.soln)
+        return np.dot(residuals,residuals)
 
     @staticmethod
     def addArgs(parser):
@@ -326,7 +335,7 @@ def main():
         if args.unweighted:
             weights = None
         else:
-            weights = ivar[validbins]**(-2)/flux[validbins]**4
+            weights = ivar[validbins]#**(2)/flux[validbins]**4
 
         if len(logFlux) <= 0:
             continue
@@ -358,6 +367,11 @@ def main():
 
     # run the fitter
     results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
+    chisq = model.getChiSquare()
+
+    if args.verbose:
+        print 'chisq (nModelParams): %.2f (%d)' % (chisq, model.model.shape[1])
+        print 'reduced chisq: %.2f' % (chisq/model.model.shape[1])
 
     obsModelValues = np.exp(results['T'])
     restModelValues = np.exp(results['C'])
