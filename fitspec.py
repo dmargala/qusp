@@ -205,8 +205,12 @@ def main():
         help="rest wavelength maximum")
     parser.add_argument("--restnorm", type=float, default=1280,
         help="restframe wavelength to normalize at")
+    parser.add_argument("--drestnorm", type=float, default=10,
+        help="restframe window size +/- on each side of norm wavelength")
     parser.add_argument("--unweighted", action="store_true",
         help="perform unweighted least squares fit")
+    parser.add_argument("--normweight", type=float, default=1,
+        help="norm constraint weight")
     args = parser.parse_args()
 
     # set up paths
@@ -299,10 +303,19 @@ def main():
         model.addObservation(logFlux, obsSlice, restSlice, weights)
         fitTargets.append(target)
 
-    normRange = np.arange(np.argmax(restWaveCenters > 1270), np.argmax(restWaveCenters > 1290))
-    normCoefs = np.ones(len(normRange))/len(normRange)
+    # Add constraint for continuum normalization
+    if args.restnorm > 0:
+        normCRange = np.arange(np.argmax(restWaveCenters > args.restnorm-args.drestnorm), 
+            np.argmax(restWaveCenters > args.restnorm+args.drestnorm))
+        normCCoefs = np.ones(len(normCRange))/len(normCRange)
+        model.addConstraint('C', 0, normCRange, args.normweight*normCCoefs)
 
-    model.addConstraint('C', 0, normRange, normCoefs)
+        print normCRange
+
+    # Add constrain for transmission normalization
+    normTRange = np.arange(np.argmax(obsWaveCenters > 4990), np.argmax(obsWaveCenters > 5010))
+    normTCoefs = np.ones(len(normTRange))/len(normTRange)
+    model.addConstraint('T', 0, normTCoefs, normTCoefs)
 
     # run the fitter
     results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
