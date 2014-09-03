@@ -147,12 +147,12 @@ class ContinuumFitter():
         if sklearn:
             from sklearn import linear_model
             regr = linear_model.LinearRegression()
-            if args.verbose:
+            if verbose:
                 print '... performing fit using sklearn.linear_model.LinearRegression ... '
             regr.fit(self.model, logFluxes)
             self.soln = regr.coef_
         else:
-            if args.verbose:
+            if verbose:
                 print '... sperforming fit using cipy.sparse.linalg.lsqr ... '
             soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose,
                 iter_lim=max_iter, atol=atol, btol=btol)
