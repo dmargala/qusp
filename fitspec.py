@@ -114,7 +114,7 @@ class ContinuumFitter():
         self.rowIndices.append(self.nTotalPixels*np.ones(len(index)))
         self.logFluxes.append([logFlux])
 
-        self.nTotalPixels += 1
+        self.nTotalPixels += 1        
 
     def fit(self, atol=1e-8, btol=1e-8, max_iter=100, sklearn=False, verbose=False):
         """
@@ -132,20 +132,20 @@ class ContinuumFitter():
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
             shape=(self.nTotalPixels,nModelPixels), dtype=np.float32)
         # convert the sparse matrix to compressed sparse column format
-        model = model.tocsc()
+        self.model = model.tocsc()
 
         if verbose:
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (
-                model.data.nbytes, model.indptr.nbytes, model.indices.nbytes)
+                self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
         # perform fit
         if sklearn:
             from sklearn import linear_model
             regr = linear_model.LinearRegression()
-            regr.fit(model, logFluxes)
+            regr.fit(self.model, logFluxes)
             self.soln = regr.coef_
         else:
-            soln = scipy.sparse.linalg.lsqr(model, logFluxes, show=verbose, iter_lim=max_iter, atol=atol, btol=btol)
+            soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose, iter_lim=max_iter, atol=atol, btol=btol)
             self.soln = soln[0]
 
         # return results
@@ -268,6 +268,7 @@ def main():
     # loop over targets
     plateFileName = None
     fitTargets = []
+    npixels = []
     for targetIndex, target in enumerate(targets):
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
@@ -306,6 +307,7 @@ def main():
         # Add this observation to our fitter
         model.addObservation(logFlux, obsSlice, restSlice, weights)
         fitTargets.append(target)
+        npixels.append(len(logFlux))
 
     # Add constraint for continuum normalization
     if args.restnorm > 0:
@@ -333,6 +335,8 @@ def main():
 
     # Save HDF5 file with results
     outfile = h5py.File(args.output,'w')
+
+    outfile.create_dataset('model', data=model.model[:np.sum(npixels[:10]),:]
 
     outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
     outfile.create_dataset('restWaveCenters', data=restWaveCenters)
