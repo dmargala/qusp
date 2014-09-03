@@ -6,199 +6,10 @@ import numpy as np
 import h5py
 from astropy.io import fits
 
-import scipy.sparse
-import scipy.sparse.linalg
-import scipy.interpolate
-
 import matplotlib.pyplot as plt
 
 import bosslya
 
-class ContinuumFitter():
-    def __init__(self, params, obsWaveCenters, restWaveCenters):
-        self.params = params
-        self.nParams = len(params)
-        self.obsWaveCenters = obsWaveCenters
-        self.nObs = len(obsWaveCenters)
-        self.restWaveCenters = restWaveCenters
-        self.nRest = len(restWaveCenters)
-        # the number of "model" pixels (excluding per target params)
-        self.nModelPixels = 0
-        for param in params:
-            if param['type'] is 'obs':
-                self.nModelPixels += self.nObs
-            elif param['type'] is 'rest':
-                self.nModelPixels += self.nRest
-        # sparse matrix entry holders
-        self.rowIndices = []
-        self.colIndices = []
-        self.coefficients = []
-        self.logFluxes = []
-        self.nTotalPixels = 0
-        self.nTargets = 0
-        self.soln = None
-
-    def addObservation(self, logFlux, obsSlice, restSlice, weights=None):
-        """
-        Adds an observation to be fit. Each of logFlux, restSlice, restSlice should 
-        have the same length. The obsSlice and restSlice specify the model pixel indices
-        of the corresponding logFlux values.
-        """
-        nPixels = len(logFlux)
-        assert len(logFlux) > 0, ('Empty flux array')
-        assert len(obsSlice) == nPixels and len(restSlice) == nPixels, (
-            'Input data array sizes do not match')
-        assert np.amax(obsSlice) < self.nObs and np.amax(restSlice) < self.nRest, (
-            'Invalid model index value')
-
-        # Save logFlux values
-        if weights is None:
-            sqrtw = np.ones(nPixels)
-        else:
-            assert len(weights) == nPixels, (
-                'Weights array size does not match data')
-            sqrtw = np.sqrt(weights)
-        self.logFluxes.append(sqrtw*logFlux)
-
-        # Each row corresponds to single flux value, the model matrix
-        # will have nParams entries per row
-        rowIndices = self.nTotalPixels+np.arange(nPixels)
-        self.rowIndices.append(np.tile(rowIndices,self.nParams))
-
-        # Each col corresponds to model parameter value, the model matrix
-        # is ordered in blocks of model parameters
-        colIndices = []
-        colOffset = 0
-        coefficients = []
-        for i,param in enumerate(self.params):
-            if param['type'] is 'obs':
-                colIndices.append(colOffset+obsSlice)
-                colOffset += self.nObs
-            elif param['type'] is 'rest':
-                colIndices.append(colOffset+restSlice)
-                colOffset += self.nRest
-            elif param['type'] is 'target':
-                colIndices.append(colOffset+self.nTargets*np.ones(nPixels))
-                colOffset += 1
-        self.colIndices.append(np.concatenate(colIndices))
-
-        # The coefficients in the model matrix are the weights, unless a 'coef'
-        # function is specified in the param dictionary
-        for i,param in enumerate(self.params):
-            if 'coef' in param.keys():
-                coefficients.append(sqrtw*param['coef'](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
-            else:
-                coefficients.append(sqrtw)
-        self.coefficients.append(np.concatenate(coefficients))
-
-        # Increment the total number of pixel values and the number of observations
-        self.nTotalPixels += nPixels
-        self.nTargets += 1
-
-    def addConstraint(self, paramName, logFlux, index, coef):
-
-        assert len(index) == len(coef), ('index and coef must be same length')  
-
-        colOffset = 0
-        for i,param in enumerate(self.params):
-            if param['name'] is paramName:
-                self.colIndices.append(colOffset+index)
-            if param['type'] is 'obs':
-                colOffset += self.nObs
-            elif param['type'] is 'rest':
-                colOffset += self.nRest
-            elif param['type'] is 'target':
-                colOffset += 1
-
-        self.coefficients.append(coef)
-        self.rowIndices.append(self.nTotalPixels*np.ones(len(index)))
-        self.logFluxes.append([logFlux])
-
-        self.nTotalPixels += 1        
-
-    def fit(self, atol=1e-8, btol=1e-8, max_iter=100, sklearn=False, verbose=False):
-        """
-        Does final assembly of the sparse matrix representing the model and performs least
-        squares fit.
-        """
-        nModelPixels = self.nModelPixels + self.nTargets
-
-        rowIndices = np.concatenate(self.rowIndices)
-        colIndices = np.concatenate(self.colIndices)
-        coefficients = np.concatenate(self.coefficients)
-        logFluxes = np.concatenate(self.logFluxes)
-
-        # build the sparse matrix
-        model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
-            shape=(self.nTotalPixels,nModelPixels), dtype=np.float32)
-        # convert the sparse matrix to compressed sparse column format
-        self.model = model.tocsc()
-
-        if verbose:
-            print 'Number of transmission model params: %d' % self.nObs
-            print 'Number of continuum model params: %d' % self.nRest
-            print 'Number of targets: %d' % self.nTargets
-            print 'Total model params: %d' % nModelPixels
-            print 'Total number of flux measurements: %d' % self.nTotalPixels
-            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (
-                self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
-
-        # perform fit
-        if sklearn:
-            from sklearn import linear_model
-            regr = linear_model.LinearRegression()
-            if verbose:
-                print '... performing fit using sklearn.linear_model.LinearRegression ... '
-            regr.fit(self.model, logFluxes)
-            self.soln = regr.coef_
-        else:
-            if verbose:
-                print '... sperforming fit using cipy.sparse.linalg.lsqr ... '
-            soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose,
-                iter_lim=max_iter, atol=atol, btol=btol)
-            self.soln = soln[0]
-
-        # return results
-        return self.getResults()
-
-    def getResults(self):
-        """
-        Returns a dictionary containing fit results
-        """
-        assert self.soln is not None, ('Can\'t request results before fitting')
-        results = {}
-        offset = 0
-        for i,param in enumerate(self.params):
-            if param['type'] is 'obs':
-                npixels = self.nObs
-            elif param['type'] is 'rest':
-                npixels = self.nRest
-            elif param['type'] is 'target':
-                npixels = self.nTargets
-            results[param['name']] = self.soln[offset:offset+npixels]
-            offset += npixels
-        return results
-
-    def getChiSquare(self):
-        """
-        Returns chi square of best fit
-        """
-        assert self.soln is not None, ('Can\'t request results before fitting')
-        logFluxes = np.concatenate(self.logFluxes)
-        residuals = logFluxes - self.model.dot(self.soln)
-        return np.dot(residuals,residuals)
-
-    @staticmethod
-    def addArgs(parser):
-        parser.add_argument("--sklearn", action="store_true",
-            help="use sklearn linear regression instead of scipy lstsq")
-        ## scipy fit options
-        parser.add_argument("--max-iter", type=int, default=100,
-            help="max number of iterations to use in lsqr")
-        parser.add_argument("--atol", type=float, default=1e-4,
-            help="a stopping tolerance")
-        parser.add_argument("--btol", type=float, default=1e-8,
-            help="b stopping tolerance")
 def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -217,7 +28,6 @@ def main():
     parser.add_argument("-n","--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
     ####### fit options #######
-    ContinuumFitter.addArgs(parser)
     parser.add_argument("--unweighted", action="store_true",
         help="perform unweighted least squares fit")
     # z evolution options
@@ -246,6 +56,7 @@ def main():
         help="obsframe window size +/- on each side of obsnorm wavelength")
     parser.add_argument("--obsnormweight", type=float, default=1e4,
         help="norm constraint weight")
+    bosslya.ContinuumFitter.addArgs(parser)
     args = parser.parse_args()
 
     # set up paths
@@ -293,13 +104,13 @@ def main():
             return -np.power(obs/rest, args.beta)
         params.append({'name':'alpha','type':'rest','coef':alphaCoef})
 
-    # Initialize fit model
-    model = ContinuumFitter(params, obsWaveCenters, restWaveCenters)
+    # Initialize fitter 
+    fitter = bosslya.ContinuumFitter(params, obsWaveCenters, restWaveCenters)
 
     if args.verbose:
-        print 'Fit model initialized with %d model params.' % model.nModelPixels
+        print 'Fit model initialized with %d model params.' % fitter.nModelPixels
 
-    # Add observations to fit model
+    # Add observations to fitter
     plateFileName = None
     fitTargets = []
     npixels = []
@@ -325,9 +136,11 @@ def main():
         restwave = obswave/(1+target.z)
         restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
 
+        # trim ranges to valid data
         validbins = np.all((restindices < nrestbins, restindices >= 0, flux > 0, ivar > 0), axis=0)
-
         logFlux = np.log(flux[validbins])
+        if len(logFlux) <= 0:
+            continue
         restSlice = restindices[validbins]
         obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
 
@@ -337,42 +150,43 @@ def main():
         else:
             weights = ivar[validbins]#**(2)/flux[validbins]**4
 
-        if len(logFlux) <= 0:
-            continue
-
         # Add this observation to our fitter
-        model.addObservation(logFlux, obsSlice, restSlice, weights)
+        fitter.addObservation(logFlux, obsSlice, restSlice, weights)
         fitTargets.append(target)
         npixels.append(len(logFlux))
 
     # Add constraint for continuum normalization
     if args.restnorm > 0:
-        normCRange = np.arange(np.argmax(restWaveCenters > args.restnorm-args.drestnorm), 
-            np.argmax(restWaveCenters > args.restnorm+args.drestnorm))
+        normCMin = args.restnorm-args.drestnorm/2
+        normCMax = args.restnorm+args.drestnorm/2
+        normCRange = np.arange(np.argmax(restWaveCenters > normCMin), 
+            np.argmax(restWaveCenters > normCMax))
         normCCoefs = np.ones(len(normCRange))/len(normCRange)
-        model.addConstraint('C', 0, normCRange, args.restnormweight*normCCoefs)
+        fitter.addConstraint('C', 0, normCRange, args.restnormweight*normCCoefs)
         if args.verbose:
-            print 'Adding constraint: logC(%.1f +/- %.1f) = %.1f (range covers %d continuum coefs)' % (
-                args.restnorm, args.drestnorm, 0, len(normCCoefs))
+            print 'Adding constraint: logC([%.4f,%.4f]) = %.1f (range covers %d continuum bins [%d,%d])' % (
+                restWaveCenters[normCRange[0]], restWaveCenters[normCRange[-1]], 0, len(normCCoefs), normCRange[0], normCRange[-1])
 
-    # Add constrain for transmission normalization
+    # Add constraint for transmission normalization
     if args.obsnorm > 0:
-        normTRange = np.arange(np.argmax(obsWaveCenters > args.obsnorm-args.dobsnorm), 
-            np.argmax(obsWaveCenters > args.obsnorm+args.dobsnorm))
+        normTMin = args.obsnorm-args.dobsnorm/2
+        normTMax = args.obsnorm+args.dobsnorm/2
+        normTRange = np.arange(np.argmax(obsWaveCenters > normTMin), 
+            np.argmax(obsWaveCenters > normTMax))
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
-        model.addConstraint('T', 0, normTCoefs, args.obsnormweight*normTCoefs)
+        fitter.addConstraint('T', 0, normTCoefs, args.obsnormweight*normTCoefs)
         if args.verbose:
-            print 'Adding constraint: logT(%.1f +/- %.1f) = %.1f (range covers %d transmission coefs)' % (
-                args.obsnorm, args.dobsnorm, 0, len(normTCoefs))
-
+            print 'Adding constraint: logT([%.4f,%.4f]) = %.1f (range covers %d transmission bins [%d,%d])' % (
+                obsWaveCenters[normTRange[0]], obsWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
     # run the fitter
-    results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
-    chisq = model.getChiSquare()
+    results = fitter.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
+    chisq = fitter.getChiSquare()
 
     if args.verbose:
-        print 'chisq (nModelParams): %.2f (%d)' % (chisq, model.model.shape[1])
-        print 'reduced chisq: %.2f' % (chisq/model.model.shape[1])
+        print 'chisq (nModelParams,nConstraints): %.2f (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
+        print 'reduced chisq: %.2f' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
 
+    # transform fit results
     obsModelValues = np.exp(results['T'])
     restModelValues = np.exp(results['C'])
     targetModelValues = np.exp(results['A'])
@@ -384,10 +198,10 @@ def main():
     outfile = h5py.File(args.output,'w')
 
     outfile.create_dataset('npixels', data=npixels)
-    outfile.create_dataset('model_data', data=model.model.data)
-    outfile.create_dataset('model_indices', data=model.model.indices)
-    outfile.create_dataset('model_indptr', data=model.model.indptr)
-    outfile.create_dataset('model_shape', data=model.model.shape)
+    outfile.create_dataset('model_data', data=fitter.model.data)
+    outfile.create_dataset('model_indices', data=fitter.model.indices)
+    outfile.create_dataset('model_indptr', data=fitter.model.indptr)
+    outfile.create_dataset('model_shape', data=fitter.model.shape)
 
     outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
     outfile.create_dataset('restWaveCenters', data=restWaveCenters)
