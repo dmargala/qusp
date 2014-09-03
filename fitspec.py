@@ -316,7 +316,7 @@ def main():
         normCCoefs = np.ones(len(normCRange))/len(normCRange)
         model.addConstraint('C', 0, normCRange, args.normweight*normCCoefs)
         if args.verbose:
-            print 'Adding constraint: logC(%f +/- %f) = %f (range covers %d contiuum coefs)' % (
+            print 'Adding constraint: logC(%.1f +/- %.1f) = %.1f (range covers %d contiuum coefs)' % (
                 args.restnorm, args.drestnorm, 0, len(normCCoefs))
 
     # Add constrain for transmission normalization
@@ -326,7 +326,7 @@ def main():
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
         model.addConstraint('T', 0, normTCoefs, args.normweight*normTCoefs)
         if args.verbose:
-            print 'Adding constraint: logT(%f +/- %f) = %f (range covers %d transmission coefs)' % (
+            print 'Adding constraint: logT(%.1f +/- %.1f) = %.1f (range covers %d transmission coefs)' % (
                 args.obsnorm, args.dobsnorm, 0, len(normTCoefs))
 
     # run the fitter
