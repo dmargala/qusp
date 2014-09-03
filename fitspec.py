@@ -147,9 +147,13 @@ class ContinuumFitter():
         if sklearn:
             from sklearn import linear_model
             regr = linear_model.LinearRegression()
+            if args.verbose:
+                print '... performing fit using sklearn.linear_model.LinearRegression ... '
             regr.fit(self.model, logFluxes)
             self.soln = regr.coef_
         else:
+            if args.verbose:
+                print '... sperforming fit using cipy.sparse.linalg.lsqr ... '
             soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose,
                 iter_lim=max_iter, atol=atol, btol=btol)
             self.soln = soln[0]
@@ -295,8 +299,8 @@ def main():
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
             plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
             fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
-            if args.verbose:
-                print 'Opening plate file %s...' % fullName
+            #if args.verbose:
+            #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
         # read this target's combined spectrum
