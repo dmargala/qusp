@@ -336,7 +336,11 @@ def main():
     # Save HDF5 file with results
     outfile = h5py.File(args.output,'w')
 
-    outfile.create_dataset('model', data=model.model[:np.sum(npixels[:10]),:]
+    outfile.create_dataset('npixels', data=npixels)
+    outfile.create_dataset('model_data', data=model.model.data)
+    outfile.create_dataset('model_indices', data=model.model.indices)
+    outfile.create_dataset('model_indptr', data=model.model.indptr)
+    outfile.create_dataset('model_shape', data=model.model.shape)
 
     outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
     outfile.create_dataset('restWaveCenters', data=restWaveCenters)
