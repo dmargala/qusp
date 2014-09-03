@@ -135,6 +135,11 @@ class ContinuumFitter():
         self.model = model.tocsc()
 
         if verbose:
+            print 'Number of transmission model params: %d' % self.nObs
+            print 'Number of continuum model params: %d' % self.nRest
+            print 'Number of targets: %d' % self.nTargets
+            print 'Total model params: %d' % nModelPixels
+            print 'Total number of flux measurements: %d' % self.nTotalPixels
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
@@ -145,7 +150,8 @@ class ContinuumFitter():
             regr.fit(self.model, logFluxes)
             self.soln = regr.coef_
         else:
-            soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose, iter_lim=max_iter, atol=atol, btol=btol)
+            soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose,
+                iter_lim=max_iter, atol=atol, btol=btol)
             self.soln = soln[0]
 
         # return results
@@ -155,8 +161,7 @@ class ContinuumFitter():
         """
         Return a dictionary containing fit results
         """
-        assert self.soln is not None, (
-            'Can\'t request results before fitting')
+        assert self.soln is not None, ('Can\'t request results before fitting')
         results = {}
         offset = 0
         for i,param in enumerate(self.params):
@@ -170,51 +175,64 @@ class ContinuumFitter():
             offset += npixels
         return results
 
+    @staticmethod
+    def addArgs(parser):
+        parser.add_argument("--sklearn", action="store_true",
+            help="use sklearn linear regression instead of scipy lstsq")
+        ## scipy fit options
+        parser.add_argument("--max-iter", type=int, default=100,
+            help="max number of iterations to use in lsqr")
+        parser.add_argument("--atol", type=float, default=1e-4,
+            help="a stopping tolerance")
+        parser.add_argument("--btol", type=float, default=1e-8,
+            help="b stopping tolerance")
 def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i","--input", type=str, default=None,
-        help = "target list")
-    parser.add_argument("-n","--ntargets", type=int, default=0,
-        help = "number of targets to use, 0 for all")
-    parser.add_argument("--boss-root", type=str, default=None,
-        help = "path to root directory containing BOSS data (ex: /data/boss)")
-    parser.add_argument("--boss-version", type=str, default="v5_7_0",
-        help = "boss pipeline version tag")
     parser.add_argument("--verbose", action="store_true",
         help="print verbose output")
-    parser.add_argument("--max-iter", type=int, default=100,
-        help="max number of iterations to use in lsqr")
-    parser.add_argument("--atol", type=float, default=1e-4,
-        help="a stopping tolerance")
-    parser.add_argument("--btol", type=float, default=1e-8,
-        help="b stopping tolerance")
-    parser.add_argument("--sklearn", action="store_true",
-        help="use sklearn linear regression")
+    parser.add_argument("-o","--output", type=str, default=None,
+        help="hdf5 output filename")
+    ## BOSS data
+    parser.add_argument("--boss-root", type=str, default=None,
+        help="path to root directory containing BOSS data (ex: /data/boss)")
+    parser.add_argument("--boss-version", type=str, default="v5_7_0",
+        help="boss pipeline version tag")
+    ## targets to fit
+    parser.add_argument("-i","--input", type=str, default=None,
+        help="target list")
+    parser.add_argument("-n","--ntargets", type=int, default=0,
+        help="number of targets to use, 0 for all")
+    ####### fit options #######
+    ContinuumFitter.addArgs(parser)
+    parser.add_argument("--unweighted", action="store_true",
+        help="perform unweighted least squares fit")
+    # z evolution options
+    parser.add_argument("--alpha", action="store_true",
+        help="add z evolution term")
     parser.add_argument("--beta", type=float, default=3.92,
         help="optical depth power law parameter")
-    parser.add_argument("-o","--output", type=str, default=None,
-        help = "output filename")
-    parser.add_argument("--alpha", action="store_true",
-        help = "add z evolution term")
-    parser.add_argument("--nrestbins", type=int, default=250,
+    # restframe wavelength grid options
+    parser.add_argument("--nrestbins", type=int, default=500,
         help="number of restframe bins")
-    parser.add_argument("--restmax", type=float, default=1850,
+    parser.add_argument("--restmax", type=float, default=2850,
         help="rest wavelength minimum")
     parser.add_argument("--restmin", type=float, default=850,
         help="rest wavelength maximum")
+    ## continuum model constraint
     parser.add_argument("--restnorm", type=float, default=1280,
         help="restframe wavelength to normalize at")
     parser.add_argument("--drestnorm", type=float, default=10,
         help="restframe window size +/- on each side of restnorm wavelength")
-    parser.add_argument("--normweight", type=float, default=1,
+    parser.add_argument("--restnormweight", type=float, default=1e4,
         help="norm constraint weight")
+    ## transmission model constraint
     parser.add_argument("--obsnorm", type=float, default=5000,
         help="obsframe wavelength to normalize at")
     parser.add_argument("--dobsnorm", type=float, default=10,
         help="obsframe window size +/- on each side of obsnorm wavelength")
-    parser.add_argument("--unweighted", action="store_true",
-        help="perform unweighted least squares fit")
+    parser.add_argument("--obsnormweight", type=float, default=1e4,
+        help="norm constraint weight")
     args = parser.parse_args()
 
     # set up paths
@@ -229,43 +247,46 @@ def main():
     # read target list
     targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
-
     targets = sorted(targets[:ntargets])
-
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
     # initialize binning arrays
     nobsbins = 4800
     obsWaveCenters = bosslya.getFiducialWavelength(np.arange(nobsbins))
+    if args.verbose:
+        print 'Observed frame bin centers span [%.2f,%.2f] with %d bins.' % (
+            obsWaveCenters[0],obsWaveCenters[-1],nobsbins)
 
     restmin = args.restmin
     restmax = args.restmax
     nrestbins = args.nrestbins
     drest = float(restmax-restmin)/nrestbins
     restWaveCenters = np.linspace(restmin,restmax,nrestbins,endpoint=False) + drest/2
+    if args.verbose:
+        print 'Rest frame bin centers span [%.2f,%.2f] with %d bins.' % (
+            restWaveCenters[0],restWaveCenters[-1],nrestbins)
 
     # Initialize model
     params = []
     params.append({'name':'T','type':'obs'})
-
-    def continuum(obs, rest):
-        coefs = np.ones(len(obs))
-        # if args.restnorm > 0:
-        #     coefs[np.argmax(rest > args.restnorm)] = 0
-        return coefs
-
-    params.append({'name':'C','type':'rest','coef':continuum})
+    params.append({'name':'C','type':'rest'})
     params.append({'name':'A','type':'target'})
 
     if args.alpha:
+        if args.verbose:
+            print 'Adding z evo param with beta = %.2f' % args.beta
         def alphaCoef(obs, rest):
             return -np.power(obs/rest, args.beta)
         params.append({'name':'alpha','type':'rest','coef':alphaCoef})
 
+    # Initialize fit model
     model = ContinuumFitter(params, obsWaveCenters, restWaveCenters)
 
-    # loop over targets
+    if args.verbose:
+        print 'Fit model initialized with %d model params.' % model.nModelPixels
+
+    # Add observations to fit model
     plateFileName = None
     fitTargets = []
     npixels = []
@@ -296,6 +317,8 @@ def main():
         logFlux = np.log(flux[validbins])
         restSlice = restindices[validbins]
         obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
+
+        # calculate weights
         if args.unweighted:
             weights = None
         else:
@@ -314,9 +337,9 @@ def main():
         normCRange = np.arange(np.argmax(restWaveCenters > args.restnorm-args.drestnorm), 
             np.argmax(restWaveCenters > args.restnorm+args.drestnorm))
         normCCoefs = np.ones(len(normCRange))/len(normCRange)
-        model.addConstraint('C', 0, normCRange, args.normweight*normCCoefs)
+        model.addConstraint('C', 0, normCRange, args.restnormweight*normCCoefs)
         if args.verbose:
-            print 'Adding constraint: logC(%.1f +/- %.1f) = %.1f (range covers %d contiuum coefs)' % (
+            print 'Adding constraint: logC(%.1f +/- %.1f) = %.1f (range covers %d continuum coefs)' % (
                 args.restnorm, args.drestnorm, 0, len(normCCoefs))
 
     # Add constrain for transmission normalization
@@ -324,7 +347,7 @@ def main():
         normTRange = np.arange(np.argmax(obsWaveCenters > args.obsnorm-args.dobsnorm), 
             np.argmax(obsWaveCenters > args.obsnorm+args.dobsnorm))
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
-        model.addConstraint('T', 0, normTCoefs, args.normweight*normTCoefs)
+        model.addConstraint('T', 0, normTCoefs, args.obsnormweight*normTCoefs)
         if args.verbose:
             print 'Adding constraint: logT(%.1f +/- %.1f) = %.1f (range covers %d transmission coefs)' % (
                 args.obsnorm, args.dobsnorm, 0, len(normTCoefs))
