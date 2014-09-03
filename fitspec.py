@@ -206,11 +206,15 @@ def main():
     parser.add_argument("--restnorm", type=float, default=1280,
         help="restframe wavelength to normalize at")
     parser.add_argument("--drestnorm", type=float, default=10,
-        help="restframe window size +/- on each side of norm wavelength")
-    parser.add_argument("--unweighted", action="store_true",
-        help="perform unweighted least squares fit")
+        help="restframe window size +/- on each side of restnorm wavelength")
     parser.add_argument("--normweight", type=float, default=1,
         help="norm constraint weight")
+    parser.add_argument("--obsnorm", type=float, default=5000,
+        help="obsframe wavelength to normalize at")
+    parser.add_argument("--dobsnorm", type=float, default=10,
+        help="obsframe window size +/- on each side of obsnorm wavelength")
+    parser.add_argument("--unweighted", action="store_true",
+        help="perform unweighted least squares fit")
     args = parser.parse_args()
 
     # set up paths
@@ -310,12 +314,12 @@ def main():
         normCCoefs = np.ones(len(normCRange))/len(normCRange)
         model.addConstraint('C', 0, normCRange, args.normweight*normCCoefs)
 
-        print normCRange
-
     # Add constrain for transmission normalization
-    normTRange = np.arange(np.argmax(obsWaveCenters > 4990), np.argmax(obsWaveCenters > 5010))
-    normTCoefs = np.ones(len(normTRange))/len(normTRange)
-    model.addConstraint('T', 0, normTCoefs, normTCoefs)
+    if args.obsnorm > 0:
+        normTRange = np.arange(np.argmax(obsWaveCenters > args.obsnorm-args.dobsnorm), 
+            np.argmax(obsWaveCenters > args.obsnorm+args.dobsnorm))
+        normTCoefs = np.ones(len(normTRange))/len(normTRange)
+        model.addConstraint('T', 0, normTCoefs, args.normweight*normTCoefs)
 
     # run the fitter
     results = model.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
