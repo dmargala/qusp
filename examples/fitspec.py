@@ -157,6 +157,8 @@ def main():
 
         logFlux = np.log(flux[validbins])
         if len(logFlux) <= 0:
+            if args.verbose:
+                print 'Dropping target %s (z=%.2f) because there are no valid pixels in requested range' % (target, target.z)
             continue
         restSlice = restindices[validbins]
         transSlice = obsindices[validbins]-transminindex#np.arange(offset,offset+combined.nPixels)[validbins]
