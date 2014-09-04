@@ -191,7 +191,7 @@ def main():
         normTRange = np.arange(np.argmax(transWaveCenters > normTMin), 
             np.argmax(transWaveCenters > normTMax))
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
-        fitter.addConstraint('T', 0, normTCoefs, args.obsnormweight*normTCoefs)
+        fitter.addConstraint('T', 0, normTRange, args.obsnormweight*normTCoefs)
         if args.verbose:
             print 'Adding constraint: logT([%.4f,%.4f]) = %.1f (range covers %d transmission bins [%d,%d])' % (
                 transWaveCenters[normTRange[0]], transWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
