@@ -35,13 +35,18 @@ def main():
         help="add z evolution term")
     parser.add_argument("--beta", type=float, default=3.92,
         help="optical depth power law parameter")
-    # restframe wavelength grid options
+    # transmission model wavelength grid options
+    parser.add_argument("--transmin", type=float, default=3600,
+        help="transmission model wavelength minimum")
+    parser.add_argument("--transmax", type=float, default=10000,
+        help="transmission model wavelength maximum")
+    # continuum model wavelength grid options
+    parser.add_argument("--restmin", type=float, default=850,
+        help="rest wavelength minimum")
+    parser.add_argument("--restmax", type=float, default=2850,
+        help="rest wavelength maximum")
     parser.add_argument("--nrestbins", type=int, default=500,
         help="number of restframe bins")
-    parser.add_argument("--restmax", type=float, default=2850,
-        help="rest wavelength minimum")
-    parser.add_argument("--restmin", type=float, default=850,
-        help="rest wavelength maximum")
     ## continuum model constraint
     parser.add_argument("--restnorm", type=float, default=1280,
         help="restframe wavelength to normalize at")
@@ -78,9 +83,15 @@ def main():
     # initialize binning arrays
     nobsbins = 4800
     obsWaveCenters = bosslya.getFiducialWavelength(np.arange(nobsbins))
+
+    transminindex = np.argmax(obsWaveCenters > args.transmin)
+    transmaxindex = np.argmax(obsWaveCenters > args.transmax)
+    transWaveCenters = bosslya.getFiducialWavelength(np.arange(transminindex,transmaxindex+1))
+    ntransbins = len(transWaveCenters)
+    print transWaveCenters
     if args.verbose:
         print 'Observed frame bin centers span [%.2f,%.2f] with %d bins.' % (
-            obsWaveCenters[0],obsWaveCenters[-1],nobsbins)
+            transWaveCenters[0],transWaveCenters[-1],ntransbins)
 
     restmin = args.restmin
     restmax = args.restmax
@@ -105,7 +116,7 @@ def main():
         params.append({'name':'alpha','type':'rest','coef':alphaCoef})
 
     # Initialize fitter 
-    fitter = bosslya.ContinuumFitter(params, obsWaveCenters, restWaveCenters)
+    fitter = bosslya.ContinuumFitter(params, transWaveCenters, restWaveCenters)
 
     if args.verbose:
         print 'Fit model initialized with %d model params.' % fitter.nModelPixels
@@ -132,17 +143,24 @@ def main():
         # this spectrum's wavelength axis pixel offset
         offset = bosslya.getFiducialPixelIndexOffset(np.log10(wavelength[0]))
 
-        obswave = obsWaveCenters[slice(offset,offset+combined.nPixels)]
+        obsindices = np.arange(offset,offset+combined.nPixels)
+        obswave = obsWaveCenters[obsindices]
         restwave = obswave/(1+target.z)
         restindices = ((restwave - restmin)/(restmax - restmin)*nrestbins).astype(int)
 
         # trim ranges to valid data
-        validbins = np.all((restindices < nrestbins, restindices >= 0, flux > 0, ivar > 0), axis=0)
+        validbins = np.all((
+            obsindices >= transminindex, 
+            obsindices  < transminindex+ntransbins, 
+            restindices < nrestbins, 
+            restindices >= 0, 
+            flux > 0, ivar > 0), axis=0)
+
         logFlux = np.log(flux[validbins])
         if len(logFlux) <= 0:
             continue
         restSlice = restindices[validbins]
-        obsSlice = np.arange(offset,offset+combined.nPixels)[validbins]
+        obsSlice = obsindices[validbins]#np.arange(offset,offset+combined.nPixels)[validbins]
 
         # calculate weights
         if args.unweighted:
@@ -171,13 +189,13 @@ def main():
     if args.obsnorm > 0:
         normTMin = args.obsnorm-args.dobsnorm/2
         normTMax = args.obsnorm+args.dobsnorm/2
-        normTRange = np.arange(np.argmax(obsWaveCenters > normTMin), 
-            np.argmax(obsWaveCenters > normTMax))
+        normTRange = np.arange(np.argmax(transWaveCenters > normTMin), 
+            np.argmax(transWaveCenters > normTMax))
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
         fitter.addConstraint('T', 0, normTCoefs, args.obsnormweight*normTCoefs)
         if args.verbose:
             print 'Adding constraint: logT([%.4f,%.4f]) = %.1f (range covers %d transmission bins [%d,%d])' % (
-                obsWaveCenters[normTRange[0]], obsWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
+                transWaveCenters[normTRange[0]], transWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
     # run the fitter
     results = fitter.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
     chisq = fitter.getChiSquare()
@@ -203,7 +221,7 @@ def main():
     outfile.create_dataset('model_indptr', data=fitter.model.indptr)
     outfile.create_dataset('model_shape', data=fitter.model.shape)
 
-    outfile.create_dataset('obsWaveCenters', data=obsWaveCenters)
+    outfile.create_dataset('transWaveCenters', data=transWaveCenters)
     outfile.create_dataset('restWaveCenters', data=restWaveCenters)
 
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
