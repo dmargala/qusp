@@ -170,14 +170,38 @@ class ContinuumFitter():
             offset += npixels
         return results
 
-    def getChiSquare(self):
+    def getChiSq(self):
         """
-        Returns chi square of best fit
+        Returns chisq of best fit
         """
         assert self.soln is not None, ('Can\'t request results before fitting')
         logFluxes = np.concatenate(self.logFluxes)
         residuals = logFluxes - self.model.dot(self.soln)
         return np.dot(residuals,residuals)
+
+    def getObservationChiSq(self, ):
+        """
+        Returns chisq specified observation i
+        """
+        nModelPixels = self.nModelPixels + self.nTargets
+
+        logFluxes = self.logFluxes[i]
+        nPixels = len(logFluxes)
+
+        rowIndices = np.tile(np.arange(nPixels), self.nParams)
+        colIndices = self.colIndices[i]
+        coefficients = self.coefficients[i]
+
+        # build the sparse matrix
+        model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
+            shape=(nPixels,nModelPixels), dtype=np.float32)
+        # convert the sparse matrix to compressed sparse column format
+        model = model.tocsc()
+
+        # calculate chisq
+        residuals = logFluxes - model.dot(self.soln)
+        return np.dot(residuals, residuals)
+
 
     @staticmethod
     def addArgs(parser):
