@@ -74,7 +74,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
+    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     targets = sorted(targets[:ntargets])
     if args.verbose: 
@@ -89,7 +89,7 @@ def main():
     transWaveCenters = bosslya.getFiducialWavelength(np.arange(transminindex,transmaxindex+1))
     ntransbins = len(transWaveCenters)
     if args.verbose:
-        print 'Observed frame bin centers span [%.2f,%.2f] with %d bins.' % (
+        print 'Observed frame bin centers span [%.2f:%.2f] with %d bins.' % (
             transWaveCenters[0],transWaveCenters[-1],ntransbins)
 
     restmin = args.restmin
@@ -98,7 +98,7 @@ def main():
     drest = float(restmax-restmin)/nrestbins
     restWaveCenters = np.linspace(restmin,restmax,nrestbins,endpoint=False) + drest/2
     if args.verbose:
-        print 'Rest frame bin centers span [%.2f,%.2f] with %d bins.' % (
+        print 'Rest frame bin centers span [%.2f:%.2f] with %d bins.' % (
             restWaveCenters[0],restWaveCenters[-1],nrestbins)
 
     # Initialize model
@@ -181,7 +181,7 @@ def main():
         normCCoefs = np.ones(len(normCRange))/len(normCRange)
         fitter.addConstraint('C', 0, normCRange, args.restnormweight*normCCoefs)
         if args.verbose:
-            print 'Adding constraint: logC([%.4f,%.4f]) = %.1f (range covers %d continuum bins [%d,%d])' % (
+            print 'Adding constraint: logC([%.4f:%.4f]) = %.1f (range covers %d continuum bins [%d:%d])' % (
                 restWaveCenters[normCRange[0]], restWaveCenters[normCRange[-1]], 0, len(normCCoefs), normCRange[0], normCRange[-1])
 
     # Add constraint for transmission normalization
@@ -193,7 +193,7 @@ def main():
         normTCoefs = np.ones(len(normTRange))/len(normTRange)
         fitter.addConstraint('T', 0, normTRange, args.obsnormweight*normTCoefs)
         if args.verbose:
-            print 'Adding constraint: logT([%.4f,%.4f]) = %.1f (range covers %d transmission bins [%d,%d])' % (
+            print 'Adding constraint: logT([%.4f:%.4f]) = %.1f (range covers %d transmission bins [%d:%d])' % (
                 transWaveCenters[normTRange[0]], transWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
     # run the fitter
     results = fitter.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
@@ -225,6 +225,7 @@ def main():
 
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
     outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
+    outfile.create_dataset('sn', data=[target.sn for target in fitTargets])
 
     outfile.create_dataset('T', data=obsModelValues)
     outfile.create_dataset('C', data=restModelValues)
