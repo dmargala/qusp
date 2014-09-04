@@ -88,7 +88,6 @@ def main():
     transmaxindex = np.argmax(obsWaveCenters > args.transmax)
     transWaveCenters = bosslya.getFiducialWavelength(np.arange(transminindex,transmaxindex+1))
     ntransbins = len(transWaveCenters)
-    print transWaveCenters
     if args.verbose:
         print 'Observed frame bin centers span [%.2f,%.2f] with %d bins.' % (
             transWaveCenters[0],transWaveCenters[-1],ntransbins)
