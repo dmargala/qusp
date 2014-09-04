@@ -160,7 +160,7 @@ def main():
         if len(logFlux) <= 0:
             continue
         restSlice = restindices[validbins]
-        obsSlice = obsindices[validbins]#np.arange(offset,offset+combined.nPixels)[validbins]
+        transSlice = obsindices[validbins]-transminindex#np.arange(offset,offset+combined.nPixels)[validbins]
 
         # calculate weights
         if args.unweighted:
@@ -169,7 +169,7 @@ def main():
             weights = ivar[validbins]#**(2)/flux[validbins]**4
 
         # Add this observation to our fitter
-        fitter.addObservation(logFlux, obsSlice, restSlice, weights)
+        fitter.addObservation(logFlux, transSlice, restSlice, weights)
         fitTargets.append(target)
         npixels.append(len(logFlux))
 
