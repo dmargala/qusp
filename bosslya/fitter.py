@@ -179,7 +179,7 @@ class ContinuumFitter():
         residuals = logFluxes - self.model.dot(self.soln)
         return np.dot(residuals,residuals)
 
-    def getObservationChiSq(self, ):
+    def getObservationChiSq(self, i):
         """
         Returns chisq specified observation i
         """

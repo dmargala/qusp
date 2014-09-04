@@ -197,7 +197,7 @@ def main():
                 transWaveCenters[normTRange[0]], transWaveCenters[normTRange[-1]], 0, len(normTCoefs), normTRange[0], normTRange[-1])
     # run the fitter
     results = fitter.fit(verbose=args.verbose, atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
-    chisq = fitter.getChiSquare()
+    chisq = fitter.getChiSq()
 
     if args.verbose:
         print 'chisq (nModelParams,nConstraints): %.2f (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
@@ -226,6 +226,8 @@ def main():
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
     outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
     outfile.create_dataset('sn', data=[target.sn for target in fitTargets])
+
+    outfile.create_dataset('chisq', data=[fitter.getObservationChiSq(i) for i in range(len(fitTargets))])
 
     outfile.create_dataset('T', data=obsModelValues)
     outfile.create_dataset('C', data=restModelValues)
