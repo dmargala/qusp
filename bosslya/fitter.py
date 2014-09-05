@@ -87,10 +87,11 @@ class ContinuumFitter():
             if self.verbose:
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
             return 0
-        restSlice = restIndices[validbins]
-        obsSlice = obsFiducialIndices[validbins]-self.obsWaveMinIndex
+        
+        restIndices = restIndices[validbins]
+        obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
 
-        assert np.amax(obsSlice) < self.obsNParams and np.amax(restSlice) < self.restNParams, (
+        assert np.amax(obsIndices) < self.obsNParams and np.amax(restIndices) < self.restNParams, (
             'Invalid model index value')
 
         # compute weights
@@ -115,10 +116,10 @@ class ContinuumFitter():
         coefficients = []
         for i,param in enumerate(self.params):
             if param['type'] is 'obs':
-                colIndices.append(colOffset+obsSlice)
+                colIndices.append(colOffset+obsIndices)
                 colOffset += self.obsNParams
             elif param['type'] is 'rest':
-                colIndices.append(colOffset+restSlice)
+                colIndices.append(colOffset+restIndices)
                 colOffset += self.restNParams
             elif param['type'] is 'target':
                 colIndices.append(colOffset+self.nTargets*np.ones(nPixels))
@@ -129,7 +130,7 @@ class ContinuumFitter():
         # function is specified in the param dictionary
         for i,param in enumerate(self.params):
             if 'coef' in param.keys():
-                coefficients.append(sqrtw*param['coef'](self.obsWaveCenters[obsSlice], self.restWaveCenters[restSlice]))
+                coefficients.append(sqrtw*param['coef'](self.obsWaveCenters[obsIndices], self.restWaveCenters[restIndices]))
             else:
                 coefficients.append(sqrtw)
         self.coefficients.append(np.concatenate(coefficients))

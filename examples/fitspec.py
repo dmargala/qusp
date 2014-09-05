@@ -106,7 +106,7 @@ def main():
         fitter.addConstraint('C', 0, args.restnorm, args.drestnorm, args.restnormweight)
     if args.obsnorm > 0:
         fitter.addConstraint('T', 0, args.obsnorm, args.dobsnorm, args.obsnormweight)
-    if alpha > 0:
+    if args.alpha > 0:
         fitter.addConstraint('alpha', 0, 1600, 500, 1e3)
 
     # run the fitter
