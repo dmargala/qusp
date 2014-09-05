@@ -45,7 +45,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])#,('sn',float)])
+    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     targets = sorted(targets[:ntargets])
     if args.verbose: 
