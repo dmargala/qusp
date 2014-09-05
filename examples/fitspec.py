@@ -118,7 +118,8 @@ def main():
     fitter = bosslya.ContinuumFitter(params, transWaveCenters, restWaveCenters)
 
     if args.verbose:
-        print 'Fit model initialized with %d model params.' % fitter.nModelPixels
+        print 'Fit model initialized with %d model params.\n' % fitter.nModelPixels
+        print '... adding observations to fit ...\n'
 
     # Add observations to fitter
     plateFileName = None
@@ -173,6 +174,9 @@ def main():
         fitter.addObservation(logFlux, transSlice, restSlice, weights)
         fitTargets.append(target)
         npixels.append(len(logFlux))
+
+    if args.verbose:
+        print ''
 
     # Add constraint for continuum normalization
     if args.restnorm > 0:

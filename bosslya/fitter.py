@@ -131,7 +131,7 @@ class ContinuumFitter():
             print 'Number of targets: %d' % self.nTargets
             print 'Total model params: %d' % nModelPixels
             print 'Total number of flux measurements: %d' % self.nTotalPixels
-            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)' % (
+            print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
         # perform fit
@@ -139,12 +139,12 @@ class ContinuumFitter():
             from sklearn import linear_model
             regr = linear_model.LinearRegression()
             if verbose:
-                print '... performing fit using sklearn.linear_model.LinearRegression ... '
+                print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
             regr.fit(self.model, logFluxes)
             self.soln = regr.coef_
         else:
             if verbose:
-                print '... sperforming fit using cipy.sparse.linalg.lsqr ... '
+                print '... sperforming fit using cipy.sparse.linalg.lsqr ...\n'
             soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=verbose,
                 iter_lim=max_iter, atol=atol, btol=btol)
             self.soln = soln[0]
