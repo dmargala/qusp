@@ -143,18 +143,21 @@ class ContinuumFitter():
     def addConstraint(self, paramName, logFlux, wave, dwave, weight):
         waveMin = wave - 0.5*dwave
         waveMax = wave + 0.5*dwave
-        if paramName is 'T':
-            waves = self.obsWaveCenters
-        elif paramName is 'C':
-            waves = self.restWaveCenters
-        else:
-            assert False, ('Invalid constraint parameter')
+
+        for param in self.params:
+            if param['name'] is paramName:
+                if param['type'] is 'obs':
+                    waves = self.obsWaveCenters
+                elif param['type'] is 'rest':
+                    waves = self.restWaveCenters
+                else:
+                    assert False, ('Invalid constraint parameter')
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
         normCoefs = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
 
         if self.verbose:
-            print 'Adding constraint: log%s([%.4f:%.4f]) = %.1f (range covers %d bins [%d:%d])' % (
+            print 'Adding constraint: %s([%.4f:%.4f]) = exp(%.1f) (range covers %d bins [%d:%d])' % (
                 paramName, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(normCoefs), waveIndexRange[0], waveIndexRange[-1])
 
