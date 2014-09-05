@@ -15,10 +15,11 @@ class ContinuumFitter():
         self.obsWaveMin = obsWaveMin
         self.obsWaveMax = obsWaveMax
 
-        self.obsWaveMinIndex = bosslya.getFiducialPixelIndexOffset(np.log10(obsWaveMin))
-        self.obsWaveMaxIndex = bosslya.getFiducialPixelIndexOffset(np.log10(obsWaveMax))
+        obsFiducialWave = bosslya.getFiducialWavelength(np.arange(4800))
+        self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsWaveMin)
+        self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsWaveMax)+1
 
-        self.obsWaveCenters = bosslya.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex+1))
+        self.obsWaveCenters = bosslya.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
         self.obsNParams = len(self.obsWaveCenters)
 
         if verbose:
