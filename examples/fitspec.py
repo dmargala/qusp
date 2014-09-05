@@ -55,7 +55,6 @@ def main():
     params = []
     params.append({'name':'T','type':'obs'})
     params.append({'name':'C','type':'rest'})
-    params.append({'name':'A','type':'target'})
 
     if args.alpha:
         if args.verbose:
@@ -63,6 +62,8 @@ def main():
         def alphaCoef(obs, rest):
             return -np.power(obs/rest, args.beta)
         params.append({'name':'alpha','type':'rest','coef':alphaCoef})
+
+    params.append({'name':'A','type':'target'})
 
     # Initialize fitter 
     fitter = bosslya.ContinuumFitter(params, args.obsmin, args.obsmax, 
