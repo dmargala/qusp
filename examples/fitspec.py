@@ -129,10 +129,12 @@ def main():
     outfile.create_dataset('T', data=obsModelValues)
     outfile.create_dataset('C', data=restModelValues)
     outfile.create_dataset('A', data=targetModelValues)
+    outfile.create_dataset('soln', data=fitter.soln)
 
     dsetAlpha = outfile.create_dataset('alpha', data=alphaModelValues)
     dsetAlpha.attrs['minRestIndex'] = fitter.alphaMinIndex
     dsetAlpha.attrs['maxRestIndex'] = fitter.alphaMaxIndex 
+    dsetAlpha.attrs['beta'] = args.beta
 
     outfile.close()
 
