@@ -43,8 +43,8 @@ class ContinuumFitter():
         self.beta = beta
         self.alphaMin = max(alphaMin,restWaveMin)
         self.alphaMax = min(alphaMax,restWaveMax)
-        self.alphaMinIndex = np.argmax(self.restWaveCenters-0.5*self.restWaveDelta > self.alphaMin)
-        self.alphaMaxIndex = np.argmax(self.restWaveCenters-0.5*self.restWaveDelta > self.alphaMax)+1
+        self.alphaMinIndex = np.argmax(self.restWaveCenters >= self.alphaMin)
+        self.alphaMaxIndex = np.argmax(self.restWaveCenters > self.alphaMax)
         self.alphaWaveCenters = self.restWaveCenters[self.alphaMinIndex:self.alphaMaxIndex]
         self.alphaNParams = len(self.alphaWaveCenters)
 
@@ -135,13 +135,13 @@ class ContinuumFitter():
         colOffset += self.obsNParams
         buildBlock(colOffset, np.arange(nPixels), restIndices, np.ones(nPixels))
 
-        alphaMinIndex = np.argmax(restIndices >= self.alphaMinIndex)
-        alphaMaxIndex = np.argmax(restIndices >= self.alphaMaxIndex)
-        alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
-        alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - self.alphaMinIndex
-
+        alphaMinIndex = np.argmax(restIndices == self.alphaMinIndex)
+        alphaMaxIndex = np.argmax(restIndices == self.alphaMaxIndex)
+        
         colOffset += self.restNParams
-        if len(alphaIndices) > 0:
+        if alphaMaxIndex > alphaMinIndex:
+            alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
+            alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - self.alphaMinIndex
             assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
             alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
             buildBlock(colOffset, alphaRows, alphaIndices, alphaValues)
