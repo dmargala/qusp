@@ -137,7 +137,7 @@ class ContinuumFitter():
 
         alphaMinIndex = np.argmax(restIndices == self.alphaMinIndex)
         alphaMaxIndex = np.argmax(restIndices == self.alphaMaxIndex)
-        
+
         colOffset += self.restNParams
         if alphaMaxIndex > alphaMinIndex:
             alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
@@ -222,7 +222,7 @@ class ContinuumFitter():
         # perform fit
         if sklearn:
             from sklearn import linear_model
-            regr = linear_model.LinearRegression()
+            regr = linear_model.LinearRegression(fit_intercept=False)
             if self.verbose:
                 print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
             regr.fit(self.model, logFluxes)
