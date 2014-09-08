@@ -12,7 +12,6 @@ class ContinuumFitter():
         self.verbose = verbose
 
         # initialize binning arrays
-        print obsWaveMax, obsWaveMin
         assert obsWaveMax > obsWaveMin, ('obsWaveMax must be greater than obsWaveMin')
         self.obsWaveMin = obsWaveMin
         self.obsWaveMax = obsWaveMax
@@ -200,8 +199,6 @@ class ContinuumFitter():
         colIndices = np.concatenate(self.colIndices)
         coefficients = np.concatenate(self.coefficients)
         logFluxes = np.concatenate(self.logFluxes)
-
-        print len(coefficients), len(rowIndices), len(colIndices)
 
         # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
