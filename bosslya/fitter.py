@@ -6,11 +6,13 @@ import scipy.sparse.linalg
 import bosslya
 
 class ContinuumFitter():
-    def __init__(self, params, obsWaveMin, obsWaveMax,
-        restWaveMin, restWaveMax, restNParams, verbose=False):
+    def __init__(self, obsWaveMin, obsWaveMax,
+        restWaveMin, restWaveMax, restNParams, 
+        alphaMin=1025, alphaMax=1216, beta=3.92, verbose=False):
         self.verbose = verbose
 
         # initialize binning arrays
+        print obsWaveMax, obsWaveMin
         assert obsWaveMax > obsWaveMin, ('obsWaveMax must be greater than obsWaveMin')
         self.obsWaveMin = obsWaveMin
         self.obsWaveMax = obsWaveMax
@@ -38,15 +40,20 @@ class ContinuumFitter():
             print 'Rest frame bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.restWaveCenters[0],self.restWaveCenters[-1],self.restNParams)
 
+        self.beta = beta
+        self.alphaMin = max(alphaMin,restWaveMin)
+        self.alphaMax = min(alphaMax,restWaveMax)
+        self.alphaMinIndex = np.argmax(self.restWaveCenters-0.5*self.restWaveDelta > self.alphaMin)
+        self.alphaMaxIndex = np.argmax(self.restWaveCenters-0.5*self.restWaveDelta > self.alphaMax)+1
+        self.alphaWaveCenters = self.restWaveCenters[self.alphaMinIndex:self.alphaMaxIndex]
+        self.alphaNParams = len(self.alphaWaveCenters)
+
+        if verbose:
+            print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
+                self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
+
         # the number of "model" pixels (excluding per target params)
-        self.params = params
-        self.nParams = len(params)
-        self.nModelPixels = 0
-        for param in params:
-            if param['type'] is 'obs':
-                self.nModelPixels += self.obsNParams
-            elif param['type'] is 'rest':
-                self.nModelPixels += self.restNParams
+        self.nModelPixels = self.obsNParams + self.restNParams + self.alphaNParams
         # sparse matrix entry holders
         self.rowIndices = []
         self.colIndices = []
@@ -90,6 +97,7 @@ class ContinuumFitter():
         
         restIndices = restIndices[validbins]
         obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
+        targetIndices = self.nTargets*np.ones(nPixels)
 
         assert np.amax(obsIndices) < self.obsNParams and np.amax(restIndices) < self.restNParams, (
             'Invalid model index value')
@@ -104,35 +112,41 @@ class ContinuumFitter():
         # Append logFlux values
         self.logFluxes.append(sqrtw*logFlux)
 
-        # Each row corresponds to single flux value, the model matrix
-        # will have nParams entries per row
-        rowIndices = self.nTotalPixels+np.arange(nPixels)
-        self.rowIndices.append(np.tile(rowIndices,self.nParams))
-
-        # Each col corresponds to model parameter value, the model matrix
-        # is ordered in blocks of model parameters
+        # Assemble matrix
         colIndices = []
-        colOffset = 0
+        rowIndices = []
         coefficients = []
-        for i,param in enumerate(self.params):
-            if param['type'] is 'obs':
-                colIndices.append(colOffset+obsIndices)
-                colOffset += self.obsNParams
-            elif param['type'] is 'rest':
-                colIndices.append(colOffset+restIndices)
-                colOffset += self.restNParams
-            elif param['type'] is 'target':
-                colIndices.append(colOffset+self.nTargets*np.ones(nPixels))
-                colOffset += 1
-        self.colIndices.append(np.concatenate(colIndices))
+        rowOffset = self.nTotalPixels
 
-        # The coefficients in the model matrix are the sqrt(weight), unless a 'coef'
-        # function is specified in the param dictionary
-        for i,param in enumerate(self.params):
-            if 'coef' in param.keys():
-                coefficients.append(sqrtw*param['coef'](self.obsWaveCenters[obsIndices], self.restWaveCenters[restIndices]))
-            else:
-                coefficients.append(sqrtw)
+        def buildBlock(offset, nParams, rows, cols, paramValues):
+            # Each col corresponds to model parameter value, the model matrix
+            # is ordered in blocks of model parameters
+            colIndices.append(offset + cols)
+            # Each row corresponds to single flux value, the model matrix
+            # will have nParams entries per row
+            rowIndices.append(rowOffset + rows)
+            # The coefficients in the model matrix are the sqrt(weight), unless a 'coef'
+            # function is specified in the param dictionary
+            coefficients.append(paramValues)
+            return offset + nParams
+
+        colOffset = 0
+        colOffset = buildBlock(colOffset, self.obsNParams, np.arange(nPixels), obsIndices, np.ones(nPixels))
+        colOffset = buildBlock(colOffset, self.restNParams, np.arange(nPixels), restIndices, np.ones(nPixels))
+
+        alphaMinIndex = np.argmax(restIndices >= self.alphaMinIndex)
+        alphaMaxIndex = np.argmax(restIndices >= self.alphaMaxIndex)
+        alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
+        alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - max(self.alphaMinIndex,restIndices[0])
+        alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
+
+        assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
+
+        colOffset = buildBlock(colOffset, self.alphaNParams, alphaRows, alphaIndices, alphaValues)
+        colOffset = buildBlock(colOffset, self.nTargets, np.arange(nPixels), targetIndices, np.ones(nPixels))
+
+        self.rowIndices.append(np.concatenate(rowIndices))
+        self.colIndices.append(np.concatenate(colIndices))
         self.coefficients.append(np.concatenate(coefficients))
 
         # Increment the total number of pixel values and the number of observations
@@ -144,14 +158,12 @@ class ContinuumFitter():
         waveMin = wave - 0.5*dwave
         waveMax = wave + 0.5*dwave
 
-        for param in self.params:
-            if param['name'] is paramName:
-                if param['type'] is 'obs':
-                    waves = self.obsWaveCenters
-                elif param['type'] is 'rest':
-                    waves = self.restWaveCenters
-                else:
-                    assert False, ('Invalid constraint parameter')
+        if paramName is 'T':
+            waves = self.obsWaveCenters
+        elif paramName is 'C':
+            waves = self.restWaveCenters
+        else:
+            assert False, ('Invalid constraint parameter')
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
         normCoefs = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
@@ -161,16 +173,10 @@ class ContinuumFitter():
                 paramName, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(normCoefs), waveIndexRange[0], waveIndexRange[-1])
 
-        colOffset = 0
-        for i,param in enumerate(self.params):
-            if param['name'] is paramName:
-                self.colIndices.append(colOffset+waveIndexRange)
-            if param['type'] is 'obs':
-                colOffset += self.obsNParams
-            elif param['type'] is 'rest':
-                colOffset += self.restNParams
-            elif param['type'] is 'target':
-                colOffset += 1
+        if paramName is 'T':
+            self.colIndices.append(waveIndexRange)
+        elif paramName is 'C':
+            self.colIndices.append(self.obsNParams+waveIndexRange)
 
         self.coefficients.append(normCoefs)
         self.rowIndices.append(self.nTotalPixels*np.ones(len(waveIndexRange)))
@@ -191,6 +197,8 @@ class ContinuumFitter():
         coefficients = np.concatenate(self.coefficients)
         logFluxes = np.concatenate(self.logFluxes)
 
+        print len(coefficients), len(rowIndices), len(colIndices)
+
         # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
             shape=(self.nTotalPixels,nModelPixels), dtype=np.float32)
@@ -200,8 +208,9 @@ class ContinuumFitter():
         if self.verbose:
             print 'Number of transmission model params: %d' % self.obsNParams
             print 'Number of continuum model params: %d' % self.restNParams
+            print 'Number of alpha model params: %d' % self.alphaNParams
             print 'Number of targets: %d' % self.nTargets
-            print 'Total model params: %d' % nModelPixels
+            print 'Total number of model params: %d' % nModelPixels
             print 'Total number of flux measurements: %d' % self.nTotalPixels
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
@@ -216,7 +225,7 @@ class ContinuumFitter():
             self.soln = regr.coef_
         else:
             if self.verbose:
-                print '... sperforming fit using cipy.sparse.linalg.lsqr ...\n'
+                print '... performing fit using scipy.sparse.linalg.lsqr ...\n'
             soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=self.verbose,
                 iter_lim=max_iter, atol=atol, btol=btol)
             self.soln = soln[0]
@@ -231,15 +240,16 @@ class ContinuumFitter():
         assert self.soln is not None, ('Can\'t request results before fitting')
         results = {}
         offset = 0
-        for i,param in enumerate(self.params):
-            if param['type'] is 'obs':
-                npixels = self.obsNParams
-            elif param['type'] is 'rest':
-                npixels = self.restNParams
-            elif param['type'] is 'target':
-                npixels = self.nTargets
-            results[param['name']] = self.soln[offset:offset+npixels]
-            offset += npixels
+
+        results['T'] = self.soln[offset:offset+self.obsNParams]
+        offset += self.obsNParams
+        results['C'] = self.soln[offset:offset+self.restNParams]
+        offset += self.restNParams
+        results['alpha'] = self.soln[offset:offset+self.alphaNParams]
+        offset += self.alphaNParams
+        results['A'] = self.soln[offset:offset+self.nTargets]
+        offset += self.nTargets
+
         return results
 
     def getChiSq(self):
@@ -260,7 +270,7 @@ class ContinuumFitter():
         logFluxes = self.logFluxes[i]
         nPixels = len(logFluxes)
 
-        rowIndices = np.tile(np.arange(nPixels), self.nParams)
+        rowIndices = self.rowIndices[i] - min(self.rowIndices[i])
         colIndices = self.colIndices[i]
         coefficients = self.coefficients[i]
 
