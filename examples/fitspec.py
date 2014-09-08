@@ -30,6 +30,7 @@ def main():
     # z evolution options
     parser.add_argument("--beta", type=float, default=3.92,
         help="optical depth power law parameter")
+
     bosslya.ContinuumFitter.addArgs(parser)
     args = parser.parse_args()
 
@@ -129,7 +130,9 @@ def main():
     outfile.create_dataset('C', data=restModelValues)
     outfile.create_dataset('A', data=targetModelValues)
 
-    outfile.create_dataset('alpha', data=alphaModelValues)
+    dsetAlpha = outfile.create_dataset('alpha', data=alphaModelValues)
+    dsetAlpha.attrs['minRestIndex'] = fitter.alphaMinIndex
+    dsetAlpha.attrs['maxRestIndex'] = fitter.alphaMaxIndex 
 
     outfile.close()
 
