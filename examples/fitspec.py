@@ -28,8 +28,6 @@ def main():
     parser.add_argument("-n","--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
     # z evolution options
-    parser.add_argument("--alpha", action="store_true",
-        help="add z evolution term")
     parser.add_argument("--beta", type=float, default=3.92,
         help="optical depth power law parameter")
     bosslya.ContinuumFitter.addArgs(parser)
@@ -51,23 +49,10 @@ def main():
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
-    # prepare model
-    params = []
-    params.append({'name':'T','type':'obs'})
-    params.append({'name':'C','type':'rest'})
-
-    if args.alpha:
-        if args.verbose:
-            print 'Adding z evo param with beta = %.2f' % args.beta
-        def alphaCoef(obs, rest):
-            return -np.power(obs/rest, args.beta)
-        params.append({'name':'alpha','type':'rest','coef':alphaCoef})
-
-    params.append({'name':'A','type':'target'})
-
     # Initialize fitter 
-    fitter = bosslya.ContinuumFitter(params, args.obsmin, args.obsmax, 
-        args.restmin, args.restmax, args.nrestbins, verbose=args.verbose)
+    fitter = bosslya.ContinuumFitter(args.obsmin, args.obsmax, 
+        args.restmin, args.restmax, args.nrestbins, 
+        beta=args.beta, verbose=args.verbose)
 
     if args.verbose:
         print 'Fit model initialized with %d model params.\n' % fitter.nModelPixels
@@ -106,24 +91,21 @@ def main():
         fitter.addConstraint('C', 0, args.restnorm, args.drestnorm, args.restnormweight)
     if args.obsnorm > 0:
         fitter.addConstraint('T', 0, args.obsnorm, args.dobsnorm, args.obsnormweight)
-    if args.alpha > 0:
-        fitter.addConstraint('alpha', 0, 1600, 500, 1e3)
 
     # run the fitter
     results = fitter.fit(atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
     chisq = fitter.getChiSq()
 
     if args.verbose:
-        print 'chisq (nModelParams,nConstraints): %.2f (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
-        print 'reduced chisq: %.2f' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
+        print 'chisq (nModelParams,nConstraints): %.2g (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
+        print 'reduced chisq: %.2g' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
 
     # transform fit results
     obsModelValues = np.exp(results['T'])
     restModelValues = np.exp(results['C'])
     targetModelValues = np.exp(results['A'])
 
-    if args.alpha:
-        alphaModelValues = results['alpha']
+    alphaModelValues = results['alpha']
 
     # Save HDF5 file with results
     outfile = h5py.File(args.output,'w')
@@ -147,8 +129,7 @@ def main():
     outfile.create_dataset('C', data=restModelValues)
     outfile.create_dataset('A', data=targetModelValues)
 
-    if args.alpha:
-        outfile.create_dataset('alpha', data=alphaModelValues)
+    outfile.create_dataset('alpha', data=alphaModelValues)
 
     outfile.close()
 
