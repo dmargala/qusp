@@ -138,11 +138,12 @@ class ContinuumFitter():
         alphaMaxIndex = np.argmax(restIndices >= self.alphaMaxIndex)
         alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
         alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - max(self.alphaMinIndex,restIndices[0])
-        alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
 
-        assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
+        if len(alphaIndices) > 0:
+            assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
+            alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
+            colOffset = buildBlock(colOffset, self.alphaNParams, alphaRows, alphaIndices, alphaValues)
 
-        colOffset = buildBlock(colOffset, self.alphaNParams, alphaRows, alphaIndices, alphaValues)
         colOffset = buildBlock(colOffset, self.nTargets, np.arange(nPixels), targetIndices, np.ones(nPixels))
 
         self.rowIndices.append(np.concatenate(rowIndices))
