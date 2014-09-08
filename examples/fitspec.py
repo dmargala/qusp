@@ -136,6 +136,9 @@ def main():
     dsetAlpha.attrs['maxRestIndex'] = fitter.alphaMaxIndex 
     dsetAlpha.attrs['beta'] = args.beta
 
+    outfile.create_dataset('QuasarEmissionLines', data=bosslya.QuasarEmissionLines)
+    outfile.create_dataset('QuasarEmissionLabels', data=bosslya.QuasarEmissionLabels)
+
     outfile.close()
 
 if __name__ == '__main__':
