@@ -222,11 +222,11 @@ class ContinuumFitter():
         # perform fit
         if sklearn:
             from sklearn import linear_model
-            regr = linear_model.LinearRegression(fit_intercept=False)
+            regr = linear_model.LinearRegression(fit_intercept=True)
             if self.verbose:
                 print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
             regr.fit(self.model, logFluxes)
-            self.soln = regr.coef_
+            self.soln = regr.coef_ + regr.intercept_
         else:
             if self.verbose:
                 print '... performing fit using scipy.sparse.linalg.lsqr ...\n'
