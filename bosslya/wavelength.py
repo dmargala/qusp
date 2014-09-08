@@ -37,7 +37,7 @@ QuasarEmissionLines = [1033.82,1215.24,1240.81,1305.53,
     6549.86,6564.61,6585.27,6718.29,6732.67]
 
 QuasarEmissionLabels = ['O VI',r'Ly$\alpha$','N V','O I','C II',
-    'Si IV','Si IV + O IV','C IV','He II','O III','Al III',
+    'Si IV','O IV','C IV','He II','O III','Al III',
     'C III','C II','Ne IV','Mg II','Ne V','Ne VI','O II','O II',
     'He I','S II',r'H$\delta$',r'H$\gamma$','O III',r'H$\beta$','O III','O III','O III',
     'O I','O I','N I','N II',r'H$\alpha$','N II','S II','S II']
