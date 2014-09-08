@@ -144,7 +144,7 @@ class ContinuumFitter():
         if len(alphaIndices) > 0:
             assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
             alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
-            colOffset = buildBlock(colOffset, alphaRows, alphaIndices, alphaValues)
+            buildBlock(colOffset, alphaRows, alphaIndices, alphaValues)
 
         colOffset += self.alphaNParams
         buildBlock(colOffset, np.arange(nPixels), targetIndices, np.ones(nPixels))
