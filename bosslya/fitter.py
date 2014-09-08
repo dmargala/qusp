@@ -118,33 +118,36 @@ class ContinuumFitter():
         coefficients = []
         rowOffset = self.nTotalPixels
 
-        def buildBlock(offset, nParams, rows, cols, paramValues):
+        def buildBlock(colOffset, nParams, rows, cols, paramValues):
             # Each col corresponds to model parameter value, the model matrix
             # is ordered in blocks of model parameters
-            colIndices.append(offset + cols)
+            colIndices.append(colOffset + cols)
             # Each row corresponds to single flux value, the model matrix
             # will have nParams entries per row
             rowIndices.append(rowOffset + rows)
             # The coefficients in the model matrix are the sqrt(weight), unless a 'coef'
             # function is specified in the param dictionary
             coefficients.append(paramValues)
-            return offset + nParams
 
         colOffset = 0
-        colOffset = buildBlock(colOffset, self.obsNParams, np.arange(nPixels), obsIndices, np.ones(nPixels))
-        colOffset = buildBlock(colOffset, self.restNParams, np.arange(nPixels), restIndices, np.ones(nPixels))
+        buildBlock(colOffset, np.arange(nPixels), obsIndices, np.ones(nPixels))
+
+        colOffset += self.obsNParams
+        buildBlock(colOffset, np.arange(nPixels), restIndices, np.ones(nPixels))
 
         alphaMinIndex = np.argmax(restIndices >= self.alphaMinIndex)
         alphaMaxIndex = np.argmax(restIndices >= self.alphaMaxIndex)
         alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
         alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - max(self.alphaMinIndex,restIndices[0])
 
+        colOffset += self.restNParams
         if len(alphaIndices) > 0:
             assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
             alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
-            colOffset = buildBlock(colOffset, self.alphaNParams, alphaRows, alphaIndices, alphaValues)
+            colOffset = buildBlock(colOffset, alphaRows, alphaIndices, alphaValues)
 
-        colOffset = buildBlock(colOffset, self.nTargets, np.arange(nPixels), targetIndices, np.ones(nPixels))
+        colOffset += self.alphaNParams
+        buildBlock(colOffset, np.arange(nPixels), targetIndices, np.ones(nPixels))
 
         self.rowIndices.append(np.concatenate(rowIndices))
         self.colIndices.append(np.concatenate(colIndices))
