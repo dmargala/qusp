@@ -138,7 +138,7 @@ class ContinuumFitter():
         alphaMinIndex = np.argmax(restIndices >= self.alphaMinIndex)
         alphaMaxIndex = np.argmax(restIndices >= self.alphaMaxIndex)
         alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
-        alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - max(self.alphaMinIndex,restIndices[0])
+        alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - self.alphaMinIndex
 
         colOffset += self.restNParams
         if len(alphaIndices) > 0:
