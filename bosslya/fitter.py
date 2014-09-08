@@ -118,7 +118,7 @@ class ContinuumFitter():
         coefficients = []
         rowOffset = self.nTotalPixels
 
-        def buildBlock(colOffset, nParams, rows, cols, paramValues):
+        def buildBlock(colOffset, rows, cols, paramValues):
             # Each col corresponds to model parameter value, the model matrix
             # is ordered in blocks of model parameters
             colIndices.append(colOffset + cols)
