@@ -27,9 +27,6 @@ def main():
         help="target list")
     parser.add_argument("-n","--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
-    # z evolution options
-    parser.add_argument("--beta", type=float, default=3.92,
-        help="optical depth power law parameter")
 
     bosslya.ContinuumFitter.addArgs(parser)
     args = parser.parse_args()
@@ -53,6 +50,7 @@ def main():
     # Initialize fitter 
     fitter = bosslya.ContinuumFitter(args.obsmin, args.obsmax, 
         args.restmin, args.restmax, args.nrestbins, 
+        alphaMin=args.alphamin, alphaMax=args.alphamax,
         beta=args.beta, verbose=args.verbose)
 
     if args.verbose:
@@ -135,9 +133,6 @@ def main():
     dsetAlpha.attrs['minRestIndex'] = fitter.alphaMinIndex
     dsetAlpha.attrs['maxRestIndex'] = fitter.alphaMaxIndex 
     dsetAlpha.attrs['beta'] = args.beta
-
-    outfile.create_dataset('QuasarEmissionLines', data=bosslya.QuasarEmissionLines)
-    outfile.create_dataset('QuasarEmissionLabels', data=bosslya.QuasarEmissionLabels)
 
     outfile.close()
 

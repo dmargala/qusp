@@ -264,7 +264,7 @@ class ContinuumFitter():
 
     def getObservationChiSq(self, i):
         """
-        Returns chisq specified observation i
+        Returns chisq of the specified observation index
         """
         nModelPixels = self.nModelPixels + self.nTargets
 
@@ -300,6 +300,12 @@ class ContinuumFitter():
             help="rest wavelength maximum")
         parser.add_argument("--nrestbins", type=int, default=500,
             help="number of restframe bins")
+        parser.add_argument("--alphamin", type=float,default=1025,
+            help="alpha min wavelength")
+        parser.add_argument("--alphamax", type=float,default=1216,
+            help="alpha max wavelength")
+        parser.add_argument("--beta", type=float, default=3.92,
+            help="optical depth power law parameter")
         ####### constraints ########
         parser.add_argument("--restnorm", type=float, default=1280,
             help="restframe wavelength to normalize at")
