@@ -51,6 +51,7 @@ class ContinuumFitter():
             print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
 
+        self.targetNParams = 2
         # the number of "model" pixels (excluding per target params)
         self.nModelPixels = self.obsNParams + self.restNParams + self.alphaNParams
         # sparse matrix entry holders
@@ -93,14 +94,7 @@ class ContinuumFitter():
             if self.verbose:
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
             return 0
-        
-        restIndices = restIndices[validbins]
-        obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
-        targetIndices = self.nTargets*np.ones(nPixels)
-
-        assert np.amax(obsIndices) < self.obsNParams and np.amax(restIndices) < self.restNParams, (
-            'Invalid model index value')
-
+    
         # compute weights
         if unweighted:
             weights = np.ones(nPixels)
@@ -116,8 +110,9 @@ class ContinuumFitter():
         rowIndices = []
         coefficients = []
         rowOffset = self.nTotalPixels
+        colOffset = 0
 
-        def buildBlock(colOffset, rows, cols, paramValues):
+        def buildBlock(rows, cols, paramValues):
             # Each col corresponds to model parameter value, the model matrix
             # is ordered in blocks of model parameters
             colIndices.append(colOffset + cols)
@@ -128,25 +123,41 @@ class ContinuumFitter():
             # function is specified in the param dictionary
             coefficients.append(paramValues)
 
-        colOffset = 0
-        buildBlock(colOffset, np.arange(nPixels), obsIndices, np.ones(nPixels))
+        obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
+        assert np.amax(obsIndices) < self.obsNParams, (
+            'Invalid obsmodel index value')
 
+        buildBlock(np.arange(nPixels), obsIndices, np.ones(nPixels))
         colOffset += self.obsNParams
-        buildBlock(colOffset, np.arange(nPixels), restIndices, np.ones(nPixels))
+
+        restIndices = restIndices[validbins]
+        assert np.amax(restIndices) < self.restNParams, (
+            'Invalid rest model index value')
+
+        buildBlock(np.arange(nPixels), restIndices, np.ones(nPixels))
+        colOffset += self.restNParams
 
         alphaMinIndex = np.argmax(restIndices == self.alphaMinIndex)
         alphaMaxIndex = np.argmax(restIndices == self.alphaMaxIndex)
 
-        colOffset += self.restNParams
+
         if alphaMaxIndex > alphaMinIndex:
             alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
             alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - self.alphaMinIndex
+
             assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
             alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
-            buildBlock(colOffset, alphaRows, alphaIndices, alphaValues)
 
+            buildBlock(alphaRows, alphaIndices, alphaValues)
         colOffset += self.alphaNParams
-        buildBlock(colOffset, np.arange(nPixels), targetIndices, np.ones(nPixels))
+
+        targetIndices = self.targetNParams*self.nTargets*np.ones(nPixels)
+
+        buildBlock(np.arange(nPixels), targetIndices, np.ones(nPixels))
+        colOffset += 1
+
+        buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]))
+        colOffset += 1
 
         self.rowIndices.append(np.concatenate(rowIndices))
         self.colIndices.append(np.concatenate(colIndices))
@@ -193,7 +204,7 @@ class ContinuumFitter():
         Does final assembly of the sparse matrix representing the model and performs least
         squares fit.
         """
-        nModelPixels = self.nModelPixels + self.nTargets
+        nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
 
         rowIndices = np.concatenate(self.rowIndices)
         colIndices = np.concatenate(self.colIndices)
@@ -248,8 +259,10 @@ class ContinuumFitter():
         offset += self.restNParams
         results['alpha'] = self.soln[offset:offset+self.alphaNParams]
         offset += self.alphaNParams
-        results['A'] = self.soln[offset:offset+self.nTargets]
-        offset += self.nTargets
+        results['A'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+        offset += 1
+        results['nu'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+        offset += 1
 
         return results
 
@@ -266,7 +279,7 @@ class ContinuumFitter():
         """
         Returns chisq of the specified observation index
         """
-        nModelPixels = self.nModelPixels + self.nTargets
+        nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
 
         logFluxes = self.logFluxes[i]
         nPixels = len(logFluxes)
