@@ -48,8 +48,11 @@ class ContinuumFitter():
         self.alphaNParams = len(self.alphaWaveCenters)
 
         if verbose:
-            print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
-                self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
+            if self.alphaNParams > 0:
+                print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
+                    self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
+            else:
+                print 'No absorption params'
 
         self.targetNParams = 1
 
@@ -143,7 +146,6 @@ class ContinuumFitter():
 
         alphaMinIndex = np.argmax(restIndices == self.alphaMinIndex)
         alphaMaxIndex = np.argmax(restIndices == self.alphaMaxIndex)
-
 
         if alphaMaxIndex > alphaMinIndex:
             alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
