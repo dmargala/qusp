@@ -7,7 +7,7 @@ import bosslya
 
 class ContinuumFitter():
     def __init__(self, obsWaveMin, obsWaveMax,
-        restWaveMin, restWaveMax, restNParams, 
+        restWaveMin, restWaveMax, restNParams, nu=False,
         alphaMin=1025, alphaMax=1216, beta=3.92, verbose=False):
         self.verbose = verbose
 
@@ -51,7 +51,11 @@ class ContinuumFitter():
             print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
 
-        self.targetNParams = 2
+        self.targetNParams = 1
+
+        self.nu = nu
+        if nu:
+            self.targetNParams += 1
         # the number of "model" pixels (excluding per target params)
         self.nModelPixels = self.obsNParams + self.restNParams + self.alphaNParams
         # sparse matrix entry holders
@@ -156,8 +160,9 @@ class ContinuumFitter():
         buildBlock(np.arange(nPixels), targetIndices, np.ones(nPixels))
         colOffset += 1
 
-        buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]))
-        colOffset += 1
+        if self.nu:
+            buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]))
+            colOffset += 1
 
         self.rowIndices.append(np.concatenate(rowIndices))
         self.colIndices.append(np.concatenate(colIndices))
@@ -261,8 +266,9 @@ class ContinuumFitter():
         offset += self.alphaNParams
         results['A'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
         offset += 1
-        results['nu'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
-        offset += 1
+        if self.nu:
+            results['nu'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+            offset += 1
 
         return results
 
@@ -319,6 +325,8 @@ class ContinuumFitter():
             help="alpha max wavelength")
         parser.add_argument("--beta", type=float, default=3.92,
             help="optical depth power law parameter")
+        parser.add_argument("--nu", action="store_true",
+            help="include tilt param")
         ####### constraints ########
         parser.add_argument("--restnorm", type=float, default=1280,
             help="restframe wavelength to normalize at")
@@ -334,7 +342,7 @@ class ContinuumFitter():
             help="norm constraint weight")
         ####### fit options #######
         parser.add_argument("--unweighted", action="store_true",
-        help="perform unweighted least squares fit")
+            help="perform unweighted least squares fit")
         parser.add_argument("--sklearn", action="store_true",
             help="use sklearn linear regression instead of scipy lstsq")
         ## scipy fit options
