@@ -27,3 +27,4 @@ def readTargetList(filename, fields=[]):
                 namedTokens[i] = dtype[i](namedTokens[i])
             targetList.append(Target(*namedTokens))
     return targetList
+

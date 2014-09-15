@@ -49,7 +49,7 @@ def main():
 
     # Initialize fitter 
     fitter = bosslya.ContinuumFitter(args.obsmin, args.obsmax, 
-        args.restmin, args.restmax, args.nrestbins, nu=args.nu,
+        args.restmin, args.restmax, args.nrestbins, nuWave=args.nuwave,
         alphaMin=args.alphamin, alphaMax=args.alphamax,
         beta=args.beta, verbose=args.verbose)
 
