@@ -89,3 +89,21 @@ def readCombinedSpectrum(spPlate, fiber):
     spectrum.ivar[andMask > 0] = 0
 
     return spectrum
+
+
+def plotSpectrum(spectrum, **kwargs):
+    if isinstance(spectrum, basestring):
+        plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
+        fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
+        spPlate = fits.open(fullName)
+        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        spPlate.close()
+    elif isinstance(spectrum, Spectrum):
+        combined = spectrum
+    else:
+        assert False, 'Invalid spectrum argument'
+    x = combined.wavelength
+    y = combined.flux
+    plt.plot(x, y, **kwargs)
+    plt.xlim([x[0], x[-1]])
+    plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
