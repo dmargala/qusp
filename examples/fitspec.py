@@ -87,9 +87,11 @@ def main():
         print ''
 
     if args.restnorm > 0:
-        fitter.addConstraint('C', 0, args.restnorm, args.drestnorm, args.restnormweight)
+        fitter.addWaveConstraint('C', 0, args.restnorm, args.drestnorm, args.restnormweight)
     if args.obsnorm > 0:
-        fitter.addConstraint('T', 0, args.obsnorm, args.dobsnorm, args.obsnormweight)
+        fitter.addWaveConstraint('T', 0, args.obsnorm, args.dobsnorm, args.obsnormweight)
+    if args.nuweight > 0:
+        fitter.addNuConstraint(args.nuweight)
 
     # run the fitter
     results = fitter.fit(atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)

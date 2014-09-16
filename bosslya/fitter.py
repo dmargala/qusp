@@ -110,7 +110,7 @@ class ContinuumFitter():
         sqrtw = np.sqrt(weights)
 
         # Append logFlux values
-        self.logFluxes.append(sqrtw*logFlux)
+        logFluxes = sqrtw*logFlux
 
         # Assemble matrix
         colIndices = []
@@ -166,16 +166,13 @@ class ContinuumFitter():
             buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.nuWave))
             colOffset += 1
 
-        self.rowIndices.append(np.concatenate(rowIndices))
-        self.colIndices.append(np.concatenate(colIndices))
-        self.coefficients.append(np.concatenate(coefficients))
-
-        # Increment the total number of pixel values and the number of observations
-        self.nTotalPixels += nPixels
+        self.addModelCoefficents(np.concatenate(rowIndices),
+            np.concatenate(colIndices), np.concatenate(coefficients), logFluxes)
         self.nTargets += 1
+
         return nPixels
 
-    def addConstraint(self, paramName, logFlux, wave, dwave, weight):
+    def addWaveConstraint(self, paramName, logFlux, wave, dwave, weight):
         waveMin = wave - 0.5*dwave
         waveMax = wave + 0.5*dwave
 
@@ -184,27 +181,44 @@ class ContinuumFitter():
         elif paramName is 'C':
             waves = self.restWaveCenters
         else:
-            assert False, ('Invalid constraint parameter')
+            assert False, ('Invalid wave constraint parameter')
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
-        normCoefs = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
+        constraintCoefficients = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
 
         if self.verbose:
             print 'Adding constraint: %s([%.4f:%.4f]) = exp(%.1f) (range covers %d bins [%d:%d])' % (
                 paramName, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
-                len(normCoefs), waveIndexRange[0], waveIndexRange[-1])
+                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
-        if paramName is 'T':
-            self.colIndices.append(waveIndexRange)
-        elif paramName is 'C':
-            self.colIndices.append(self.obsNParams+waveIndexRange)
+        offset = 0
+        if paramName is 'C':
+            offset += self.obsNParams
 
-        self.coefficients.append(normCoefs)
-        self.rowIndices.append(self.nTotalPixels*np.ones(len(waveIndexRange)))
-        self.logFluxes.append([logFlux])
+        colIndices = offset+waveIndexRange
+        rowIndices = self.nTotalPixels*np.ones(len(constraintCoefficients))
 
-        self.nTotalPixels += 1
-        self.nconstraints += 1        
+        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [logFlux])
+        self.nconstraints += 1
+
+    def addNuConstraint(self, weight):
+
+        colIndices = 1 + self.nModelPixels + np.arange(0,self.targetNParams*self.nTargets,self.targetNParams)
+
+        assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
+
+        rowIndices = self.nTotalPixels*np.ones(self.nTargets)
+        constraintCoefficients = weight*np.ones(self.nTargets)/self.nTargets
+
+        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [0])
+        self.nconstraints += 1
+
+    def addModelCoefficents(self, rows, cols, coefs, logFluxes):
+        self.colIndices.append(cols)
+        self.rowIndices.append(rows)
+        self.coefficients.append(coefs)
+        self.logFluxes.append(logFluxes)
+        self.nTotalPixels += len(logFluxes)
 
     def fit(self, atol=1e-8, btol=1e-8, max_iter=100, sklearn=False):
         """
@@ -327,20 +341,22 @@ class ContinuumFitter():
             help="alpha max wavelength")
         parser.add_argument("--beta", type=float, default=3.92,
             help="optical depth power law parameter")
-        parser.add_argument("--nuwave", type=float, default=0,
+        parser.add_argument("--nuwave", type=float, default=1480,
             help="spectral tilt wavelength")
+        parser.add_argument('--nuweight', type=float, default=1e3,
+            help="nu constraint weight")
         ####### constraints ########
         parser.add_argument("--restnorm", type=float, default=1280,
             help="restframe wavelength to normalize at")
         parser.add_argument("--drestnorm", type=float, default=10,
             help="restframe window size +/- on each side of restnorm wavelength")
-        parser.add_argument("--restnormweight", type=float, default=1e4,
+        parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
         parser.add_argument("--obsnorm", type=float, default=5000,
             help="obsframe wavelength to normalize at")
         parser.add_argument("--dobsnorm", type=float, default=10,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e4,
+        parser.add_argument("--obsnormweight", type=float, default=1e3,
             help="norm constraint weight")
         ####### fit options #######
         parser.add_argument("--unweighted", action="store_true",
