@@ -172,34 +172,53 @@ class ContinuumFitter():
 
         return nPixels
 
-    def addWaveConstraint(self, paramName, logFlux, wave, dwave, weight):
+    def addRestConstraint(self, logFlux, wave, dwave, weight):
         waveMin = wave - 0.5*dwave
         waveMax = wave + 0.5*dwave
 
-        if paramName is 'T':
-            waves = self.obsWaveCenters
-        elif paramName is 'C':
-            waves = self.restWaveCenters
-        else:
-            assert False, ('Invalid wave constraint parameter')
+        waves = self.restWaveCenters
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
         constraintCoefficients = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
 
         if self.verbose:
-            print 'Adding constraint: %s([%.4f:%.4f]) = exp(%.1f) (range covers %d bins [%d:%d])' % (
-                paramName, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
+            print 'Adding constraint: logC([%.4f:%.4f]) = %.1f (range covers %d bins [%d:%d])' % (
+                waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
-        offset = 0
-        if paramName is 'C':
-            offset += self.obsNParams
+        offset = self.obsNParams
 
         colIndices = offset+waveIndexRange
         rowIndices = self.nTotalPixels*np.ones(len(constraintCoefficients))
 
         self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [logFlux])
         self.nconstraints += 1
+
+    def addObsConstraint(self, logFlux, wave, dwave, weight):
+        waveMin = wave - 0.5*dwave
+        waveMax = wave + 0.5*dwave
+
+        waves = self.obsWaveCenters
+
+        waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
+        nconstraints = len(waveIndexRange)
+
+        constraintCoefficients = weight*np.ones(nconstraints)
+
+        if self.verbose:
+            print 'Adding constraint: logT([%.4f:%.4f]) = %.1f (range covers %d bins [%d:%d])' % (
+                waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
+                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
+
+        offset = self.obsNParams
+
+        colIndices = offset+waveIndexRange
+        rowIndices = self.nTotalPixels+np.arange(nconstraints)
+
+        logFluxes = logFlux*np.ones(nconstraints)
+
+        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, logFluxes)
+        self.nconstraints += nconstraints
 
     def addNuConstraint(self, weight):
 
@@ -247,7 +266,7 @@ class ContinuumFitter():
             print 'Number of alpha model params: %d' % self.alphaNParams
             print 'Number of targets: %d' % self.nTargets
             print 'Total number of model params: %d' % nModelPixels
-            print 'Total number of flux measurements: %d' % self.nTotalPixels
+            print 'Total number of flux measurements: %d (%d constraints)' % (self.nTotalPixels, self.nconstraints)
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
@@ -323,6 +342,48 @@ class ContinuumFitter():
         residuals = logFluxes - model.dot(self.soln)
         return np.dot(residuals, residuals)/len(residuals)
 
+    def save(self, outfile, args):
+        outfile.create_dataset('model_data', data=self.model.data)
+        outfile.create_dataset('model_indices', data=self.model.indices)
+        outfile.create_dataset('model_indptr', data=self.model.indptr)
+        outfile.create_dataset('model_shape', data=self.model.shape)
+        outfile.create_dataset('soln', data=self.soln)
+
+        dsetObsWave = outfile.create_dataset('obsWaveCenters', data=self.obsWaveCenters)
+        dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
+
+        # transform fit results
+        results = self.getResults()
+        obsModelValues = np.exp(results['T'])
+        restModelValues = np.exp(results['C'])
+        targetModelValues = np.exp(results['A'])
+        alphaModelValues = results['alpha']
+        nuModelValues = results['nu']
+
+        dsetT = outfile.create_dataset('T', data=obsModelValues)
+        dsetT.attrs['normwave'] = args.obsnorm
+        dsetT.attrs['dnormwave'] = args.dobsnorm
+        dsetT.attrs['normweight'] = args.obsnormweight
+
+        dsetC = outfile.create_dataset('C', data=restModelValues)
+        dsetC.attrs['normwave'] = args.restnorm
+        dsetC.attrs['dnormwave'] = args.drestnorm
+        dsetC.attrs['normweight'] = args.restnormweight
+
+        dsetA = outfile.create_dataset('A', data=targetModelValues)
+
+        dsetAlpha = outfile.create_dataset('alpha', data=alphaModelValues)
+        dsetAlpha.attrs['minRestIndex'] = self.alphaMinIndex
+        dsetAlpha.attrs['maxRestIndex'] = self.alphaMaxIndex 
+        dsetAlpha.attrs['beta'] = self.beta
+
+        dsetNu = outfile.create_dataset('nu', data=nuModelValues)
+        dsetNu.attrs['nuwave'] = args.nuwave
+        dsetNu.attrs['normweight'] = args.nuweight
+    
+        chiSqs = [self.getObservationChiSq(i) for i in range(self.nTargets)]
+        outfile.create_dataset('chisq', data=chiSqs)
+
 
     @staticmethod
     def addArgs(parser):
@@ -331,6 +392,12 @@ class ContinuumFitter():
             help="transmission model wavelength minimum")
         parser.add_argument("--obsmax", type=float, default=10000,
             help="transmission model wavelength maximum")
+        parser.add_argument("--obsnorm", type=float, default=5000,
+            help="obsframe wavelength to normalize at")
+        parser.add_argument("--dobsnorm", type=float, default=10,
+            help="obsframe window size +/- on each side of obsnorm wavelength")
+        parser.add_argument("--obsnormweight", type=float, default=1e3,
+            help="norm constraint weight")
         # continuum model wavelength grid options
         parser.add_argument("--restmin", type=float, default=850,
             help="rest wavelength minimum")
@@ -338,35 +405,30 @@ class ContinuumFitter():
             help="rest wavelength maximum")
         parser.add_argument("--nrestbins", type=int, default=500,
             help="number of restframe bins")
-        parser.add_argument("--alphamin", type=float,default=1025,
-            help="alpha min wavelength")
-        parser.add_argument("--alphamax", type=float,default=1216,
-            help="alpha max wavelength")
-        parser.add_argument("--beta", type=float, default=3.92,
-            help="optical depth power law parameter")
-        parser.add_argument("--nuwave", type=float, default=1480,
-            help="spectral tilt wavelength")
-        parser.add_argument('--nuweight', type=float, default=1e3,
-            help="nu constraint weight")
-        ####### constraints ########
         parser.add_argument("--restnorm", type=float, default=1280,
             help="restframe wavelength to normalize at")
         parser.add_argument("--drestnorm", type=float, default=10,
             help="restframe window size +/- on each side of restnorm wavelength")
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
-        parser.add_argument("--obsnorm", type=float, default=5000,
-            help="obsframe wavelength to normalize at")
-        parser.add_argument("--dobsnorm", type=float, default=10,
-            help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e3,
-            help="norm constraint weight")
-        ####### fit options #######
+        # absorption model parameter options
+        parser.add_argument("--alphamin", type=float,default=1025,
+            help="alpha min wavelength")
+        parser.add_argument("--alphamax", type=float,default=1216,
+            help="alpha max wavelength")
+        parser.add_argument("--beta", type=float, default=3.92,
+            help="optical depth power law parameter")
+        # spectral tilt parameter options
+        parser.add_argument("--nuwave", type=float, default=1480,
+            help="spectral tilt wavelength")
+        parser.add_argument('--nuweight', type=float, default=1e3,
+            help="nu constraint weight")
+        # fit options 
         parser.add_argument("--unweighted", action="store_true",
             help="perform unweighted least squares fit")
         parser.add_argument("--sklearn", action="store_true",
             help="use sklearn linear regression instead of scipy lstsq")
-        ## scipy fit options
+        # scipy fit options
         parser.add_argument("--max-iter", type=int, default=100,
             help="max number of iterations to use in lsqr")
         parser.add_argument("--atol", type=float, default=1e-4,

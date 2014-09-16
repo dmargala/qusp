@@ -86,10 +86,11 @@ def main():
     if args.verbose:
         print ''
 
+    # Add constraints
     if args.restnorm > 0:
-        fitter.addWaveConstraint('C', 0, args.restnorm, args.drestnorm, args.restnormweight)
+        fitter.addRestConstraint(0, args.restnorm, args.drestnorm, args.restnormweight)
     if args.obsnorm > 0:
-        fitter.addWaveConstraint('T', 0, args.obsnorm, args.dobsnorm, args.obsnormweight)
+        fitter.addObsConstraint(0, args.obsnorm, args.dobsnorm, args.obsnormweight)
     if args.nuweight > 0:
         fitter.addNuConstraint(args.nuweight)
 
@@ -101,53 +102,15 @@ def main():
         print 'chisq (nModelParams,nConstraints): %.2g (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
         print 'reduced chisq: %.2g' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
 
-    # transform fit results
-    obsModelValues = np.exp(results['T'])
-    restModelValues = np.exp(results['C'])
-    targetModelValues = np.exp(results['A'])
-    alphaModelValues = results['alpha']
-    nuModelValues = results['nu']
-
     # Save HDF5 file with results
     outfile = h5py.File(args.output,'w')
 
+    fitter.save(outfile, args)
+
     outfile.create_dataset('npixels', data=npixels)
-    outfile.create_dataset('model_data', data=fitter.model.data)
-    outfile.create_dataset('model_indices', data=fitter.model.indices)
-    outfile.create_dataset('model_indptr', data=fitter.model.indptr)
-    outfile.create_dataset('model_shape', data=fitter.model.shape)
-
-    outfile.create_dataset('soln', data=fitter.soln)
-
-    dsetObsWave = outfile.create_dataset('obsWaveCenters', data=fitter.obsWaveCenters)
-    dsetRestWave = outfile.create_dataset('restWaveCenters', data=fitter.restWaveCenters)
-
-    dsetT = outfile.create_dataset('T', data=obsModelValues)
-    dsetT.attrs['normwave'] = args.obsnorm
-    dsetT.attrs['dnormwave'] = args.dobsnorm
-    dsetT.attrs['normweight'] = args.obsnormweight
-
-    dsetC = outfile.create_dataset('C', data=restModelValues)
-    dsetC.attrs['normwave'] = args.restnorm
-    dsetC.attrs['dnormwave'] = args.drestnorm
-    dsetC.attrs['normweight'] = args.restnormweight
-
-    dsetA = outfile.create_dataset('A', data=targetModelValues)
-
-    dsetAlpha = outfile.create_dataset('alpha', data=alphaModelValues)
-    dsetAlpha.attrs['minRestIndex'] = fitter.alphaMinIndex
-    dsetAlpha.attrs['maxRestIndex'] = fitter.alphaMaxIndex 
-    dsetAlpha.attrs['beta'] = args.beta
-
-    dsetNu = outfile.create_dataset('nu', data=nuModelValues)
-    dsetNu.attrs['nuwave'] = args.nuwave
-    dsetNu.attrs['normweight'] = args.nuweight
-
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
     outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
     outfile.create_dataset('sn', data=[target.sn for target in fitTargets])
-
-    outfile.create_dataset('chisq', data=[fitter.getObservationChiSq(i) for i in range(len(fitTargets))])
 
     outfile.close()
 
