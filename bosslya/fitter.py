@@ -207,6 +207,9 @@ class ContinuumFitter():
 
         assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
 
+        if self.verbose:
+            print 'Adding constraint: sum(nu) = 0 (%d nu params)' % self.nTargets
+
         rowIndices = self.nTotalPixels*np.ones(self.nTargets)
         constraintCoefficients = weight*np.ones(self.nTargets)/self.nTargets
 

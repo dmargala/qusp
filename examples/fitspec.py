@@ -66,8 +66,8 @@ def main():
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
             plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
             fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
-            if args.verbose:
-               print 'Opening plate file %s...' % fullName
+            # if args.verbose:
+            #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
         # read this target's combined spectrum
