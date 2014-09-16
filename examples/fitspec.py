@@ -105,7 +105,6 @@ def main():
     obsModelValues = np.exp(results['T'])
     restModelValues = np.exp(results['C'])
     targetModelValues = np.exp(results['A'])
-
     alphaModelValues = results['alpha']
     nuModelValues = results['nu']
 
@@ -117,7 +116,7 @@ def main():
     outfile.create_dataset('model_indices', data=fitter.model.indices)
     outfile.create_dataset('model_indptr', data=fitter.model.indptr)
     outfile.create_dataset('model_shape', data=fitter.model.shape)
-    
+
     outfile.create_dataset('soln', data=fitter.soln)
 
     dsetObsWave = outfile.create_dataset('obsWaveCenters', data=fitter.obsWaveCenters)
@@ -130,7 +129,7 @@ def main():
 
     dsetC = outfile.create_dataset('C', data=restModelValues)
     dsetC.attrs['normwave'] = args.restnorm
-    dsetC.attrs['dnormwave'] = args.restnorm
+    dsetC.attrs['dnormwave'] = args.drestnorm
     dsetC.attrs['normweight'] = args.restnormweight
 
     dsetA = outfile.create_dataset('A', data=targetModelValues)
