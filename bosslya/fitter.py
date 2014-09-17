@@ -177,10 +177,10 @@ class ContinuumFitter():
         offset = self.obsNParams
 
         waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
-        constraintCoefficients = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
+        constraintCoefficients = weight*np.ones(len(waveIndexRange))
 
         if self.verbose:
-            print 'Adding constraint: %.2g*logC([%.4f:%.4f]) = %.1f (%d logC params [%d:%d])' % (
+            print 'Adding constraint: sum(%.2g*logC([%.4f:%.4f])) = %.1f (%d logC params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
@@ -200,7 +200,7 @@ class ContinuumFitter():
         constraintCoefficients = weight*np.ones(nconstraints)
 
         if self.verbose:
-            print 'Adding constraint: %.2g*logT([%.4f:%.4f]) = %.1f (%d logT params [%d:%d])' % (
+            print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
