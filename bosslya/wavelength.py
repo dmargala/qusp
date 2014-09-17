@@ -28,6 +28,8 @@ class Wavelength(float):
 SkyLineList = [5578.5,5894.6,5894.6,7246.0]
 SkyLines = [Wavelength(value) for value in SkyLineList]
 
+BallmerLines = [3646,3835,3889,3970,4102,4341,4861,6563]
+
 
 QuasarEmissionLines = [912, 972, 1026,1033.82,1215.6701,1240.81,1305.53,
     1335.31,1397.61,1399.8,1549.48,1640.4,1665.85,1857.4,
