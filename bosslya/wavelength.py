@@ -25,7 +25,11 @@ class Wavelength(float):
     def rest(self, redshift):
         return self/(1+redshift)
 
-SkyLineList = [5578.5,5894.6,5894.6,7246.0]
+
+# SDSS lines
+# http://classic.sdss.org/dr7/algorithms/linestable.html
+
+SkyLineList = [5578.5,5894.6,6301.7,7246.0]
 SkyLines = [Wavelength(value) for value in SkyLineList]
 
 BallmerLines = [3646,3835,3889,3970,4102,4341,4861,6563]
