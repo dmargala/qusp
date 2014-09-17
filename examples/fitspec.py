@@ -87,10 +87,10 @@ def main():
         print ''
 
     # Add constraints
-    if args.restnorm > 0:
-        fitter.addRestConstraint(0, args.restnorm, args.drestnorm, args.restnormweight)
-    if args.obsnorm > 0:
-        fitter.addObsConstraint(0, args.obsnorm, args.dobsnorm, args.obsnormweight)
+    if args.restnormmax > args.restnormmin:
+        fitter.addRestConstraint(0, args.restnormmin, args.restnormmax, args.restnormweight)
+    if args.obsnormmax > args.obsnormmin:
+        fitter.addObsConstraint(0, args.obsnormmin, args.obsnormmax, args.obsnormweight)
     if args.nuweight > 0:
         fitter.addNuConstraint(args.nuweight)
 

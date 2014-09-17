@@ -172,14 +172,11 @@ class ContinuumFitter():
 
         return nPixels
 
-    def addRestConstraint(self, logFlux, wave, dwave, weight):
-        waveMin = wave - 0.5*dwave
-        waveMax = wave + 0.5*dwave
-
+    def addRestConstraint(self, logFlux, wavemin, wavemax, weight):
         waves = self.restWaveCenters
         offset = self.obsNParams
 
-        waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
+        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
         constraintCoefficients = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
 
         if self.verbose:
@@ -193,14 +190,11 @@ class ContinuumFitter():
         self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [logFlux])
         self.nconstraints += 1
 
-    def addObsConstraint(self, logFlux, wave, dwave, weight):
-        waveMin = wave - 0.5*dwave
-        waveMax = wave + 0.5*dwave
-
+    def addObsConstraint(self, logFlux, wavemin, wavemax, weight):
         waves = self.obsWaveCenters
         offset = 0
 
-        waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
+        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
         nconstraints = len(waveIndexRange)
 
         constraintCoefficients = weight*np.ones(nconstraints)
@@ -361,13 +355,13 @@ class ContinuumFitter():
         nuModelValues = results['nu']
 
         dsetT = outfile.create_dataset('T', data=obsModelValues)
-        dsetT.attrs['normwave'] = args.obsnorm
-        dsetT.attrs['dnormwave'] = args.dobsnorm
+        dsetT.attrs['normmin'] = args.obsnormmin
+        dsetT.attrs['normmax'] = args.obsnormmax
         dsetT.attrs['normweight'] = args.obsnormweight
 
         dsetC = outfile.create_dataset('C', data=restModelValues)
-        dsetC.attrs['normwave'] = args.restnorm
-        dsetC.attrs['dnormwave'] = args.drestnorm
+        dsetC.attrs['normmin'] = args.restnormmin
+        dsetC.attrs['normmax'] = args.restnormmax
         dsetC.attrs['normweight'] = args.restnormweight
 
         dsetA = outfile.create_dataset('A', data=targetModelValues)
@@ -392,9 +386,9 @@ class ContinuumFitter():
             help="transmission model wavelength minimum")
         parser.add_argument("--obsmax", type=float, default=10000,
             help="transmission model wavelength maximum")
-        parser.add_argument("--obsnorm", type=float, default=5000,
+        parser.add_argument("--obsnormmin", type=float, default=3600,
             help="obsframe wavelength to normalize at")
-        parser.add_argument("--dobsnorm", type=float, default=10,
+        parser.add_argument("--obsnormmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
         parser.add_argument("--obsnormweight", type=float, default=1e3,
             help="norm constraint weight")
@@ -405,9 +399,9 @@ class ContinuumFitter():
             help="rest wavelength maximum")
         parser.add_argument("--nrestbins", type=int, default=500,
             help="number of restframe bins")
-        parser.add_argument("--restnorm", type=float, default=1280,
+        parser.add_argument("--restnormmin", type=float, default=1275,
             help="restframe wavelength to normalize at")
-        parser.add_argument("--drestnorm", type=float, default=10,
+        parser.add_argument("--restnormmax", type=float, default=1285,
             help="restframe window size +/- on each side of restnorm wavelength")
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
