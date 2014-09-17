@@ -177,6 +177,7 @@ class ContinuumFitter():
         waveMax = wave + 0.5*dwave
 
         waves = self.restWaveCenters
+        offset = self.obsNParams
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
         constraintCoefficients = weight*np.ones(len(waveIndexRange))/len(waveIndexRange)
@@ -185,8 +186,6 @@ class ContinuumFitter():
             print 'Adding constraint: %.2g*logC([%.4f:%.4f]) = %.1f (%d logC params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
-
-        offset = self.obsNParams
 
         colIndices = offset+waveIndexRange
         rowIndices = self.nTotalPixels*np.ones(len(constraintCoefficients))
@@ -199,6 +198,7 @@ class ContinuumFitter():
         waveMax = wave + 0.5*dwave
 
         waves = self.obsWaveCenters
+        offset = 0
 
         waveIndexRange = np.arange(np.argmax(waves > waveMin), np.argmax(waves > waveMax))
         nconstraints = len(waveIndexRange)
@@ -209,8 +209,6 @@ class ContinuumFitter():
             print 'Adding constraint: %.2g*logT([%.4f:%.4f]) = %.1f (%d logT params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
-
-        offset = self.obsNParams
 
         colIndices = offset+waveIndexRange
         rowIndices = self.nTotalPixels+np.arange(nconstraints)
