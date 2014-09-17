@@ -94,6 +94,9 @@ def main():
     if args.nuweight > 0:
         fitter.addNuConstraint(args.nuweight)
 
+    if args.verbose:
+        print ''
+
     # run the fitter
     results = fitter.fit(atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
     chisq = fitter.getChiSq()

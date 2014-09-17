@@ -95,7 +95,7 @@ class ContinuumFitter():
             restIndices >= 0, 
             flux > 0, ivar > 0), axis=0)
 
-        logFlux = np.log(flux[validbins])
+        logFlux = np.log(flux[validbins]) + np.log(1+target.z)
         nPixels = len(logFlux)
         if nPixels <= 0:
             if self.verbose:
@@ -261,8 +261,10 @@ class ContinuumFitter():
         if self.verbose:
             print 'Number of transmission model params: %d' % self.obsNParams
             print 'Number of continuum model params: %d' % self.restNParams
-            print 'Number of alpha model params: %d' % self.alphaNParams
+            print 'Number of absorption model params: %d' % self.alphaNParams
             print 'Number of targets: %d' % self.nTargets
+            print 'Number of target params: %d' % self.targetNParams
+            print ''
             print 'Total number of model params: %d' % nModelPixels
             print 'Total number of flux measurements: %d (%d constraints)' % (self.nTotalPixels, self.nconstraints)
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
