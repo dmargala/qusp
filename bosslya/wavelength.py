@@ -25,6 +25,10 @@ class Wavelength(float):
     def rest(self, redshift):
         return self/(1+redshift)
 
+class LabeledWavelength(Wavelength):
+    def __init__(self, value, label):
+        Wavelength.__init__(value)
+        self.label = label
 
 # SDSS lines
 # http://classic.sdss.org/dr7/algorithms/linestable.html
@@ -33,7 +37,7 @@ SkyLineList = [5578.5,5894.6,6301.7,7246.0]
 SkyLines = [Wavelength(value) for value in SkyLineList]
 
 BallmerLines = [3646,3835,3889,3970,4102,4341,4861,6563]
-
+BallmerLabels = [r'$Hlimit$',r'$H\eta$',r'$H\zeta$',r'$H\epsilon$',r'$H\delta$',r'$H\gamma$',r'$H\beta$',r'$H\alpha$']
 
 QuasarEmissionLines = [912, 972, 1026,1033.82,1215.6701,1240.81,1305.53,
     1335.31,1397.61,1399.8,1549.48,1640.4,1665.85,1857.4,

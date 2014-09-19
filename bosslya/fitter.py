@@ -180,7 +180,7 @@ class ContinuumFitter():
         constraintCoefficients = weight*np.ones(len(waveIndexRange))
 
         if self.verbose:
-            print 'Adding constraint: sum(%.2g*logC([%.4f:%.4f])) = %.1f (%d logC params [%d:%d])' % (
+            print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
@@ -213,7 +213,7 @@ class ContinuumFitter():
         self.nconstraints += nconstraints
 
     def addNuConstraint(self, weight):
-
+        
         colIndices = 1 + self.nModelPixels + np.arange(0,self.targetNParams*self.nTargets,self.targetNParams)
 
         assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
