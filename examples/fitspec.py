@@ -27,6 +27,10 @@ def main():
         help="target list")
     parser.add_argument("-n","--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
+    parser.add_argument("--random", action="store_true",
+        help="use a random selection of input targets")
+    parser.add_argument("--seed", type=int, default=42,
+        help="rng seed")
 
     bosslya.ContinuumFitter.addArgs(parser)
     args = parser.parse_args()
@@ -43,7 +47,17 @@ def main():
     # read target list
     targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
-    targets = sorted(targets[:ntargets])
+
+    # use the first n targets or a random sample
+    if args.random:
+        np.random.seed(args.seed)
+        targets = [targets[i] for i in np.random.randint(len(targets), size=ntargets)]
+    else:
+        targets = targets[:ntargets]
+
+    # we want to open the spPlate files in plate-mjd order
+    targets = sorted(targets)
+
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
@@ -64,6 +78,8 @@ def main():
     for targetIndex, target in enumerate(targets):
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
+            if plateFileName:
+                spPlate.close()
             plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
             fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
             # if args.verbose:
