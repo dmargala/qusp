@@ -127,8 +127,8 @@ def drawBallmer(offset,delta,**kwargs):
         plt.text(line,offset+(i%2)*delta,label, horizontalalignment='left')
         
 def drawSkyLines(offset,delta,**kwargs):
-    lines = [5577,5895]
-    labels = ['sky' for line in lines]
+    lines = np.array(bosslya.SkyLineList)
+    labels = np.array(bosslya.SkyLabels)
     zipped = zip(lines,labels)
     for i,(line,label) in enumerate(zipped):
         plt.axvline(line,**kwargs)
@@ -288,8 +288,8 @@ def plotFitTarget(specfits, targetList, fitsPath):
         pred = np.exp(m.dot(beta))/(1+redshifts[targetIndex])
         plt.plot(wave, pred, c='red', marker='', ls='-', lw=1)
 
-        ylim = plt.gca().get_ylim()
-        ylim[1] = max(max(pred),ylim[1])
+        ylim0 = plt.gca().get_ylim()
+        ylim = [ylim0[0],max(max(pred),ylim0[1])]
         plt.ylim(ylim)
         
         ax2 = ax.twinx()
