@@ -184,6 +184,7 @@ def plotAmpVsNu(specfits, **kwargs):
     A = specfits['A'].value
     nu = specfits['nu'].value
     plt.scatter(nu, A, c=redshifts, cmap=plt.cm.jet, **kwargs)
+    plt.gca().set_ylim(bottom=0)
     plt.ylabel(r'Amplitude A')
     plt.xlabel(r'Spectral Tilt $\nu$')
     cbar = plt.colorbar(label=r'Redshift $z$')
@@ -227,8 +228,8 @@ def plotTarget(target, fitsPath):
     y = combined.flux
     plt.plot(x, y, c='b',lw=.5)
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
-    ymax = 1.1*np.percentile(y,99)
-    ymin = min(0,1.1*np.percentile(y,1))
+    ymax = 1.2*np.percentile(y,99)
+    ymin = min(0,1.2*np.percentile(y,1))
     plt.ylim([ymin,ymax])
     spPlate.close()
 
@@ -286,8 +287,10 @@ def plotFitTarget(specfits, targetList, fitsPath):
         wave = obsWaveCenters[m.col[m.col < len(obsWaveCenters)]]
         pred = np.exp(m.dot(beta))/(1+redshifts[targetIndex])
         plt.plot(wave, pred, c='red', marker='', ls='-', lw=1)
-        #plt.gca().set_ylim(bottom=-10)
+
         ylim = plt.gca().get_ylim()
+        ylim[1] = max(max(pred),ylim[1])
+        plt.ylim(ylim)
         
         ax2 = ax.twinx()
         ax2.set_ylabel(r'%s'%str(target))

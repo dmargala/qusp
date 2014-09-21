@@ -34,7 +34,8 @@ class LabeledWavelength(Wavelength):
 # http://classic.sdss.org/dr7/algorithms/linestable.html
 
 SkyLineList = [5578.5,5894.6,6301.7,7246.0]
-SkyLines = [Wavelength(value) for value in SkyLineList]
+SkyLabels = ['sky' for line in SkyLineList]
+SkyLines = [LabeledWavelength(*line) for line in zip(SkyLineList, SkyLabels)]
 
 BallmerLines = [3646,3835,3889,3970,4102,4341,4861,6563]
 BallmerLabels = [r'$Hlimit$',r'$H\eta$',r'$H\zeta$',r'$H\epsilon$',r'$H\delta$',r'$H\gamma$',r'$H\beta$',r'$H\alpha$']
