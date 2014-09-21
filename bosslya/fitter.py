@@ -194,7 +194,7 @@ class ContinuumFitter():
         waves = self.obsWaveCenters
         offset = 0
 
-        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
+        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
         nconstraints = len(waveIndexRange)
 
         constraintCoefficients = weight*np.ones(nconstraints)
