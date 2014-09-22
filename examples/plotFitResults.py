@@ -184,8 +184,9 @@ def plotAmpVsNu(specfits, **kwargs):
     A = specfits['A'].value
     nu = specfits['nu'].value
     plt.scatter(nu, A, c=redshifts, cmap=plt.cm.jet, **kwargs)
-    plt.gca().set_ylim(bottom=0)
+    #plt.gca().set_ylim(bottom=0)
     plt.ylabel(r'Amplitude A')
+    plt.yscale('log')
     plt.xlabel(r'Spectral Tilt $\nu$')
     cbar = plt.colorbar(label=r'Redshift $z$')
     cbar.solids.set_edgecolor("face")
@@ -289,7 +290,7 @@ def plotFitTarget(specfits, targetList, fitsPath):
         plt.plot(wave, pred, c='red', marker='', ls='-', lw=1)
 
         ylim0 = plt.gca().get_ylim()
-        ylim = [ylim0[0],max(max(pred),ylim0[1])]
+        ylim = [ylim0[0],max(1.2*max(pred),ylim0[1])]
         plt.ylim(ylim)
         
         ax2 = ax.twinx()
