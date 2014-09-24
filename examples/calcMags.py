@@ -33,6 +33,8 @@ def main():
         help="use a random selection of input targets")
     parser.add_argument("--seed", type=int, default=42,
         help="rng seed")
+    parser.add_argument("--save-targets", action="store_true",
+        help="save individual target spectrum plots")
     args = parser.parse_args()
 
     # set up paths
@@ -115,7 +117,7 @@ def main():
         for key,value in fobs.getABMagnitudes().iteritems():
             mags[key][1].append(value)
 
-        if False:
+        if args.save_targets:
             # Draw observed spectrum and prediction
             fig = plt.figure(figsize=(16,4))
             plt.plot(wave,flux,c='b',lw=.5)
@@ -143,8 +145,11 @@ def main():
             plt.tick_params(axis='y',labelright='off')
             plt.grid()
 
-            plt.tight_layout()
-            plt.show()
+            if not os.path.exists(args.output):
+                os.makedirs(args.output)
+
+            fig.savefig('%s/%s.png'%(args.output,str(target)), bbox_inches='tight')
+            plt.close()
 
     for key in mags.keys():
         fig = plt.figure(figsize=(8,6))
