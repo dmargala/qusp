@@ -71,13 +71,12 @@ def main():
         targets = targets[:ntargets]
 
     # we want to open the spPlate files in plate-mjd order
-    targets = sorted(targets)
+    #targets = sorted(targets)
 
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
-    obsMags = {key:list() for key in 'ugriz'}
-    predMags = {key:list() for key in 'ugriz'}
+    mags = {key:[list(),list()] for key in 'ugriz'}
 
     # Add observations to fitter
     plateFileName = None
@@ -103,7 +102,7 @@ def main():
 
         spectrum = desimodel.simulate.SpectralFluxDensity(wave, flux)
         for key,value in spectrum.getABMagnitudes().iteritems():
-            obsMags[key].append(value)
+            mags[key][0].append(value)
 
         A = amplitudes[i]
         nu = tiltindices[i]
@@ -114,7 +113,7 @@ def main():
         fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
 
         for key,value in fobs.getABMagnitudes().iteritems():
-            predMags[key].append(value)
+            mags[key][1].append(value)
 
         if False:
             # Draw observed spectrum and prediction
@@ -147,9 +146,18 @@ def main():
             plt.tight_layout()
             plt.show()
 
-    fig = plt.figure(figsize=(8,6))
-    plt.scatter(obsMags['i'],predMags['i'], alpha=0.5)
-    fig.savefig('%s-mag-i.png'%args.output, bbox_inches='tight')
+    for key in mags.keys():
+        fig = plt.figure(figsize=(8,6))
+        plt.scatter(mags[key][0],mags[key][1], alpha=0.5)
+        xlim = plt.gca().get_xlim()
+        ylim = plt.gca().get_ylim()
+        plt.plot(xlim,xlim)
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.ylabel('Fit Result')
+        plt.xlabel('Observed')
+        plt.grid()
+        fig.savefig('%s-mag-%s.png'%(args.output,key), bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
