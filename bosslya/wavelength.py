@@ -56,3 +56,18 @@ QuasarEmissionLabels = ['LyLimit',r'Ly$\gamma$',r'Ly$\beta$','O VI',r'Ly$\alpha$
 QuasarLines = [Wavelength(value) for value in QuasarEmissionLines]
 
 
+def drawLines(waves, labels, offset=0, delta=.1, **kwargs):
+    import matplotlib.pyplot as plt
+    import matplotlib.transforms as transforms
+
+    wavemin, wavemax = plt.gca().get_xlim()
+
+    ax = plt.gca()
+    trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+
+    for i,(wave,label) in enumerate(zip(waves,labels)):
+        if wave < wavemin or wave > wavemax:
+            continue
+        plt.axvline(wave,**kwargs)
+        plt.text(wave, offset+(i%2)*delta, label, transform=trans, horizontalalignment='left')
+
