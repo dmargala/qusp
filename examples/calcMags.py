@@ -37,6 +37,8 @@ def main():
         help="save individual target spectrum plots")
     parser.add_argument("--catalog", type=str, default="spAll-v5_7_0.fits",
         help="catalog to use for psfmag info")
+    parser.add_argument("--magkey", type=str, default="PSFMAG",
+        help="catalog magnitude keyword")
     args = parser.parse_args()
 
     # set up paths
@@ -87,7 +89,7 @@ def main():
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
-    mags = {key:[list(),list()] for key in 'ugriz'}
+    mags = {key:[list(),list(),list(),list()] for key in 'ugriz'}
 
     # Add observations to fitter
     plateFileName = None
@@ -105,13 +107,19 @@ def main():
             #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
+        # catalog magnitudes
         catalogIndex = np.where(np.logical_and(
             dr12q[1].data['PLATE'] == target.plate, np.logical_and(
             dr12q[1].data['MJD'] == target.mjd,
             dr12q[1].data['FIBERID'] == target.fiber)))
 
-        print catalogIndex
-        #print dr12q[1].data[catalogIndex]['PSFMAG']
+        try:
+            psfmags = dr12q[1].data[catalogIndex][args.magkey][0]
+        except IndexError:
+            continue
+
+        for key,mag in zip('ugriz',psfmags):
+            mags[key][0].append(mag)
 
         # read this target's combined spectrum
         combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
@@ -119,10 +127,17 @@ def main():
         ivar = combined.ivar
         flux = combined.flux
 
-        spectrum = desimodel.simulate.SpectralFluxDensity(wave, flux)
-        for key,value in spectrum.getABMagnitudes().iteritems():
-            mags[key][0].append(value)
+        # Synthetic magnitude
+        D = desimodel.simulate.SpectralFluxDensity(wave, flux)
+        for key,value in D.getABMagnitudes().iteritems():
+            mags[key][1].append(value)
 
+        # Remove transmission model magnitude
+        DoverT = desimodel.simulate.SpectralFluxDensity(obsWaveCenters,D(obsWaveCenters)/T)
+        for key,value in DoverT.getABMagnitudes().iteritems():
+            mags[key][2].append(value)
+
+        # Fit result magnitude
         A = amplitudes[i]
         nu = tiltindices[i]
         z = redshifts[i]
@@ -134,7 +149,7 @@ def main():
         fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
 
         for key,value in fobs.getABMagnitudes().iteritems():
-            mags[key][1].append(value)
+            mags[key][3].append(value)
 
         if args.save_targets:
             # Draw observed spectrum and prediction
@@ -171,17 +186,18 @@ def main():
             plt.close()
 
     for key in mags.keys():
-        fig = plt.figure(figsize=(8,6))
-        plt.scatter(mags[key][0],mags[key][1], alpha=0.5)
-        xlim = plt.gca().get_xlim()
-        ylim = plt.gca().get_ylim()
-        plt.plot(xlim,xlim)
-        plt.xlim(xlim)
-        plt.ylim(ylim)
-        plt.ylabel('Fit Result')
-        plt.xlabel('Observed')
-        plt.grid()
-        fig.savefig('%s-mag-%s.png'%(args.output,key), bbox_inches='tight')
+        for i,magtype in enumerate(['D','D/T',r'$A (\lambda/\lambda_{\star})^{\nu} C exp(-\tau)/(1+z)$']):
+            fig = plt.figure(figsize=(8,6))
+            plt.scatter(mags[key][0],mags[key][1+i], alpha=0.5)
+            xlim = plt.gca().get_xlim()
+            ylim = plt.gca().get_ylim()
+            plt.plot(xlim,xlim)
+            plt.xlim(xlim)
+            plt.ylim(ylim)
+            plt.ylabel(magtype)
+            plt.xlabel(args.magkey)
+            plt.grid()
+            fig.savefig('%s-%s-%s-%s.png'%(args.output,args.magkey,str(i),key), bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
