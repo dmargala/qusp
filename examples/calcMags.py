@@ -149,8 +149,7 @@ def main():
 
     fig = plt.figure(figsize=(8,6))
     plt.scatter(obsMags['i'],predMags['i'], alpha=0.5)
-    plt.tight_layout()
-    plt.show()
+    fig.savefig('%s-mag-i.png'%args.output, bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
