@@ -12,6 +12,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 # The line above will help with 2to3 support.
 
 from .spectrum import WavelengthFunction,SpectralFluxDensity
-from .instrument import Instrument
-from .atmosphere import Atmosphere
-from .quick import Quick
+#from .instrument import Instrument
+#from .atmosphere import Atmosphere
+#from .quick import Quick
