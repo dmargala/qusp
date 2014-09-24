@@ -35,6 +35,8 @@ def main():
         help="rng seed")
     parser.add_argument("--save-targets", action="store_true",
         help="save individual target spectrum plots")
+    parser.add_argument("--catalog", type=str, default="spAll-v5_7_0.fits",
+        help="catalog to use for psfmag info")
     args = parser.parse_args()
 
     # set up paths
@@ -46,6 +48,8 @@ def main():
 
     fitsPath = os.path.join(boss_root, boss_version)
 
+    dr12q = fits.open(os.path.join(boss_root,args.catalog))
+
     fitResults = h5py.File(args.input)
 
     redshifts = fitResults['redshifts'].value
@@ -56,6 +60,11 @@ def main():
 
     T = fitResults['T'].value
     C = fitResults['C'].value
+
+    absorption = fitResults['alpha']
+    beta = absorption.attrs['beta']
+    amin = absorption.attrs['minRestIndex']
+    amax = absorption.attrs['maxRestIndex']
 
     amplitudes = fitResults['A'].value
     tiltindices = fitResults['nu'].value
@@ -96,6 +105,14 @@ def main():
             #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
+        catalogIndex = np.where(np.logical_and(
+            dr12q[1].data['PLATE'] == target.plate, np.logical_and(
+            dr12q[1].data['MJD'] == target.mjd,
+            dr12q[1].data['FIBERID'] == target.fiber)))
+
+        print catalogIndex
+        #print dr12q[1].data[catalogIndex]['PSFMAG']
+
         # read this target's combined spectrum
         combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
         wave = combined.wavelength
@@ -110,8 +127,10 @@ def main():
         nu = tiltindices[i]
         z = redshifts[i]
 
-        frest = desimodel.simulate.SpectralFluxDensity(restWaveCenters, A*(restWaveCenters/nuwave)**nu*C, extrapolatedValue=0)
-        fgal = frest.createRedshifted(z)
+        frest = A*(restWaveCenters/nuwave)**nu*C
+        frest[amin:amax] *= np.exp(-absorption.value*((1+z)**beta))
+
+        fgal = desimodel.simulate.SpectralFluxDensity(restWaveCenters, frest, extrapolatedValue=0).createRedshifted(z)
         fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
 
         for key,value in fobs.getABMagnitudes().iteritems():
@@ -131,9 +150,9 @@ def main():
 
             # Annotate with common emission/absorption lines
             bosslya.wavelength.drawLines((1+z)*np.array(bosslya.wavelength.QuasarEmissionLines), bosslya.wavelength.QuasarEmissionLabels, 
-                .89, -.1, c='orange', alpha=.5)
+                0.89,-0.1, c='orange', alpha=.5)
             bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
-                0.01, .1, c='magenta', alpha=.5)
+                0.01, 0.1, c='magenta', alpha=.5)
 
             # Label axes
             plt.xlabel(r'Observed Wavelength $(\AA)$')
