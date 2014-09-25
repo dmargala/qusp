@@ -198,6 +198,7 @@ def main():
             plt.xlabel(args.magkey)
             plt.grid()
             fig.savefig('%s-%s-%s-%s.png'%(args.output,args.magkey,str(i),key), bbox_inches='tight')
+            plt.close()
 
 if __name__ == '__main__':
     main()
