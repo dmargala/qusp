@@ -138,18 +138,18 @@ def main():
             mags[key][2].append(value)
 
         # Fit result magnitude
-        A = amplitudes[i]
-        nu = tiltindices[i]
-        z = redshifts[i]
+        # A = amplitudes[i]
+        # nu = tiltindices[i]
+        # z = redshifts[i]
 
-        frest = A*(restWaveCenters/nuwave)**nu*C
-        frest[amin:amax] *= np.exp(-absorption.value*((1+z)**beta))
+        # frest = A*(restWaveCenters/nuwave)**nu*C
+        # frest[amin:amax] *= np.exp(-absorption.value*((1+z)**beta))
 
-        fgal = desimodel.simulate.SpectralFluxDensity(restWaveCenters, frest, extrapolatedValue=0).createRedshifted(z)
-        fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
+        # fgal = desimodel.simulate.SpectralFluxDensity(restWaveCenters, frest, extrapolatedValue=0).createRedshifted(z)
+        # fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
 
-        for key,value in fobs.getABMagnitudes().iteritems():
-            mags[key][3].append(value)
+        # for key,value in fobs.getABMagnitudes().iteritems():
+        #     mags[key][3].append(value)
 
         if args.save_targets:
             # Draw observed spectrum and prediction
@@ -186,7 +186,7 @@ def main():
             plt.close()
 
     for key in mags.keys():
-        for i,magtype in enumerate(['D','D/T',r'$A (\lambda/\lambda_{\star})^{\nu} C exp(-\tau)/(1+z)$']):
+        for i,magtype in enumerate(['D','D/T']):#,r'$A (\lambda/\lambda_{\star})^{\nu} C exp(-\tau)/(1+z)$']):
             fig = plt.figure(figsize=(8,6))
             plt.scatter(mags[key][0],mags[key][1+i], alpha=0.5)
             xlim = plt.gca().get_xlim()
