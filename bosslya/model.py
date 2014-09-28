@@ -85,7 +85,7 @@ class ContinuumModel(object):
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
 
         restWave = obsFiducialWave/(1+target.z)
-        restIndices = (restWave - self.restWaveMin)/(self.restWaveMax - self.restWaveMin)*self.restNParams).astype(int)
+        restIndices = np.floor((restWave - self.restWaveMin)/self.restWaveDelta).astype(int)
 
         # trim ranges to valid data
         validbins = np.all((
