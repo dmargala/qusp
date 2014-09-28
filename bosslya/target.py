@@ -28,3 +28,8 @@ def readTargetList(filename, fields=[]):
             targetList.append(Target(*namedTokens))
     return targetList
 
+def saveTargetList(filename, targets):
+    with open(filename, 'w') as outfile:
+        for target in targets:
+            outfile.write(str(target)+'\n')
+            
