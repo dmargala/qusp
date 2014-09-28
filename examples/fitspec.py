@@ -3,7 +3,6 @@ import argparse
 import os
 
 import numpy as np
-import h5py
 from astropy.io import fits
 
 import matplotlib.pyplot as plt
@@ -31,8 +30,17 @@ def main():
         help="use a random selection of input targets")
     parser.add_argument("--seed", type=int, default=42,
         help="rng seed")
-
-    bosslya.ContinuumFitter.addArgs(parser)
+    # fit options
+    parser.add_argument("--sklearn", action="store_true",
+        help="use sklearn linear regression instead of scipy lstsq")
+    # scipy specifc options
+    parser.add_argument("--max-iter", type=int, default=100,
+        help="max number of iterations to use in lsqr")
+    parser.add_argument("--atol", type=float, default=1e-4,
+        help="a stopping tolerance")
+    parser.add_argument("--btol", type=float, default=1e-8,
+        help="b stopping tolerance")
+    bosslya.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
     # set up paths
@@ -45,7 +53,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
+    targets = bosslya.target.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # use the first n targets or a random sample
@@ -62,7 +70,7 @@ def main():
         print 'Read %d targets from %s' % (ntargets,args.input)
 
     # Initialize fitter 
-    fitter = bosslya.ContinuumFitter(args.obsmin, args.obsmax, 
+    fitter = bosslya.ContinuumModel(args.obsmin, args.obsmax, 
         args.restmin, args.restmax, args.nrestbins, nuWave=args.nuwave,
         alphaMin=args.alphamin, alphaMax=args.alphamax,
         beta=args.beta, verbose=args.verbose)
@@ -114,17 +122,32 @@ def main():
         print ''
 
     # run the fitter
-    results = fitter.fit(atol=args.atol, btol=args.btol, max_iter=args.max_iter, sklearn=args.sklearn)
-    chisq = fitter.getChiSq()
+    model, y = fitter.getModel()
+
+    # perform fit
+    if args.sklearn:
+        from sklearn import linear_model
+        regr = linear_model.LinearRegression(fit_intercept=False)
+        if args.verbose:
+            print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
+        regr.fit(model, y)
+        soln = regr.coef_
+    else:
+        import scipy.sparse.linalg
+        if args.verbose:
+            print '... performing fit using scipy.sparse.linalg.lsqr ...\n'
+        lsqr_soln = scipy.sparse.linalg.lsqr(model, y, show=args.verbose,
+            iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
+        soln = lsqr_soln[0]
+
+    chisq = fitter.getChiSq(soln)
 
     if args.verbose:
         print 'chisq (nModelParams,nConstraints): %.2g (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
         print 'reduced chisq: %.2g' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
 
     # Save HDF5 file with results
-    outfile = h5py.File(args.output,'w')
-
-    fitter.save(outfile, args)
+    outfile = fitter.save(args.output, soln, args)
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])

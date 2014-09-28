@@ -1,11 +1,10 @@
 import numpy as np
 
 import scipy.sparse
-import scipy.sparse.linalg
 
 import bosslya
 
-class ContinuumFitter():
+class ContinuumModel(object):
     def __init__(self, obsWaveMin, obsWaveMax,
         restWaveMin, restWaveMax, restNParams, nuWave=0,
         alphaMin=1025, alphaMax=1216, beta=3.92, verbose=False):
@@ -16,11 +15,11 @@ class ContinuumFitter():
         self.obsWaveMin = obsWaveMin
         self.obsWaveMax = obsWaveMax
 
-        obsFiducialWave = bosslya.getFiducialWavelength(np.arange(4800))
+        obsFiducialWave = bosslya.wavelength.getFiducialWavelength(np.arange(4800))
         self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsWaveMin)
         self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsWaveMax)+1
 
-        self.obsWaveCenters = bosslya.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
+        self.obsWaveCenters = bosslya.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
         self.obsNParams = len(self.obsWaveCenters)
 
         if verbose:
@@ -68,8 +67,10 @@ class ContinuumFitter():
         self.logFluxes = []
         self.nTotalPixels = 0
         self.nTargets = 0
-        self.soln = None
         self.nconstraints = 0
+
+        self.model = None
+        self.y = None
 
     def addObservation(self, target, flux, wavelength, ivar, unweighted=True):
         """
@@ -79,10 +80,10 @@ class ContinuumFitter():
         """
 
         # this spectrum's wavelength axis pixel offset
-        offset = bosslya.getFiducialPixelIndexOffset(np.log10(wavelength[0]))
+        offset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wavelength[0]))
 
         obsFiducialIndices = np.arange(offset,offset+len(wavelength))
-        obsFiducialWave = bosslya.getFiducialWavelength(obsFiducialIndices)
+        obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
 
         restWave = obsFiducialWave/(1+target.z)
         restIndices = ((restWave - self.restWaveMin)/(self.restWaveMax - self.restWaveMin)*self.restNParams).astype(int)
@@ -234,10 +235,9 @@ class ContinuumFitter():
         self.logFluxes.append(logFluxes)
         self.nTotalPixels += len(logFluxes)
 
-    def fit(self, atol=1e-8, btol=1e-8, max_iter=100, sklearn=False):
+    def finalize(self):
         """
-        Does final assembly of the sparse matrix representing the model and performs least
-        squares fit.
+        Does final assembly of the sparse matrix representing the model.
         """
         nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
 
@@ -245,6 +245,8 @@ class ContinuumFitter():
         colIndices = np.concatenate(self.colIndices)
         coefficients = np.concatenate(self.coefficients)
         logFluxes = np.concatenate(self.logFluxes)
+
+        self.y = logFluxes
 
         # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
@@ -264,56 +266,43 @@ class ContinuumFitter():
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
-        # perform fit
-        if sklearn:
-            from sklearn import linear_model
-            regr = linear_model.LinearRegression(fit_intercept=False)
-            if self.verbose:
-                print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
-            regr.fit(self.model, logFluxes)
-            self.soln = regr.coef_
-        else:
-            if self.verbose:
-                print '... performing fit using scipy.sparse.linalg.lsqr ...\n'
-            soln = scipy.sparse.linalg.lsqr(self.model, logFluxes, show=self.verbose,
-                iter_lim=max_iter, atol=atol, btol=btol)
-            self.soln = soln[0]
+    def getModel(self):
+        if self.model is None:
+            self.finalize()
+        return self.model, self.y
 
-        # return results
-        return self.getResults()
-
-    def getResults(self):
+    def getResults(self, soln):
         """
         Returns a dictionary containing fit results
         """
-        assert self.soln is not None, ('Can\'t request results before fitting')
+        # assert self.soln is not None, ('Can\'t request results before fitting')
         results = {}
         offset = 0
 
-        results['T'] = self.soln[offset:offset+self.obsNParams]
+        results['T'] = soln[offset:offset+self.obsNParams]
         offset += self.obsNParams
-        results['C'] = self.soln[offset:offset+self.restNParams]
+        results['C'] = soln[offset:offset+self.restNParams]
         offset += self.restNParams
-        results['alpha'] = self.soln[offset:offset+self.alphaNParams]
+        results['alpha'] = soln[offset:offset+self.alphaNParams]
         offset += self.alphaNParams
-        results['A'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+        results['A'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
         offset += 1
         if self.nuWave > 0:
-            results['nu'] = self.soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+            results['nu'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
             offset += 1
 
         return results
 
-    def getChiSq(self):
+    def getChiSq(self, soln):
         """
         Returns chisq of best fit
         """
-        assert self.soln is not None, ('Can\'t request results before fitting')
-        logFluxes = np.concatenate(self.logFluxes)
-        residuals = logFluxes - self.model.dot(self.soln)
+        #assert self.soln is not None, ('Can\'t request results before fitting')
+        # logFluxes = np.concatenate(self.logFluxes)
+        residuals = self.y - self.model.dot(soln)
         return np.dot(residuals,residuals)/len(residuals)
 
-    def getObservationChiSq(self, i):
+    def getObservationChiSq(self, soln, i):
         """
         Returns chisq of the specified observation index
         """
@@ -333,21 +322,24 @@ class ContinuumFitter():
         model = model.tocsc()
 
         # calculate chisq
-        residuals = logFluxes - model.dot(self.soln)
+        residuals = logFluxes - model.dot(soln)
         return np.dot(residuals, residuals)/len(residuals)
 
-    def save(self, outfile, args):
+    def save(self, filename, soln, args):
+        import h5py
+        outfile = h5py.File(filename,'w')
+
         outfile.create_dataset('model_data', data=self.model.data)
         outfile.create_dataset('model_indices', data=self.model.indices)
         outfile.create_dataset('model_indptr', data=self.model.indptr)
         outfile.create_dataset('model_shape', data=self.model.shape)
-        outfile.create_dataset('soln', data=self.soln)
+        outfile.create_dataset('soln', data=soln)
 
         dsetObsWave = outfile.create_dataset('obsWaveCenters', data=self.obsWaveCenters)
         dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
 
         # transform fit results
-        results = self.getResults()
+        results = self.getResults(soln)
         obsModelValues = np.exp(results['T'])
         restModelValues = np.exp(results['C'])
         targetModelValues = np.exp(results['A'])
@@ -375,9 +367,10 @@ class ContinuumFitter():
         dsetNu.attrs['nuwave'] = args.nuwave
         dsetNu.attrs['normweight'] = args.nuweight
     
-        chiSqs = [self.getObservationChiSq(i) for i in range(self.nTargets)]
+        chiSqs = [self.getObservationChiSq(soln, i) for i in range(self.nTargets)]
         outfile.create_dataset('chisq', data=chiSqs)
 
+        return outfile
 
     @staticmethod
     def addArgs(parser):
@@ -390,14 +383,14 @@ class ContinuumFitter():
             help="obsframe wavelength to normalize at")
         parser.add_argument("--obsnormmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e3,
+        parser.add_argument("--obsnormweight", type=float, default=1e1,
             help="norm constraint weight")
         # continuum model wavelength grid options
-        parser.add_argument("--restmin", type=float, default=850,
+        parser.add_argument("--restmin", type=float, default=900,
             help="rest wavelength minimum")
-        parser.add_argument("--restmax", type=float, default=2850,
+        parser.add_argument("--restmax", type=float, default=2900,
             help="rest wavelength maximum")
-        parser.add_argument("--nrestbins", type=int, default=500,
+        parser.add_argument("--nrestbins", type=int, default=1000,
             help="number of restframe bins")
         parser.add_argument("--restnormmin", type=float, default=1275,
             help="restframe wavelength to normalize at")
@@ -406,26 +399,17 @@ class ContinuumFitter():
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
         # absorption model parameter options
-        parser.add_argument("--alphamin", type=float,default=1025,
+        parser.add_argument("--alphamin", type=float,default=900,
             help="alpha min wavelength")
-        parser.add_argument("--alphamax", type=float,default=1216,
+        parser.add_argument("--alphamax", type=float,default=1400,
             help="alpha max wavelength")
         parser.add_argument("--beta", type=float, default=3.92,
             help="optical depth power law parameter")
         # spectral tilt parameter options
-        parser.add_argument("--nuwave", type=float, default=1480,
+        parser.add_argument("--nuwave", type=float, default=1280,
             help="spectral tilt wavelength")
         parser.add_argument('--nuweight', type=float, default=1e3,
             help="nu constraint weight")
         # fit options 
         parser.add_argument("--unweighted", action="store_true",
             help="perform unweighted least squares fit")
-        parser.add_argument("--sklearn", action="store_true",
-            help="use sklearn linear regression instead of scipy lstsq")
-        # scipy fit options
-        parser.add_argument("--max-iter", type=int, default=100,
-            help="max number of iterations to use in lsqr")
-        parser.add_argument("--atol", type=float, default=1e-4,
-            help="a stopping tolerance")
-        parser.add_argument("--btol", type=float, default=1e-8,
-            help="b stopping tolerance")

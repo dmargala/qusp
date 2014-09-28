@@ -1,5 +1,5 @@
-from spectrum import *
-from target import *
-from wavelength import *
+from spectrum import Spectrum, readCombinedSpectrum
+from target import Target
+import wavelength
 
-from fitter import ContinuumFitter
+from fitter import ContinuumModel
