@@ -326,6 +326,9 @@ class ContinuumModel(object):
         return np.dot(residuals, residuals)/len(residuals)
 
     def save(self, filename, soln, args):
+        """
+        Writes the model, solution, and results to hdf5 file to provided filename.
+        """
         import h5py
         outfile = h5py.File(filename,'w')
 
