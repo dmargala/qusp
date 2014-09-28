@@ -70,10 +70,7 @@ def main():
         print 'Read %d targets from %s' % (ntargets,args.input)
 
     # Initialize model 
-    model = bosslya.ContinuumModel(args.obsmin, args.obsmax, 
-        args.restmin, args.restmax, args.nrestbins, nuWave=args.nuwave,
-        alphaMin=args.alphamin, alphaMax=args.alphamax,
-        beta=args.beta, verbose=args.verbose)
+    model = bosslya.ContinuumModel(**bosslya.ContinuumModel.fromArgs(args))
 
     if args.verbose:
         print 'Fit model initialized with %d model params.\n' % model.nModelPixels
@@ -115,8 +112,8 @@ def main():
         model.addRestConstraint(0, args.restnormmin, args.restnormmax, args.restnormweight)
     if args.obsnormmax > args.obsnormmin:
         model.addObsConstraint(0, args.obsnormmin, args.obsnormmax, args.obsnormweight)
-    if args.nuweight > 0:
-        model.addNuConstraint(args.nuweight)
+    if args.tiltweight > 0:
+        model.addTiltConstraint(args.tiltweight)
 
     if args.verbose:
         print ''

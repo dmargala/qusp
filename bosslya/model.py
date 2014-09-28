@@ -1,23 +1,22 @@
+import inspect
 import numpy as np
-
 import scipy.sparse
 
 import bosslya
 
 class ContinuumModel(object):
-    def __init__(self, obsWaveMin, obsWaveMax,
-        restWaveMin, restWaveMax, restNParams, nuWave=0,
-        alphaMin=1025, alphaMax=1216, beta=3.92, verbose=False):
+    def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
+        absmin, absmax, absmodelexp, verbose=False):
         self.verbose = verbose
 
         # initialize binning arrays
-        assert obsWaveMax > obsWaveMin, ('obsWaveMax must be greater than obsWaveMin')
-        self.obsWaveMin = obsWaveMin
-        self.obsWaveMax = obsWaveMax
+        assert obsmax > obsmin, ('obsmax must be greater than obsmin')
+        self.obsWaveMin = obsmin
+        self.obsWaveMax = obsmax
 
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(np.arange(4800))
-        self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsWaveMin)
-        self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsWaveMax)+1
+        self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsmin)
+        self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsmax)+1
 
         self.obsWaveCenters = bosslya.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
         self.obsNParams = len(self.obsWaveCenters)
@@ -26,40 +25,40 @@ class ContinuumModel(object):
             print 'Observed frame bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.obsWaveCenters[0],self.obsWaveCenters[-1],self.obsNParams)
 
-        assert restWaveMax > restWaveMin, ('restWaveMax must be greater than restWaveMin')
-        self.restWaveMin = restWaveMin
-        self.restWaveMax = restWaveMax
-        self.restNParams = restNParams
-        self.restWaveDelta = float(restWaveMax-restWaveMin)/restNParams
+        assert restmax > restmin, ('restmin must be greater than restmax')
+        self.restWaveMin = restmin
+        self.restWaveMax = restmax
+        self.restNParams = nrestbins
+        self.restWaveDelta = float(restmax-restmin)/nrestbins
         self.restWaveCenters = 0.5*self.restWaveDelta + np.linspace(
-            restWaveMin,restWaveMax,restNParams,endpoint=False)
+            restmin,restmax,nrestbins,endpoint=False)
 
         if verbose:
             print 'Rest frame bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.restWaveCenters[0],self.restWaveCenters[-1],self.restNParams)
 
-        self.beta = beta
-        self.alphaMin = max(alphaMin,restWaveMin)
-        self.alphaMax = min(alphaMax,restWaveMax)
-        self.alphaMinIndex = np.argmax(self.restWaveCenters >= self.alphaMin)
-        self.alphaMaxIndex = np.argmax(self.restWaveCenters > self.alphaMax)
-        self.alphaWaveCenters = self.restWaveCenters[self.alphaMinIndex:self.alphaMaxIndex]
-        self.alphaNParams = len(self.alphaWaveCenters)
+        self.absmodelexp = absmodelexp
+        self.absMin = max(absmin,restmin)
+        self.absMax = min(absmax,restmax)
+        self.absMinIndex = np.argmax(self.restWaveCenters >= self.absMin)
+        self.absMaxIndex = np.argmax(self.restWaveCenters > self.absMax)
+        self.absWaveCenters = self.restWaveCenters[self.absMinIndex:self.absMaxIndex]
+        self.absNParams = len(self.absWaveCenters)
 
         if verbose:
-            if self.alphaNParams > 0:
+            if self.absNParams > 0:
                 print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
-                    self.alphaWaveCenters[0], self.alphaWaveCenters[-1], self.alphaNParams)
+                    self.absWaveCenters[0], self.absWaveCenters[-1], self.absNParams)
             else:
                 print 'No absorption params'
 
         self.targetNParams = 1
 
-        self.nuWave = nuWave
-        if nuWave > 0:
+        self.tiltwave = tiltwave
+        if tiltwave > 0:
             self.targetNParams += 1
         # the number of "model" pixels (excluding per target params)
-        self.nModelPixels = self.obsNParams + self.restNParams + self.alphaNParams
+        self.nModelPixels = self.obsNParams + self.restNParams + self.absNParams
         # sparse matrix entry holders
         self.rowIndices = []
         self.colIndices = []
@@ -86,7 +85,7 @@ class ContinuumModel(object):
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
 
         restWave = obsFiducialWave/(1+target.z)
-        restIndices = np.floor((restWave - self.restWaveMin)/(self.restWaveMax - self.restWaveMin)*self.restNParams).astype(int)
+        restIndices = (restWave - self.restWaveMin)/(self.restWaveMax - self.restWaveMin)*self.restNParams).astype(int)
 
         # trim ranges to valid data
         validbins = np.all((
@@ -145,26 +144,26 @@ class ContinuumModel(object):
         buildBlock(np.arange(nPixels), restIndices, np.ones(nPixels))
         colOffset += self.restNParams
 
-        alphaMinIndex = np.argmax(restIndices == self.alphaMinIndex)
-        alphaMaxIndex = np.argmax(restIndices == self.alphaMaxIndex)
+        absMinIndex = np.argmax(restIndices == self.absMinIndex)
+        absMaxIndex = np.argmax(restIndices == self.absMaxIndex)
 
-        if alphaMaxIndex > alphaMinIndex:
-            alphaRows = np.arange(nPixels)[alphaMinIndex:alphaMaxIndex]
-            alphaIndices = restIndices[alphaMinIndex:alphaMaxIndex] - self.alphaMinIndex
+        if absMaxIndex > absMinIndex:
+            absRows = np.arange(nPixels)[absMinIndex:absMaxIndex]
+            absIndices = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
 
-            assert np.amax(alphaIndices) < self.alphaNParams, 'Invalid alpha index value'
-            alphaValues = -np.ones(len(alphaIndices))*np.power(1+target.z,self.beta)
+            assert np.amax(absIndices) < self.absNParams, 'Invalid abs index value'
+            absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)
 
-            buildBlock(alphaRows, alphaIndices, alphaValues)
-        colOffset += self.alphaNParams
+            buildBlock(absRows, absIndices, absValues)
+        colOffset += self.absNParams
 
         targetIndices = self.targetNParams*self.nTargets*np.ones(nPixels)
 
         buildBlock(np.arange(nPixels), targetIndices, np.ones(nPixels))
         colOffset += 1
 
-        if self.nuWave > 0:
-            buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.nuWave))
+        if self.tiltwave > 0:
+            buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.tiltwave))
             colOffset += 1
 
         self.addModelCoefficents(np.concatenate(rowIndices),
@@ -213,7 +212,7 @@ class ContinuumModel(object):
         self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, logFluxes)
         self.nconstraints += nconstraints
 
-    def addNuConstraint(self, weight):
+    def addTiltConstraint(self, weight):
         
         colIndices = 1 + self.nModelPixels + np.arange(0,self.targetNParams*self.nTargets,self.targetNParams)
 
@@ -257,7 +256,7 @@ class ContinuumModel(object):
         if self.verbose:
             print 'Number of transmission model params: %d' % self.obsNParams
             print 'Number of continuum model params: %d' % self.restNParams
-            print 'Number of absorption model params: %d' % self.alphaNParams
+            print 'Number of absorption model params: %d' % self.absNParams
             print 'Number of targets: %d' % self.nTargets
             print 'Number of target params: %d' % self.targetNParams
             print ''
@@ -283,11 +282,11 @@ class ContinuumModel(object):
         offset += self.obsNParams
         results['C'] = soln[offset:offset+self.restNParams]
         offset += self.restNParams
-        results['alpha'] = soln[offset:offset+self.alphaNParams]
-        offset += self.alphaNParams
+        results['abs'] = soln[offset:offset+self.absNParams]
+        offset += self.absNParams
         results['A'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
         offset += 1
-        if self.nuWave > 0:
+        if self.tiltwave > 0:
             results['nu'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
             offset += 1
 
@@ -346,8 +345,8 @@ class ContinuumModel(object):
         obsModelValues = np.exp(results['T'])
         restModelValues = np.exp(results['C'])
         targetModelValues = np.exp(results['A'])
-        alphaModelValues = results['alpha']
-        nuModelValues = results['nu']
+        absModelValues = results['abs']
+        tiltModelValues = results['nu']
 
         dsetT = outfile.create_dataset('T', data=obsModelValues)
         dsetT.attrs['normmin'] = args.obsnormmin
@@ -361,14 +360,14 @@ class ContinuumModel(object):
 
         dsetA = outfile.create_dataset('A', data=targetModelValues)
 
-        dsetAlpha = outfile.create_dataset('alpha', data=alphaModelValues)
-        dsetAlpha.attrs['minRestIndex'] = self.alphaMinIndex
-        dsetAlpha.attrs['maxRestIndex'] = self.alphaMaxIndex 
-        dsetAlpha.attrs['beta'] = self.beta
+        dsetabs = outfile.create_dataset('abs', data=absModelValues)
+        dsetabs.attrs['minRestIndex'] = self.absMinIndex
+        dsetabs.attrs['maxRestIndex'] = self.absMaxIndex 
+        dsetabs.attrs['absmodelexp'] = self.absmodelexp
 
-        dsetNu = outfile.create_dataset('nu', data=nuModelValues)
-        dsetNu.attrs['nuwave'] = args.nuwave
-        dsetNu.attrs['normweight'] = args.nuweight
+        dsetTilt = outfile.create_dataset('nu', data=tiltModelValues)
+        dsetTilt.attrs['tiltwave'] = args.tiltwave
+        dsetTilt.attrs['tiltweight'] = args.tiltweight
     
         chiSqs = [self.getObservationChiSq(soln, i) for i in range(self.nTargets)]
         outfile.create_dataset('chisq', data=chiSqs)
@@ -377,6 +376,9 @@ class ContinuumModel(object):
 
     @staticmethod
     def addArgs(parser):
+        """
+        Add arguments to the provided command-line parser that support the fromArgs() method.
+        """
         # transmission model wavelength grid options
         parser.add_argument("--obsmin", type=float, default=3600,
             help="transmission model wavelength minimum")
@@ -386,7 +388,7 @@ class ContinuumModel(object):
             help="obsframe wavelength to normalize at")
         parser.add_argument("--obsnormmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e1,
+        parser.add_argument("--obsnormweight", type=float, default=5e1,
             help="norm constraint weight")
         # continuum model wavelength grid options
         parser.add_argument("--restmin", type=float, default=900,
@@ -402,17 +404,29 @@ class ContinuumModel(object):
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
         # absorption model parameter options
-        parser.add_argument("--alphamin", type=float,default=900,
-            help="alpha min wavelength")
-        parser.add_argument("--alphamax", type=float,default=1400,
-            help="alpha max wavelength")
-        parser.add_argument("--beta", type=float, default=3.92,
-            help="optical depth power law parameter")
+        parser.add_argument("--absmin", type=float,default=900,
+            help="absorption min wavelength (rest frame)")
+        parser.add_argument("--absmax", type=float,default=1400,
+            help="absoprtion max wavelength (rest frame)")
+        parser.add_argument("--absmodelexp", type=float, default=3.92,
+            help="absorption model (1+z) factor exponent")
         # spectral tilt parameter options
-        parser.add_argument("--nuwave", type=float, default=1280,
-            help="spectral tilt wavelength")
-        parser.add_argument('--nuweight', type=float, default=1e3,
-            help="nu constraint weight")
+        parser.add_argument("--tiltwave", type=float, default=1280,
+            help="spectral tilt pivot wavelength")
+        parser.add_argument("--tiltweight", type=float, default=1e3,
+            help="spectral tilt constraint weight")
         # fit options 
         parser.add_argument("--unweighted", action="store_true",
             help="perform unweighted least squares fit")
+
+    @staticmethod
+    def fromArgs(args):
+        """
+        Returns a dictionary of constructor parameter values based on the parsed args provided.
+        """
+        # Look up the named ContinuumModel constructor parameters.
+        pnames = (inspect.getargspec(ContinuumModel.__init__)).args[1:]
+        # Get a dictionary of the arguments provided.
+        argsDict = vars(args)
+        # Return a dictionary of constructor parameters provided in args.
+        return { key:argsDict[key] for key in (set(pnames) & set(argsDict)) }

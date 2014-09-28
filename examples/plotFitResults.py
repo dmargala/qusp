@@ -23,9 +23,9 @@ def plotModelMatrix(specfits, targetList):
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     redshifts = specfits['redshifts'].value
-    absorption = specfits['alpha'].value
-    absorptionMin = specfits['alpha'].attrs['minRestIndex']
-    absorptionMax = specfits['alpha'].attrs['maxRestIndex']
+    absorption = specfits['abs'].value
+    absorptionMin = specfits['abs'].attrs['minRestIndex']
+    absorptionMax = specfits['abs'].attrs['maxRestIndex']
     
     nRest = len(restWaveCenters)
     nObs = len(obsWaveCenters)
@@ -146,7 +146,7 @@ def plotNu(specfits):
     plt.grid()
 
 def plotAbsorption(specfits, **kwargs):
-    absorption = specfits['alpha']
+    absorption = specfits['abs']
     amin = absorption.attrs['minRestIndex']
     amax = absorption.attrs['maxRestIndex']
     restWaves = specfits['restWaveCenters'].value[amin:amax]
@@ -169,14 +169,14 @@ def drawForestLines(offset, delta, wavemin=900, wavemax=1300, **kwargs):
         plt.text(line+2,offset+(i%2)*delta,label, horizontalalignment='left')
     
 def plotAbsorbedContinuum(specfits, z, **kwargs):
-    absorption = specfits['alpha']
-    beta = absorption.attrs['beta']
+    absorption = specfits['abs']
+    absmodelexp = absorption.attrs['absmodelexp']
     amin = absorption.attrs['minRestIndex']
     amax = absorption.attrs['maxRestIndex']
     restWaves = specfits['restWaveCenters'].value[amin:amax+1]
     continuum = specfits['C'].value[amin:amax+1]
     absorption = np.concatenate([absorption.value,[0]])
-    absorbed = continuum*np.exp(-absorption*((1+z)**beta))
+    absorbed = continuum*np.exp(-absorption*((1+z)**absmodelexp))
     plt.plot(restWaves,absorbed,**kwargs)
 
 def plotAmpVsNu(specfits, **kwargs):
@@ -255,11 +255,11 @@ def plotFitTarget(specfits, targetList, fitsPath):
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     beta = specfits['soln'].value
-    A = specfits['A'].value
-    nu = specfits['nu'].value
-    nuwave = specfits['nu'].attrs['nuwave']
+    #A = specfits['A'].value
+    #nu = specfits['nu'].value
+    # tiltwave = specfits['nu'].attrs['tiltwave']
     aoffset = len(obsWaveCenters)+len(restWaveCenters)
-    naparams = len(specfits['alpha'].value)
+    naparams = len(specfits['abs'].value)
 
     model = scipy.sparse.csc_matrix((modelData,modelIndices,modelIndPtr), modelShape)
     
