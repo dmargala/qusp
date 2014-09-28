@@ -69,17 +69,17 @@ def main():
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
 
-    # Initialize fitter 
-    fitter = bosslya.ContinuumModel(args.obsmin, args.obsmax, 
+    # Initialize model 
+    model = bosslya.ContinuumModel(args.obsmin, args.obsmax, 
         args.restmin, args.restmax, args.nrestbins, nuWave=args.nuwave,
         alphaMin=args.alphamin, alphaMax=args.alphamax,
         beta=args.beta, verbose=args.verbose)
 
     if args.verbose:
-        print 'Fit model initialized with %d model params.\n' % fitter.nModelPixels
+        print 'Fit model initialized with %d model params.\n' % model.nModelPixels
         print '... adding observations to fit ...\n'
 
-    # Add observations to fitter
+    # Add observations to model
     plateFileName = None
     fitTargets = []
     npixels = []
@@ -100,8 +100,8 @@ def main():
         ivar = combined.ivar
         flux = combined.flux
 
-        # Add this observation to our fitter
-        nPixelsAdded = fitter.addObservation(target, flux, wavelength, ivar, 
+        # Add this observation to our model
+        nPixelsAdded = model.addObservation(target, flux, wavelength, ivar, 
             unweighted=args.unweighted)
         if nPixelsAdded > 0:
             fitTargets.append(target)
@@ -112,17 +112,17 @@ def main():
 
     # Add constraints
     if args.restnormmax > args.restnormmin:
-        fitter.addRestConstraint(0, args.restnormmin, args.restnormmax, args.restnormweight)
+        model.addRestConstraint(0, args.restnormmin, args.restnormmax, args.restnormweight)
     if args.obsnormmax > args.obsnormmin:
-        fitter.addObsConstraint(0, args.obsnormmin, args.obsnormmax, args.obsnormweight)
+        model.addObsConstraint(0, args.obsnormmin, args.obsnormmax, args.obsnormweight)
     if args.nuweight > 0:
-        fitter.addNuConstraint(args.nuweight)
+        model.addNuConstraint(args.nuweight)
 
     if args.verbose:
         print ''
 
     # run the fitter
-    model, y = fitter.getModel()
+    X, y = model.getModel()
 
     # perform fit
     if args.sklearn:
@@ -130,24 +130,24 @@ def main():
         regr = linear_model.LinearRegression(fit_intercept=False)
         if args.verbose:
             print '... performing fit using sklearn.linear_model.LinearRegression ...\n'
-        regr.fit(model, y)
+        regr.fit(X, y)
         soln = regr.coef_
     else:
         import scipy.sparse.linalg
         if args.verbose:
             print '... performing fit using scipy.sparse.linalg.lsqr ...\n'
-        lsqr_soln = scipy.sparse.linalg.lsqr(model, y, show=args.verbose,
+        lsqr_soln = scipy.sparse.linalg.lsqr(X, y, show=args.verbose,
             iter_lim=args.max_iter, atol=args.atol, btol=args.btol)
         soln = lsqr_soln[0]
 
-    chisq = fitter.getChiSq(soln)
+    chisq = model.getChiSq(soln)
 
     if args.verbose:
-        print 'chisq (nModelParams,nConstraints): %.2g (%d,%d)' % (chisq, fitter.model.shape[1], fitter.nconstraints)
-        print 'reduced chisq: %.2g' % (chisq/(fitter.model.shape[1]-fitter.nconstraints))
+        print 'chisq (nModelParams,nConstraints): %.2g (%d,%d)' % (chisq, model.model.shape[1], model.nconstraints)
+        print 'reduced chisq: %.2g' % (chisq/(model.model.shape[1]-model.nconstraints))
 
     # Save HDF5 file with results
-    outfile = fitter.save(args.output, soln, args)
+    outfile = model.save(args.output, soln, args)
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
