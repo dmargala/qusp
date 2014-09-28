@@ -299,8 +299,13 @@ def plotFitTarget(specfits, targetList, fitsPath):
         plt.sca(ax)
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
         plt.grid()
-        drawTargetLines(z,ylim[1]*.9,-(ylim[1]-ylim[0])*.1,c='orange',alpha=.5)
-        drawSkyLines(ylim[0]+(ylim[1]-ylim[0])*.01,+(ylim[1]-ylim[0])*.1,c='magenta',alpha=.5)
+
+        bosslya.wavelength.drawLines((1+z)*np.array(bosslya.wavelength.QuasarEmissionLines), bosslya.wavelength.QuasarEmissionLabels, 
+            0.89,-0.1, c='orange', alpha=.5)
+        bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
+            0.01, 0.1, c='magenta', alpha=.5)
+        # drawTargetLines(z,ylim[1]*.9,-(ylim[1]-ylim[0])*.1,c='orange',alpha=.5)
+        # drawSkyLines(ylim[0]+(ylim[1]-ylim[0])*.01,+(ylim[1]-ylim[0])*.1,c='magenta',alpha=.5)
 
 def main():
     # parse command-line arguments
@@ -350,15 +355,22 @@ def main():
     fig = plt.figure(figsize=(20,8))
     plotContinuum(ndefault,c='black')
     drawNormWindow(ndefault['C'])
-    drawLines(.1,.2,c='orange',alpha=.5)
-    plt.xticks(np.arange(900, 2900, 200))
+    # drawLines(.1,.2,c='orange',alpha=.5)
+    bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
+        0.89,-0.1, c='orange', alpha=.5)
+
+    # plt.xticks(np.arange(900, 2900, 200))
     plt.grid()
     fig.savefig('%s-continuum.png'%args.output, bbox_inches='tight')
 
     # Draw Transmission Model
     fig = plt.figure(figsize=(20,8))
-    drawBallmer(1.09,-.01,c='green',ls='-',alpha=.5)
-    drawSkyLines(.905,.01,c='magenta',ls='-',alpha=.5)
+    bosslya.wavelength.drawLines(bosslya.wavelength.BallmerLines, bosslya.wavelength.BallmerLabels, 
+        0.89,-0.1, c='green', alpha=.5)
+    bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
+        0.01, 0.1, c='magenta', alpha=.5)
+    # drawBallmer(1.09,-.01,c='green',ls='-',alpha=.5)
+    # drawSkyLines(.905,.01,c='magenta',ls='-',alpha=.5)
     plotTransmission(ndefault,c='black')
     plt.xticks(np.arange(3600, 9000, 400))
     plt.ylim([.9,1.1])
@@ -368,7 +380,9 @@ def main():
     # Plot Absorption Model
     fig = plt.figure(figsize=(8,6))
     plotAbsorption(ndefault, c='black')
-    drawForestLines(1e-4,2e-4,c='orange',alpha=.5)
+    # drawForestLines(1e-4,2e-4,c='orange',alpha=.5)
+    bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
+        0.01,0.1, c='orange', alpha=.5)
     plt.ylim([0,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
 
@@ -399,7 +413,7 @@ def main():
     bosslya.target.saveTargetList('%s-targets.txt'%args.output, ndefault['targets'].value)
 
     # Create a list of targets to visualize
-    if len(args.examples) > 0:
+    if args.examples is not None:
         targetList = args.examples
 
         ## visualize Model Matrix
