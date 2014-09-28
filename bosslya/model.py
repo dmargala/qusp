@@ -71,17 +71,19 @@ class ContinuumModel(object):
         self.model = None
         self.y = None
 
-    def addObservation(self, target, flux, wavelength, ivar, unweighted=True):
+    def addObservation(self, target, flux, wave, ivar, unweighted=True):
         """
-        Adds an observation to be fit. Each of logFlux, restSlice, restSlice should 
-        have the same length. The obsSlice and restSlice specify the model pixel indices
-        of the corresponding logFlux values.
+        Adds an observation to be fit. Returns the number of pixels added. The provided
+        target argument must have a 'z' member with the targets redshift.
+
+        weighted fit not yet implemented.
+
         """
 
         # this spectrum's wavelength axis pixel offset
-        offset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wavelength[0]))
+        fiducialOffset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
 
-        obsFiducialIndices = np.arange(offset,offset+len(wavelength))
+        obsFiducialIndices = fiducialOffset+np.arange(len(wave))
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
 
         restWave = obsFiducialWave/(1+target.z)
@@ -106,6 +108,7 @@ class ContinuumModel(object):
         if unweighted:
             weights = np.ones(nPixels)
         else:
+            assert False, ('Weighted fit not implemented yet...')
             weights = ivar[validbins]
         sqrtw = np.sqrt(weights)
 
@@ -116,34 +119,35 @@ class ContinuumModel(object):
         colIndices = []
         rowIndices = []
         coefficients = []
-        rowOffset = self.nTotalPixels
-        colOffset = 0
-
-        def buildBlock(rows, cols, paramValues):
+        matrixOffset = {'row': self.nTotalPixels, 'col': 0}
+        
+        def assembleBlock(rows, cols, paramValues, nparams):
             # Each col corresponds to model parameter value, the model matrix
             # is ordered in blocks of model parameters
-            colIndices.append(colOffset + cols)
+            colIndices.append(matrixOffset['col'] + cols)
             # Each row corresponds to single flux value, the model matrix
             # will have nParams entries per row
-            rowIndices.append(rowOffset + rows)
+            rowIndices.append(matrixOffset['row'] + rows)
             # The coefficients in the model matrix are the sqrt(weight), unless a 'coef'
             # function is specified in the param dictionary
             coefficients.append(paramValues)
+            matrixOffset['col'] += nparams
 
+        # build obs model param block
         obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
         assert np.amax(obsIndices) < self.obsNParams, (
             'Invalid obsmodel index value')
 
-        buildBlock(np.arange(nPixels), obsIndices, np.ones(nPixels))
-        colOffset += self.obsNParams
+        assembleBlock(np.arange(nPixels), obsIndices, np.ones(nPixels), self.obsNParams)
 
+        # build rest model param block
         restIndices = restIndices[validbins]
         assert np.amax(restIndices) < self.restNParams, (
             'Invalid rest model index value')
 
-        buildBlock(np.arange(nPixels), restIndices, np.ones(nPixels))
-        colOffset += self.restNParams
+        assembleBlock(np.arange(nPixels), restIndices, np.ones(nPixels), self.restNParams)
 
+        # build absorption model param block
         absMinIndex = np.argmax(restIndices == self.absMinIndex)
         absMaxIndex = np.argmax(restIndices == self.absMaxIndex)
 
@@ -154,18 +158,17 @@ class ContinuumModel(object):
             assert np.amax(absIndices) < self.absNParams, 'Invalid abs index value'
             absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)
 
-            buildBlock(absRows, absIndices, absValues)
-        colOffset += self.absNParams
+            assembleBlock(absRows, absIndices, absValues, self.absNParams)
 
+        # build target param block
         targetIndices = self.targetNParams*self.nTargets*np.ones(nPixels)
-
-        buildBlock(np.arange(nPixels), targetIndices, np.ones(nPixels))
-        colOffset += 1
-
+        # amplitude param
+        assembleBlock(np.arange(nPixels), targetIndices, np.ones(nPixels), 1)
+        # spectral tilt index param
         if self.tiltwave > 0:
-            buildBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.tiltwave))
-            colOffset += 1
+            assembleBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.tiltwave), 1)
 
+        # add to assembled blocks for this observation to the model
         self.addModelCoefficents(np.concatenate(rowIndices),
             np.concatenate(colIndices), np.concatenate(coefficients), logFluxes)
         self.nTargets += 1
@@ -219,7 +222,7 @@ class ContinuumModel(object):
         assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
 
         if self.verbose:
-            print 'Adding constraint: sum(nu) = 0 (%d nu params)' % self.nTargets
+            print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,self.nTargets)
 
         rowIndices = self.nTotalPixels*np.ones(self.nTargets)
         constraintCoefficients = weight*np.ones(self.nTargets)/self.nTargets
@@ -388,7 +391,7 @@ class ContinuumModel(object):
             help="obsframe wavelength to normalize at")
         parser.add_argument("--obsnormmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=5e1,
+        parser.add_argument("--obsnormweight", type=float, default=1e1,
             help="norm constraint weight")
         # continuum model wavelength grid options
         parser.add_argument("--restmin", type=float, default=900,

@@ -104,9 +104,6 @@ def main():
             fitTargets.append(target)
             npixels.append(nPixelsAdded)
 
-    if args.verbose:
-        print ''
-
     # Add constraints
     if args.restnormmax > args.restnormmin:
         model.addRestConstraint(0, args.restnormmin, args.restnormmax, args.restnormweight)
