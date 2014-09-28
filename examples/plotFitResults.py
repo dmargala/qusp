@@ -95,17 +95,6 @@ def drawNormWindow(wavedset):
     normmin = wavedset.attrs['normmin']
     normmax = wavedset.attrs['normmax']
     plt.axvspan(normmin, normmax, facecolor='gray', alpha=0.5)
-        
-def drawLines(offset, delta, wavemin=900, wavemax=2900, **kwargs):
-    # Draw emission lines
-    emissionLines = np.array(bosslya.QuasarEmissionLines)
-    emissionLabels = bosslya.QuasarEmissionLabels
-    zipped = zip(emissionLines,emissionLabels)
-    for i,(line,label) in enumerate(zipped):
-        if line < wavemin or line > wavemax:
-            continue
-        plt.axvline(line,**kwargs)
-        plt.text(line,offset+(i%2)*delta,label, horizontalalignment='left')
 
 # Plot observed frame transmission
 def plotTransmission(specfits, **kwargs):
@@ -116,23 +105,6 @@ def plotTransmission(specfits, **kwargs):
     plt.xlabel(r'Observed Wavlength $(\AA)$')
     plt.ylabel(r'Transmission')
     plt.axhline(1,ls='--',c='gray')
-    
-def drawBallmer(offset,delta,**kwargs):
-    # Draw emission lines
-    lines = np.array(bosslya.BallmerLines)
-    labels = np.array(bosslya.BallmerLabels)
-    zipped = zip(lines,labels)
-    for i,(line,label) in enumerate(zipped):
-        plt.axvline(line,**kwargs)
-        plt.text(line,offset+(i%2)*delta,label, horizontalalignment='left')
-        
-def drawSkyLines(offset,delta,**kwargs):
-    lines = np.array(bosslya.SkyLineList)
-    labels = np.array(bosslya.SkyLabels)
-    zipped = zip(lines,labels)
-    for i,(line,label) in enumerate(zipped):
-        plt.axvline(line,**kwargs)
-        plt.text(line,offset+(i%2)*delta,label, horizontalalignment='left')
 
 def plotNu(specfits):
     soln = specfits['soln']
@@ -147,26 +119,15 @@ def plotNu(specfits):
 
 def plotAbsorption(specfits, **kwargs):
     absorption = specfits['abs']
-    amin = absorption.attrs['minRestIndex']
-    amax = absorption.attrs['maxRestIndex']
-    restWaves = specfits['restWaveCenters'].value[amin:amax]
+    absmin = absorption.attrs['minRestIndex']
+    absmax = absorption.attrs['maxRestIndex']
+    restWaves = specfits['restWaveCenters'].value[absmin:absmax]
     plt.plot(restWaves,absorption.value, **kwargs)
     plt.axhline(0.0018,c='gray',ls='--')
     plt.xlabel(r'Rest Wavelength $(\AA)$')
     plt.ylabel(r'Absorption Coefficient $a$')
     plt.xlim([restWaves[0],restWaves[-1]])
     plt.grid()
-    
-def drawForestLines(offset, delta, wavemin=900, wavemax=1300, **kwargs):
-    # Draw emission lines
-    emissionLines = np.array(bosslya.QuasarEmissionLines)
-    emissionLabels = bosslya.QuasarEmissionLabels
-    zipped = zip(emissionLines,emissionLabels)
-    for i,(line,label) in enumerate(zipped):
-        if line < wavemin or line > wavemax:
-            continue
-        plt.axvline(line,**kwargs)
-        plt.text(line+2,offset+(i%2)*delta,label, horizontalalignment='left')
     
 def plotAbsorbedContinuum(specfits, z, **kwargs):
     absorption = specfits['abs']
@@ -233,17 +194,7 @@ def plotTarget(target, fitsPath):
     ymin = min(0,1.2*np.percentile(y,1))
     plt.ylim([ymin,ymax])
     spPlate.close()
-
-def drawTargetLines(z,offset,delta,wavemin=3600,wavemax=9000, **kwargs):
-    emissionLines = (1+z)*np.array(bosslya.QuasarEmissionLines)
-    emissionLabels = bosslya.QuasarEmissionLabels
-    zipped = zip(emissionLines,emissionLabels)
-    for i,(line,label) in enumerate(zipped):
-        if line < wavemin or line > wavemax:
-            continue
-        plt.axvline(line,**kwargs)
-        plt.text(line,offset+(i%2)*delta,label, horizontalalignment='left')
-            
+      
 def plotFitTarget(specfits, targetList, fitsPath):
     modelData = specfits['model_data'].value
     modelIndices = specfits['model_indices'].value
@@ -304,8 +255,6 @@ def plotFitTarget(specfits, targetList, fitsPath):
             0.89,-0.1, c='orange', alpha=.5)
         bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
             0.01, 0.1, c='magenta', alpha=.5)
-        # drawTargetLines(z,ylim[1]*.9,-(ylim[1]-ylim[0])*.1,c='orange',alpha=.5)
-        # drawSkyLines(ylim[0]+(ylim[1]-ylim[0])*.01,+(ylim[1]-ylim[0])*.1,c='magenta',alpha=.5)
 
 def main():
     # parse command-line arguments
@@ -355,7 +304,6 @@ def main():
     fig = plt.figure(figsize=(20,8))
     plotContinuum(ndefault,c='black')
     drawNormWindow(ndefault['C'])
-    # drawLines(.1,.2,c='orange',alpha=.5)
     bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
         0.89,-0.1, c='orange', alpha=.5)
 
@@ -369,10 +317,8 @@ def main():
         0.89,-0.1, c='green', alpha=.5)
     bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
         0.01, 0.1, c='magenta', alpha=.5)
-    # drawBallmer(1.09,-.01,c='green',ls='-',alpha=.5)
-    # drawSkyLines(.905,.01,c='magenta',ls='-',alpha=.5)
     plotTransmission(ndefault,c='black')
-    plt.xticks(np.arange(3600, 9000, 400))
+    # plt.xticks(np.arange(3600, 9000, 400))
     plt.ylim([.9,1.1])
     plt.grid()
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
@@ -380,7 +326,6 @@ def main():
     # Plot Absorption Model
     fig = plt.figure(figsize=(8,6))
     plotAbsorption(ndefault, c='black')
-    # drawForestLines(1e-4,2e-4,c='orange',alpha=.5)
     bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
         0.01,0.1, c='orange', alpha=.5)
     plt.ylim([0,.004])
