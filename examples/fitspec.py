@@ -40,6 +40,12 @@ def main():
         help="a stopping tolerance")
     parser.add_argument("--btol", type=float, default=1e-8,
         help="b stopping tolerance")
+    parser.add_argument("--z-col", type=int, default=3,
+        help="redshift column of input targetlist")
+    parser.add_argument("--norm-col", type=int, default=None,
+        help="redshift column of input targetlist")
+    parser.add_argument("--tilt-col", type=int, default=None,
+        help="redshift column of input targetlist")
     bosslya.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
@@ -52,8 +58,14 @@ def main():
 
     fitsPath = os.path.join(boss_root, boss_version)
 
+    fields = [('z',float,args.z_col)]
+    if args.norm_col is not None:
+        fields.append(('amp',float,args.norm_col))
+    if args.tilt_col is not None:
+        fields.append(('nu',float,args.tilt_col))
+
     # read target list
-    targets = bosslya.target.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
+    targets = bosslya.target.readTargetList(args.input,fields)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # use the first n targets or a random sample
@@ -141,14 +153,22 @@ def main():
         print 'reduced chisq: %.2g' % (chisq/(model.model.shape[1]-model.nconstraints))
 
     # Save HDF5 file with results
-    outfile = model.save(args.output, soln, args)
+    outfile = model.save(args.output+'.hdf5', soln, args)
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
     outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
-    outfile.create_dataset('sn', data=[target.sn for target in fitTargets])
+
+    try:
+        sn = [target.sn for target in fitTargets]
+    except AttributeError:
+        sn = np.zeros(len(fitTargets))
+
+    outfile.create_dataset('sn', data=sn)
 
     outfile.close()
+
+    bosslya.target.saveTargetList(args.output+'.txt', fitTargets)
 
 if __name__ == '__main__':
     main()
