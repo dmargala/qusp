@@ -53,23 +53,24 @@ class ContinuumModel(object):
             else:
                 print 'No absorption params'
 
-        self.targetNParams = 1
-
         self.tiltwave = tiltwave
-        self.targetNParams += 1
+
         # the number of "model" pixels (excluding per target params)
         self.nModelPixels = self.obsNParams + self.restNParams + self.absNParams
+
         # sparse matrix entry holders
-        self.rowIndices = list()
-        self.colIndices = list()
-        self.coefficients = list()
         self.yvalues = list()
+        self.obsBlocks = list()
+        self.constraintBlocks = list()
 
         self.model = None
         self.y = None
 
         self.amplitude = list()
+        self.normCoefficients = list()
+
         self.nu = list()
+        self.tiltCoefficients = list()
 
         self.nTotalPixels = 0
         self.nTargets = 0
@@ -128,31 +129,10 @@ class ContinuumModel(object):
         yvalues = sqrtw*yvalues
         '''
 
-        # Assemble matrix
-        colIndices = []
-        rowIndices = []
-        coefficients = []
-        matrixOffset = {'row': self.nTotalPixels, 'col': 0}
-
-        # helper function to assemble seperate blocks at a time
-        def assembleBlock(rows, cols, paramValues, nparams):
-            # Each col corresponds to model parameter value, the model matrix
-            # is ordered in blocks of model parameters
-            colIndices.append(matrixOffset['col'] + cols)
-            # Each row corresponds to single flux value, the model matrix
-            # will have nParams entries per row
-            rowIndices.append(matrixOffset['row'] + rows)
-            # The coefficients in the model matrix are the sqrt(weight), unless a 'coef'
-            # function is specified in the param dictionary
-            coefficients.append(paramValues)
-            matrixOffset['col'] += nparams
-
         # build obs model param block
         obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
         assert np.amax(obsIndices) < self.obsNParams, (
             'Invalid obsmodel index value')
-
-        assembleBlock(np.arange(nPixels), obsIndices, np.ones(nPixels), self.obsNParams)
 
         transBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),obsIndices)), 
             shape=(nPixels,self.obsNParams))
@@ -162,7 +142,8 @@ class ContinuumModel(object):
         assert np.amax(restIndices) < self.restNParams, (
             'Invalid rest model index value')
 
-        assembleBlock(np.arange(nPixels), restIndices, np.ones(nPixels), self.restNParams)
+        contBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),restIndices)), 
+            shape=(nPixels,self.restNParams))
 
         # build absorption model param block
         absMinIndex = np.argmax(restIndices == self.absMinIndex)
@@ -175,20 +156,19 @@ class ContinuumModel(object):
             assert np.amax(absIndices) < self.absNParams, 'Invalid abs index value'
             absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)
 
-            assembleBlock(absRows, absIndices, absValues, self.absNParams)
-
-        # build target param block
-        targetIndices = self.targetNParams*self.nTargets*np.ones(nPixels)
+            absBlock = scipy.sparse.coo_matrix((absValues,(absRows,absIndices)), 
+                shape=(nPixels,self.absNParams))
+        else:
+            absBlock = scipy.sparse.coo_matrix((nPixels,self.absNParams))
 
         # amplitude param
         try:
             amp = target.amp
             yvalues -= np.log(amp)
+            self.normCoefficients.append(None)
         except AttributeError:
             amp = None
-            nfittargets = self.amplitude.count(None)
-            ampIndices = self.targetNParams*nfittargets*np.ones(nPixels)
-            assembleBlock(np.arange(nPixels), ampIndices, np.ones(nPixels), 1)
+            self.normCoefficients.append(np.ones(nPixels))
         self.amplitude.append(amp)
 
         # spectral tilt index param
@@ -196,38 +176,20 @@ class ContinuumModel(object):
         try:
             nu = target.nu
             yvalues -= nu*tiltCoefficients
+            self.tiltCoefficients.append(None)
         except AttributeError:
             nu = None
-            nfittargets = self.nu.count(None)
-            nuIndices = self.targetNParams*nfittargets*np.ones(nPixels)
-            assembleBlock(np.arange(nPixels), nuIndices, tiltCoefficients, 1)
+            self.tiltCoefficients.append(tiltCoefficients)
         self.nu.append(nu)
 
-        # add to assembled blocks for this observation to the model
-        self.addModelCoefficents(np.concatenate(rowIndices),
-            np.concatenate(colIndices), np.concatenate(coefficients), yvalues)
-        self.nTargets += 1
+        self.obsBlocks.append([transBlock, contBlock, absBlock])
 
+        self.yvalues.append(yvalues)
+        self.nTotalPixels += nPixels
+
+        self.nTargets += 1
         # return number of "pixels" added from this observation
         return nPixels
-
-    def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
-        waves = self.restWaveCenters
-        offset = self.obsNParams
-
-        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
-        constraintCoefficients = weight*np.ones(len(waveIndexRange))
-
-        if self.verbose:
-            print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
-                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
-                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
-
-        colIndices = offset+waveIndexRange
-        rowIndices = self.nTotalPixels*np.ones(len(constraintCoefficients))
-
-        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [yvalue])
-        self.nconstraints += 1
 
     def addObsConstraint(self, yvalue, wavemin, wavemax, weight):
         waves = self.obsWaveCenters
@@ -236,60 +198,114 @@ class ContinuumModel(object):
         waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
         nconstraints = len(waveIndexRange)
 
-        constraintCoefficients = weight*np.ones(nconstraints)
-
         if self.verbose:
             print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
+        constraintCoefficients = weight*np.ones(nconstraints)
         colIndices = offset+waveIndexRange
-        rowIndices = self.nTotalPixels+np.arange(nconstraints)
+        rowIndices = np.arange(nconstraints)
 
-        yvalues = yvalue*np.ones(nconstraints)
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
 
-        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, yvalues)
+        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices, colIndices)),
+            shape=(nconstraints,nModelPixels))
+
+        self.constraintBlocks.append(block)
         self.nconstraints += nconstraints
 
+        yvalues = yvalue*np.ones(nconstraints)
+        self.yvalues.append(yvalues)
+        self.nTotalPixels += nconstraints
+
+    def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
+        waves = self.restWaveCenters
+        offset = self.obsNParams
+
+        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
+
+        if self.verbose:
+            print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
+                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
+                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
+
+        constraintCoefficients = weight*np.ones(len(waveIndexRange))
+        colIndices = offset+waveIndexRange
+        rowIndices = np.zeros(len(waveIndexRange))
+
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
+
+        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices,colIndices)),
+            shape=(1,nModelPixels))
+        self.constraintBlocks.append(block)
+        self.nconstraints += 1
+
+        self.yvalues.append([yvalue])
+        self.nTotalPixels += 1
+
     def addTiltConstraint(self, weight):
-        colIndices = 1 + self.nModelPixels + np.arange(0,self.targetNParams*self.nTargets,self.targetNParams)
-
-        assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
-
         if self.verbose:
             print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,self.nTargets)
 
-        rowIndices = self.nTotalPixels*np.ones(self.nTargets)
-        constraintCoefficients = weight*np.ones(self.nTargets)/self.nTargets
+        offset = self.nModelPixels + self.amplitude.count(None)
+        nfittargets = self.nu.count(None)
 
-        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [0])
+        constraintCoefficients = weight*np.ones(nfittargets)/nfittargets
+        rowIndices = np.zeros(nfittargets)
+        colIndices = offset+np.arange(nfittargets)
+
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
+
+        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices,colIndices)),
+            shape=(1,nModelPixels))
+
+        self.constraintBlocks.append(block)
         self.nconstraints += 1
 
-    def addModelCoefficents(self, rows, cols, coefs, yvalues):
-        """
-        Adds entries to model and updates the total number of 'pixels'.
-        """
-        self.colIndices.append(cols)
-        self.rowIndices.append(rows)
-        self.coefficients.append(coefs)
-        self.yvalues.append(yvalues)
-        self.nTotalPixels += len(yvalues)
+        self.yvalues.append([0])
+        self.nTotalPixels += 1
 
     def finalize(self):
         """
         Does final assembly of the sparse matrix representing the model.
         """
-        assert self.nu.count(None) == self.amplitude.count(None), 'Must specify both nu and A for a target'
 
         # build the sparse matrix
-        nModelPixels = self.nModelPixels + self.targetNParams*self.nu.count(None)
-        rowIndices = np.concatenate(self.rowIndices)
-        colIndices = np.concatenate(self.colIndices)
-        coefficients = np.concatenate(self.coefficients)
-        model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
-            shape=(self.nTotalPixels,nModelPixels), dtype=np.float32)
-        # convert the sparse matrix to compressed sparse column format
-        self.model = model.tocsc()
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
+
+        for i in range(self.nTargets):
+            nPixels = self.obsBlocks[i][0].shape[0]
+            # add norm block
+            if self.amplitude.count(None) > 0:
+                a = self.amplitude[i]
+                if a is None:
+                    ampIndices = self.amplitude[:i].count(None)*np.ones(nPixels)
+                    normBlock = scipy.sparse.coo_matrix((self.normCoefficients[i],(np.arange(nPixels),ampIndices)),
+                        shape=(nPixels,self.amplitude.count(None)))
+                else:
+                    normBlock = scipy.sparse.coo_matrix((nPixels,self.amplitude.count(None)))
+                self.obsBlocks[i].append(normBlock)
+            # add tilt block
+            if self.nu.count(None) > 0:
+                nu = self.nu[i]
+                if nu is None:
+                    nuIndices = self.nu[:i].count(None)*np.ones(nPixels)
+                    tiltBlock = scipy.sparse.coo_matrix((self.tiltCoefficients[i],(np.arange(nPixels),nuIndices)),
+                        shape=(nPixels,self.nu.count(None)))
+                else:
+                    tiltBlock = scipy.sparse.coo_matrix((nPixels,self.nu.count(None)))
+                self.obsBlocks[i].append(tiltBlock)
+
+        obsBlock = scipy.sparse.bmat(self.obsBlocks)
+        contraintBlock = scipy.sparse.vstack(self.constraintBlocks)
+        finalModel = scipy.sparse.vstack([obsBlock,contraintBlock])
+
+        assert finalModel.shape[0] == self.nTotalPixels
+        assert finalModel.shape[1] == nModelPixels
+
+        self.model = finalModel.tocsc()
+
         # concatenate y values
         yvalues = np.concatenate(self.yvalues)
         self.y = yvalues
@@ -299,7 +315,8 @@ class ContinuumModel(object):
             print 'Number of continuum model params: %d' % self.restNParams
             print 'Number of absorption model params: %d' % self.absNParams
             print 'Number of targets: %d' % self.nTargets
-            print 'Number of target params: %d' % self.targetNParams
+            print 'Number of amplitude params: %d' % self.amplitude.count(None)
+            print 'Number of tilt params: %d' % self.nu.count(None)
             print ''
             print 'Total number of model params: %d' % nModelPixels
             print 'Total number of flux measurements: %d (%d constraints)' % (self.nTotalPixels, self.nconstraints)
@@ -335,21 +352,21 @@ class ContinuumModel(object):
         ampindex = 0
         for amp in self.amplitude:
             if amp is None:
-                amp = np.exp(soln[offset+self.targetNParams*ampindex])
+                amp = np.exp(soln[offset+ampindex])
                 ampindex += 1
             amplitude.append(amp)
         results['amplitude'] = amplitude
-        offset += 1
+        offset += self.amplitude.count(None)
         # spectral tilt
         nu = list()
         nuindex = 0
         for nuvalue in self.nu:
             if nuvalue is None:
-                nuvalue = soln[offset+self.targetNParams*nuindex]
+                nuvalue = soln[offset+nuindex]
                 nuindex += 1
             nu.append(nuvalue)
         results['nu'] = nu
-        offset += 1
+        offset += self.nu.count(None)
         # return dictionary of parameters
         return results
 
@@ -369,14 +386,12 @@ class ContinuumModel(object):
         """
         assert self.model is not None, ('Can\'t request chisq before model assembly.')
         # check soln size
-        nModelPixels = self.nModelPixels + self.targetNParams*self.nu.count(None)
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
         assert len(soln) == nModelPixels, ('Size of soln does not match model.')
         # pick out y value entries for the requested observation
         yvalues = self.yvalues[i]
-        nPixels = len(yvalues)
-        # pick out model rows corresponding to the requested observation
-        rowIndices = self.rowIndices[i]
-        model = self.model[min(rowIndices):max(rowIndices)+1]
+        # pick out model rows for the requested observation
+        model = scipy.sparse.hstack(self.obsBlocks[i]).tocsc()
         # calculate residuals
         residuals = yvalues - model.dot(soln)
         # return chisq
