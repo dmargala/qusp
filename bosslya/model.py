@@ -79,11 +79,18 @@ class ContinuumModel(object):
     def addObservation(self, target, flux, wave, ivar, unweighted=True):
         """
         Adds an observation to be fit. Returns the number of pixels added. The provided
-        target argument must have a 'z' member with the targets redshift.
+        target argument must have an attribute named 'z' with the target's redshift.
 
         weighted fit not yet implemented.
 
         """
+        assert unweighted, ('Weighted fit not implemented yet...')
+
+        try:
+            z = target.z
+        except AttributeError:
+            print 'Target does not have z attribute.'
+            raise
 
         # this spectrum's wavelength axis pixel offset
         fiducialOffset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
@@ -102,30 +109,45 @@ class ContinuumModel(object):
             restIndices >= 0, 
             flux > 0, ivar > 0), axis=0)
 
-        yvalues = np.log(flux[validbins]) + np.log(1+target.z)
-        nPixels = len(yvalues)
+        nPixels = np.sum(validbins)
         if nPixels <= 0:
             if self.verbose:
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
             return 0
-    
+
+        try:
+            amp = target.amp
+        except AttributeError:
+            amp = None
+        self.amplitude.append(amp)
+
+        try:
+            nu = target.nu
+        except AttributeError:
+            nu = None
+        self.nu.append(nu)
+
+        yvalues = np.log(flux[validbins]) + np.log(1+target.z)
+
+        '''
         # compute weights
         if unweighted:
             weights = np.ones(nPixels)
         else:
-            assert False, ('Weighted fit not implemented yet...')
             weights = ivar[validbins]
         sqrtw = np.sqrt(weights)
 
         # Append yvalu values
         yvalues = sqrtw*yvalues
+        '''
 
         # Assemble matrix
         colIndices = []
         rowIndices = []
         coefficients = []
         matrixOffset = {'row': self.nTotalPixels, 'col': 0}
-        
+
+        # helper function to assemble seperate blocks at a time
         def assembleBlock(rows, cols, paramValues, nparams):
             # Each col corresponds to model parameter value, the model matrix
             # is ordered in blocks of model parameters
