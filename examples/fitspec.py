@@ -97,9 +97,6 @@ def main():
         ivar = combined.ivar
         flux = combined.flux
 
-        if target.z < 1.8:
-            continue
-
         # Add this observation to our model
         nPixelsAdded = model.addObservation(target, flux, wavelength, ivar, 
             unweighted=args.unweighted)
