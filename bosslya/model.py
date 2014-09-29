@@ -1,6 +1,7 @@
 import inspect
 import numpy as np
 import scipy.sparse
+import h5py
 
 import bosslya
 
@@ -60,16 +61,20 @@ class ContinuumModel(object):
         # the number of "model" pixels (excluding per target params)
         self.nModelPixels = self.obsNParams + self.restNParams + self.absNParams
         # sparse matrix entry holders
-        self.rowIndices = []
-        self.colIndices = []
-        self.coefficients = []
-        self.logFluxes = []
-        self.nTotalPixels = 0
-        self.nTargets = 0
-        self.nconstraints = 0
+        self.rowIndices = list()
+        self.colIndices = list()
+        self.coefficients = list()
+        self.yvalues = list()
 
         self.model = None
         self.y = None
+
+        self.amplitude = list()
+        self.nu = list()
+
+        self.nTotalPixels = 0
+        self.nTargets = 0
+        self.nconstraints = 0
 
     def addObservation(self, target, flux, wave, ivar, unweighted=True):
         """
@@ -97,8 +102,8 @@ class ContinuumModel(object):
             restIndices >= 0, 
             flux > 0, ivar > 0), axis=0)
 
-        logFlux = np.log(flux[validbins]) + np.log(1+target.z)
-        nPixels = len(logFlux)
+        yvalues = np.log(flux[validbins]) + np.log(1+target.z)
+        nPixels = len(yvalues)
         if nPixels <= 0:
             if self.verbose:
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
@@ -112,8 +117,8 @@ class ContinuumModel(object):
             weights = ivar[validbins]
         sqrtw = np.sqrt(weights)
 
-        # Append logFlux values
-        logFluxes = sqrtw*logFlux
+        # Append yvalu values
+        yvalues = sqrtw*yvalues
 
         # Assemble matrix
         colIndices = []
@@ -170,12 +175,12 @@ class ContinuumModel(object):
 
         # add to assembled blocks for this observation to the model
         self.addModelCoefficents(np.concatenate(rowIndices),
-            np.concatenate(colIndices), np.concatenate(coefficients), logFluxes)
+            np.concatenate(colIndices), np.concatenate(coefficients), yvalues)
         self.nTargets += 1
 
         return nPixels
 
-    def addRestConstraint(self, logFlux, wavemin, wavemax, weight):
+    def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
         waves = self.restWaveCenters
         offset = self.obsNParams
 
@@ -184,16 +189,16 @@ class ContinuumModel(object):
 
         if self.verbose:
             print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
-                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
+                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
         colIndices = offset+waveIndexRange
         rowIndices = self.nTotalPixels*np.ones(len(constraintCoefficients))
 
-        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [logFlux])
+        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [yvalue])
         self.nconstraints += 1
 
-    def addObsConstraint(self, logFlux, wavemin, wavemax, weight):
+    def addObsConstraint(self, yvalue, wavemin, wavemax, weight):
         waves = self.obsWaveCenters
         offset = 0
 
@@ -204,15 +209,15 @@ class ContinuumModel(object):
 
         if self.verbose:
             print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
-                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], logFlux, 
+                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
                 len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
 
         colIndices = offset+waveIndexRange
         rowIndices = self.nTotalPixels+np.arange(nconstraints)
 
-        logFluxes = logFlux*np.ones(nconstraints)
+        yvalues = yvalue*np.ones(nconstraints)
 
-        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, logFluxes)
+        self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, yvalues)
         self.nconstraints += nconstraints
 
     def addTiltConstraint(self, weight):
@@ -230,12 +235,12 @@ class ContinuumModel(object):
         self.addModelCoefficents(rowIndices, colIndices, constraintCoefficients, [0])
         self.nconstraints += 1
 
-    def addModelCoefficents(self, rows, cols, coefs, logFluxes):
+    def addModelCoefficents(self, rows, cols, coefs, yvalues):
         self.colIndices.append(cols)
         self.rowIndices.append(rows)
         self.coefficients.append(coefs)
-        self.logFluxes.append(logFluxes)
-        self.nTotalPixels += len(logFluxes)
+        self.yvalues.append(yvalues)
+        self.nTotalPixels += len(yvalues)
 
     def finalize(self):
         """
@@ -246,9 +251,9 @@ class ContinuumModel(object):
         rowIndices = np.concatenate(self.rowIndices)
         colIndices = np.concatenate(self.colIndices)
         coefficients = np.concatenate(self.coefficients)
-        logFluxes = np.concatenate(self.logFluxes)
+        yvalues = np.concatenate(self.yvalues)
 
-        self.y = logFluxes
+        self.y = yvalues
 
         # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
@@ -278,60 +283,77 @@ class ContinuumModel(object):
         Returns a dictionary containing fit results
         """
         # assert self.soln is not None, ('Can\'t request results before fitting')
-        results = {}
+        results = dict()
         offset = 0
 
-        results['T'] = soln[offset:offset+self.obsNParams]
+        # transform logT -> T
+        results['transmission'] = np.exp(soln[offset:offset+self.obsNParams])
         offset += self.obsNParams
-        results['C'] = soln[offset:offset+self.restNParams]
+
+        # transform logC -> C
+        results['continuum'] = np.exp(soln[offset:offset+self.restNParams])
         offset += self.restNParams
-        results['abs'] = soln[offset:offset+self.absNParams]
+
+        # absorption
+        results['absorption'] = soln[offset:offset+self.absNParams]
         offset += self.absNParams
-        results['A'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
+
+        # transform logA -> A
+        results['amplitude'] = np.exp(soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams])
         offset += 1
+
+        # spectral tilt
         if self.tiltwave > 0:
             results['nu'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
             offset += 1
 
+        # return dictionary of parameters
         return results
 
     def getChiSq(self, soln):
         """
         Returns chisq of best fit
         """
-        #assert self.soln is not None, ('Can\'t request results before fitting')
-        # logFluxes = np.concatenate(self.logFluxes)
+        assert self.model is not None, ('Can\'t request chisq before model assembly.')
+        # calculate residuals
         residuals = self.y - self.model.dot(soln)
+        # return chisq
         return np.dot(residuals,residuals)/len(residuals)
 
     def getObservationChiSq(self, soln, i):
         """
         Returns chisq of the specified observation index
         """
+        assert self.model is not None, ('Can\'t request chisq before model assembly.')
+        # check soln size
         nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
-
-        logFluxes = self.logFluxes[i]
-        nPixels = len(logFluxes)
-
+        assert len(soln) == nModelPixels, ('Size of soln does not match model.')
+        # pick out y value entries for the requested observation
+        yvalues = self.yvalues[i]
+        nPixels = len(yvalues)
+        # pick out model rows corresponding to the requested observation
         rowIndices = self.rowIndices[i] - min(self.rowIndices[i])
         colIndices = self.colIndices[i]
         coefficients = self.coefficients[i]
-
         # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
             shape=(nPixels,nModelPixels), dtype=np.float32)
         # convert the sparse matrix to compressed sparse column format
         model = model.tocsc()
-
-        # calculate chisq
-        residuals = logFluxes - model.dot(soln)
+        '''
+        rowIndices = self.rowIndices[i]
+        model = self.model[min(rowIndices),min(rowIndices)]
+        '''
+        # calculate residuals
+        residuals = yvalues - model.dot(soln)
+        # return chisq
         return np.dot(residuals, residuals)/len(residuals)
 
     def save(self, filename, soln, args):
         """
         Writes the model, solution, and results to hdf5 file to provided filename.
         """
-        import h5py
+        # open hdf5 output file
         outfile = h5py.File(filename,'w')
 
         outfile.create_dataset('model_data', data=self.model.data)
@@ -343,27 +365,26 @@ class ContinuumModel(object):
         dsetObsWave = outfile.create_dataset('obsWaveCenters', data=self.obsWaveCenters)
         dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
 
-        # transform fit results
         results = self.getResults(soln)
-        obsModelValues = np.exp(results['T'])
-        restModelValues = np.exp(results['C'])
-        targetModelValues = np.exp(results['A'])
-        absModelValues = results['abs']
+        obsModelValues = results['transmission']
+        restModelValues = results['continuum']
+        targetModelValues = results['amplitude']
+        absModelValues = results['absorption']
         tiltModelValues = results['nu']
 
-        dsetT = outfile.create_dataset('T', data=obsModelValues)
+        dsetT = outfile.create_dataset('transmission', data=obsModelValues)
         dsetT.attrs['normmin'] = args.obsnormmin
         dsetT.attrs['normmax'] = args.obsnormmax
         dsetT.attrs['normweight'] = args.obsnormweight
 
-        dsetC = outfile.create_dataset('C', data=restModelValues)
+        dsetC = outfile.create_dataset('continuum', data=restModelValues)
         dsetC.attrs['normmin'] = args.restnormmin
         dsetC.attrs['normmax'] = args.restnormmax
         dsetC.attrs['normweight'] = args.restnormweight
 
-        dsetA = outfile.create_dataset('A', data=targetModelValues)
+        dsetA = outfile.create_dataset('amplitude', data=targetModelValues)
 
-        dsetabs = outfile.create_dataset('abs', data=absModelValues)
+        dsetabs = outfile.create_dataset('absorption', data=absModelValues)
         dsetabs.attrs['minRestIndex'] = self.absMinIndex
         dsetabs.attrs['maxRestIndex'] = self.absMaxIndex 
         dsetabs.attrs['absmodelexp'] = self.absmodelexp
@@ -375,6 +396,7 @@ class ContinuumModel(object):
         chiSqs = [self.getObservationChiSq(soln, i) for i in range(self.nTargets)]
         outfile.create_dataset('chisq', data=chiSqs)
 
+        # return h5py file
         return outfile
 
     @staticmethod

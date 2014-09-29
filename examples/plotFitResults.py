@@ -23,9 +23,9 @@ def plotModelMatrix(specfits, targetList):
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     redshifts = specfits['redshifts'].value
-    absorption = specfits['abs'].value
-    absorptionMin = specfits['abs'].attrs['minRestIndex']
-    absorptionMax = specfits['abs'].attrs['maxRestIndex']
+    absorption = specfits['absorption'].value
+    absorptionMin = specfits['absorption'].attrs['minRestIndex']
+    absorptionMax = specfits['absorption'].attrs['maxRestIndex']
     
     nRest = len(restWaveCenters)
     nObs = len(obsWaveCenters)
@@ -85,7 +85,7 @@ def plotModelMatrix(specfits, targetList):
 # Plot rest frame continuum
 def plotContinuum(specfits, normwave=None, dnorm=None, z=None, **kwargs):
     wavelengths = specfits['restWaveCenters'].value
-    continuum = specfits['C'].value
+    continuum = specfits['continuum'].value
     plt.plot(wavelengths, continuum, **kwargs)
     plt.xlim([wavelengths[0], wavelengths[-1]])
     plt.xlabel(r'Rest Wavlength $(\AA)$')
@@ -99,7 +99,7 @@ def drawNormWindow(wavedset):
 # Plot observed frame transmission
 def plotTransmission(specfits, **kwargs):
     wavelengths = specfits['obsWaveCenters'].value
-    transmission = specfits['T'].value
+    transmission = specfits['transmission'].value
     plt.plot(wavelengths, transmission, **kwargs)
     plt.xlim([wavelengths[0], wavelengths[-1]])
     plt.xlabel(r'Observed Wavlength $(\AA)$')
@@ -118,7 +118,7 @@ def plotNu(specfits):
     plt.grid()
 
 def plotAbsorption(specfits, **kwargs):
-    absorption = specfits['abs']
+    absorption = specfits['absorption']
     absmin = absorption.attrs['minRestIndex']
     absmax = absorption.attrs['maxRestIndex']
     restWaves = specfits['restWaveCenters'].value[absmin:absmax]
@@ -130,19 +130,19 @@ def plotAbsorption(specfits, **kwargs):
     plt.grid()
     
 def plotAbsorbedContinuum(specfits, z, **kwargs):
-    absorption = specfits['abs']
+    absorption = specfits['absorption']
     absmodelexp = absorption.attrs['absmodelexp']
     amin = absorption.attrs['minRestIndex']
     amax = absorption.attrs['maxRestIndex']
     restWaves = specfits['restWaveCenters'].value[amin:amax+1]
-    continuum = specfits['C'].value[amin:amax+1]
+    continuum = specfits['continuum'].value[amin:amax+1]
     absorption = np.concatenate([absorption.value,[0]])
     absorbed = continuum*np.exp(-absorption*((1+z)**absmodelexp))
     plt.plot(restWaves,absorbed,**kwargs)
 
 def plotAmpVsNu(specfits, **kwargs):
     redshifts = specfits['redshifts'].value
-    A = specfits['A'].value
+    A = specfits['amplitude'].value
     nu = specfits['nu'].value
     plt.scatter(nu, A, c=redshifts, cmap=plt.cm.jet, **kwargs)
     #plt.gca().set_ylim(bottom=0)
@@ -161,7 +161,7 @@ def plotRedshiftDist(specfits):
     plt.grid()
 
 def plotAmpDist(specfits):
-    amplitudes = specfits['A'].value
+    amplitudes = specfits['amplitude'].value
     plt.hist(amplitudes, bins=50, linewidth=.1, alpha=.5)
     plt.xlabel(r'Amplitude A')
     plt.ylabel(r'Number of Targets')
@@ -206,11 +206,8 @@ def plotFitTarget(specfits, targetList, fitsPath):
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     beta = specfits['soln'].value
-    #A = specfits['A'].value
-    #nu = specfits['nu'].value
-    # tiltwave = specfits['nu'].attrs['tiltwave']
     aoffset = len(obsWaveCenters)+len(restWaveCenters)
-    naparams = len(specfits['abs'].value)
+    naparams = len(specfits['absorption'].value)
 
     model = scipy.sparse.csc_matrix((modelData,modelIndices,modelIndPtr), modelShape)
     
@@ -303,7 +300,7 @@ def main():
     # Draw Continuum Model
     fig = plt.figure(figsize=(20,8))
     plotContinuum(ndefault,c='black')
-    drawNormWindow(ndefault['C'])
+    drawNormWindow(ndefault['continuum'])
     bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
         0.89,-0.1, c='orange', alpha=.5)
 
