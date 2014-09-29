@@ -56,8 +56,7 @@ class ContinuumModel(object):
         self.targetNParams = 1
 
         self.tiltwave = tiltwave
-        if tiltwave > 0:
-            self.targetNParams += 1
+        self.targetNParams += 1
         # the number of "model" pixels (excluding per target params)
         self.nModelPixels = self.obsNParams + self.restNParams + self.absNParams
         # sparse matrix entry holders
@@ -115,18 +114,6 @@ class ContinuumModel(object):
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
             return 0
 
-        try:
-            amp = target.amp
-        except AttributeError:
-            amp = None
-        self.amplitude.append(amp)
-
-        try:
-            nu = target.nu
-        except AttributeError:
-            nu = None
-        self.nu.append(nu)
-
         yvalues = np.log(flux[validbins]) + np.log(1+target.z)
 
         '''
@@ -167,6 +154,9 @@ class ContinuumModel(object):
 
         assembleBlock(np.arange(nPixels), obsIndices, np.ones(nPixels), self.obsNParams)
 
+        transBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),obsIndices)), 
+            shape=(nPixels,self.obsNParams))
+
         # build rest model param block
         restIndices = restIndices[validbins]
         assert np.amax(restIndices) < self.restNParams, (
@@ -189,17 +179,36 @@ class ContinuumModel(object):
 
         # build target param block
         targetIndices = self.targetNParams*self.nTargets*np.ones(nPixels)
+
         # amplitude param
-        assembleBlock(np.arange(nPixels), targetIndices, np.ones(nPixels), 1)
+        try:
+            amp = target.amp
+            yvalues -= np.log(amp)
+        except AttributeError:
+            amp = None
+            nfittargets = self.amplitude.count(None)
+            ampIndices = self.targetNParams*nfittargets*np.ones(nPixels)
+            assembleBlock(np.arange(nPixels), ampIndices, np.ones(nPixels), 1)
+        self.amplitude.append(amp)
+
         # spectral tilt index param
-        if self.tiltwave > 0:
-            assembleBlock(np.arange(nPixels), targetIndices, np.log(self.restWaveCenters[restIndices]/self.tiltwave), 1)
+        tiltCoefficients = np.log(self.restWaveCenters[restIndices]/self.tiltwave)
+        try:
+            nu = target.nu
+            yvalues -= nu*tiltCoefficients
+        except AttributeError:
+            nu = None
+            nfittargets = self.nu.count(None)
+            nuIndices = self.targetNParams*nfittargets*np.ones(nPixels)
+            assembleBlock(np.arange(nPixels), nuIndices, tiltCoefficients, 1)
+        self.nu.append(nu)
 
         # add to assembled blocks for this observation to the model
         self.addModelCoefficents(np.concatenate(rowIndices),
             np.concatenate(colIndices), np.concatenate(coefficients), yvalues)
         self.nTargets += 1
 
+        # return number of "pixels" added from this observation
         return nPixels
 
     def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
@@ -243,7 +252,6 @@ class ContinuumModel(object):
         self.nconstraints += nconstraints
 
     def addTiltConstraint(self, weight):
-        
         colIndices = 1 + self.nModelPixels + np.arange(0,self.targetNParams*self.nTargets,self.targetNParams)
 
         assert len(colIndices) == self.nTargets, ('Invalid number of nu params')
@@ -258,6 +266,9 @@ class ContinuumModel(object):
         self.nconstraints += 1
 
     def addModelCoefficents(self, rows, cols, coefs, yvalues):
+        """
+        Adds entries to model and updates the total number of 'pixels'.
+        """
         self.colIndices.append(cols)
         self.rowIndices.append(rows)
         self.coefficients.append(coefs)
@@ -268,20 +279,20 @@ class ContinuumModel(object):
         """
         Does final assembly of the sparse matrix representing the model.
         """
-        nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
+        assert self.nu.count(None) == self.amplitude.count(None), 'Must specify both nu and A for a target'
 
+        # build the sparse matrix
+        nModelPixels = self.nModelPixels + self.targetNParams*self.nu.count(None)
         rowIndices = np.concatenate(self.rowIndices)
         colIndices = np.concatenate(self.colIndices)
         coefficients = np.concatenate(self.coefficients)
-        yvalues = np.concatenate(self.yvalues)
-
-        self.y = yvalues
-
-        # build the sparse matrix
         model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
             shape=(self.nTotalPixels,nModelPixels), dtype=np.float32)
         # convert the sparse matrix to compressed sparse column format
         self.model = model.tocsc()
+        # concatenate y values
+        yvalues = np.concatenate(self.yvalues)
+        self.y = yvalues
 
         if self.verbose:
             print 'Number of transmission model params: %d' % self.obsNParams
@@ -296,6 +307,9 @@ class ContinuumModel(object):
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
     def getModel(self):
+        """
+        Returns the assembled model matrix and corresponding y values
+        """
         if self.model is None:
             self.finalize()
         return self.model, self.y
@@ -304,31 +318,38 @@ class ContinuumModel(object):
         """
         Returns a dictionary containing fit results
         """
-        # assert self.soln is not None, ('Can\'t request results before fitting')
+        assert self.model is not None, ('Can\'t request results before model assembly.')
         results = dict()
         offset = 0
-
-        # transform logT -> T
+        # transmission: transform logT -> T
         results['transmission'] = np.exp(soln[offset:offset+self.obsNParams])
         offset += self.obsNParams
-
-        # transform logC -> C
+        # continuum: transform logC -> C
         results['continuum'] = np.exp(soln[offset:offset+self.restNParams])
         offset += self.restNParams
-
         # absorption
         results['absorption'] = soln[offset:offset+self.absNParams]
         offset += self.absNParams
-
-        # transform logA -> A
-        results['amplitude'] = np.exp(soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams])
+        # amplitude: transform logA -> A
+        amplitude = list()
+        ampindex = 0
+        for amp in self.amplitude:
+            if amp is None:
+                amp = np.exp(soln[offset+self.targetNParams*ampindex])
+                ampindex += 1
+            amplitude.append(amp)
+        results['amplitude'] = amplitude
         offset += 1
-
         # spectral tilt
-        if self.tiltwave > 0:
-            results['nu'] = soln[offset:offset+self.targetNParams*self.nTargets:self.targetNParams]
-            offset += 1
-
+        nu = list()
+        nuindex = 0
+        for nuvalue in self.nu:
+            if nuvalue is None:
+                nuvalue = soln[offset+self.targetNParams*nuindex]
+                nuindex += 1
+            nu.append(nuvalue)
+        results['nu'] = nu
+        offset += 1
         # return dictionary of parameters
         return results
 
@@ -348,24 +369,14 @@ class ContinuumModel(object):
         """
         assert self.model is not None, ('Can\'t request chisq before model assembly.')
         # check soln size
-        nModelPixels = self.nModelPixels + self.targetNParams*self.nTargets
+        nModelPixels = self.nModelPixels + self.targetNParams*self.nu.count(None)
         assert len(soln) == nModelPixels, ('Size of soln does not match model.')
         # pick out y value entries for the requested observation
         yvalues = self.yvalues[i]
         nPixels = len(yvalues)
         # pick out model rows corresponding to the requested observation
-        rowIndices = self.rowIndices[i] - min(self.rowIndices[i])
-        colIndices = self.colIndices[i]
-        coefficients = self.coefficients[i]
-        # build the sparse matrix
-        model = scipy.sparse.coo_matrix((coefficients,(rowIndices,colIndices)), 
-            shape=(nPixels,nModelPixels), dtype=np.float32)
-        # convert the sparse matrix to compressed sparse column format
-        model = model.tocsc()
-        '''
         rowIndices = self.rowIndices[i]
-        model = self.model[min(rowIndices),min(rowIndices)]
-        '''
+        model = self.model[min(rowIndices):max(rowIndices)+1]
         # calculate residuals
         residuals = yvalues - model.dot(soln)
         # return chisq
@@ -388,30 +399,25 @@ class ContinuumModel(object):
         dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
 
         results = self.getResults(soln)
-        obsModelValues = results['transmission']
-        restModelValues = results['continuum']
-        targetModelValues = results['amplitude']
-        absModelValues = results['absorption']
-        tiltModelValues = results['nu']
 
-        dsetT = outfile.create_dataset('transmission', data=obsModelValues)
+        dsetT = outfile.create_dataset('transmission', data=results['transmission'])
         dsetT.attrs['normmin'] = args.obsnormmin
         dsetT.attrs['normmax'] = args.obsnormmax
         dsetT.attrs['normweight'] = args.obsnormweight
 
-        dsetC = outfile.create_dataset('continuum', data=restModelValues)
+        dsetC = outfile.create_dataset('continuum', data=results['continuum'])
         dsetC.attrs['normmin'] = args.restnormmin
         dsetC.attrs['normmax'] = args.restnormmax
         dsetC.attrs['normweight'] = args.restnormweight
 
-        dsetA = outfile.create_dataset('amplitude', data=targetModelValues)
+        dsetA = outfile.create_dataset('amplitude', data=results['amplitude'])
 
-        dsetabs = outfile.create_dataset('absorption', data=absModelValues)
+        dsetabs = outfile.create_dataset('absorption', data=results['absorption'])
         dsetabs.attrs['minRestIndex'] = self.absMinIndex
         dsetabs.attrs['maxRestIndex'] = self.absMaxIndex 
         dsetabs.attrs['absmodelexp'] = self.absmodelexp
 
-        dsetTilt = outfile.create_dataset('nu', data=tiltModelValues)
+        dsetTilt = outfile.create_dataset('nu', data=results['nu'])
         dsetTilt.attrs['tiltwave'] = args.tiltwave
         dsetTilt.attrs['tiltweight'] = args.tiltweight
     
@@ -451,9 +457,9 @@ class ContinuumModel(object):
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
         # absorption model parameter options
-        parser.add_argument("--absmin", type=float,default=900,
+        parser.add_argument("--absmin", type=float, default=900,
             help="absorption min wavelength (rest frame)")
-        parser.add_argument("--absmax", type=float,default=1400,
+        parser.add_argument("--absmax", type=float, default=1400,
             help="absoprtion max wavelength (rest frame)")
         parser.add_argument("--absmodelexp", type=float, default=3.92,
             help="absorption model (1+z) factor exponent")
