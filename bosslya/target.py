@@ -32,5 +32,5 @@ def readTargetList(filename, fields=[]):
 def saveTargetList(filename, targets):
     with open(filename, 'w') as outfile:
         for target in targets:
-            outfile.write(' '.join([str(target)] + [str(attr) for attr in target.attrs()])+'\n')
-            
+            attrstr = ' '.join([str(attr) for attr in target.attrs()])
+            outfile.write('%s %s\n' % (str(target), attrstr))

@@ -89,19 +89,20 @@ def main():
         print '... adding observations to fit ...\n'
 
     # Add observations to model
-    plateFileName = None
+    currentlyOpened = None
     fitTargets = []
     npixels = []
     for targetIndex, target in enumerate(targets):
+        plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
         # load the spectrum file
-        if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
-            if plateFileName:
+        if plateFileName != currentlyOpened:
+            if currentlyOpened is not None:
                 spPlate.close()
-            plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
             fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
             # if args.verbose:
             #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
+            currentlyOpened = plateFileName
 
         # read this target's combined spectrum
         combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
@@ -168,7 +169,14 @@ def main():
 
     outfile.close()
 
-    bosslya.target.saveTargetList(args.output+'.txt', fitTargets)
+    results = model.getResults(soln)
+    with open(args.output+'.txt', 'w') as outfile:
+        for i,target in enumerate(fitTargets):
+            attrs = list(target.attrs())
+            attrs.append(results['amplitude'][i])
+            attrs.append(results['nu'][i])
+            attrstr = ' '.join([str(attr) for attr in attrs])
+            outfile.write('%s %s\n' % (str(target), attrstr))
 
 if __name__ == '__main__':
     main()
