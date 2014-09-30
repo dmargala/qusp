@@ -193,77 +193,87 @@ class ContinuumModel(object):
         return nPixels
 
     def addObsConstraint(self, yvalue, wavemin, wavemax, weight):
-        waves = self.obsWaveCenters
+        """
+        Adds a constraint equation for each of the transmission model params between
+        the specified observed frame wavelengths.
+        """
+        # total number of model parameters
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
+        # transmission model params are first
         offset = 0
-
+        # find range of transmission model params in constraint window
+        waves = self.obsWaveCenters
         waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
-        nconstraints = len(waveIndexRange)
-
+        # number of transmission parameters in constraint window
+        nTransmissionParams = len(waveIndexRange)
+        # build constraint block
+        coefs = weight*np.ones(nTransmissionParams)
+        rows = np.arange(nTransmissionParams)
+        cols = offset+waveIndexRange
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(nTransmissionParams,nModelPixels))
         if self.verbose:
             print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
-                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
-
-        constraintCoefficients = weight*np.ones(nconstraints)
-        colIndices = offset+waveIndexRange
-        rowIndices = np.arange(nconstraints)
-
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
-
-        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices, colIndices)),
-            shape=(nconstraints,nModelPixels))
-
+                nTransmissionParams, waveIndexRange[0], waveIndexRange[-1])
+        # append constraint block and update number of constraint equations
         self.constraintBlocks.append(block)
-        self.nconstraints += nconstraints
-
-        yvalues = yvalue*np.ones(nconstraints)
+        self.nconstraints += nTransmissionParams
+        # append yvalues and update total number of rows
+        yvalues = yvalue*np.ones(nTransmissionParams)
         self.yvalues.append(yvalues)
-        self.nTotalPixels += nconstraints
+        self.nTotalPixels += nTransmissionParams
 
     def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
-        waves = self.restWaveCenters
+        """
+        Adds a constraint equation on the geometric mean of the continuum model in
+        between the specified rest frame wavelengths.
+        """
+        # total number of model parameters
+        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
+        # rest model params are after obs model params
         offset = self.obsNParams
-
+        # find range of continuum model params in constraint window
+        waves = self.restWaveCenters
         waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
-
+        # number of continuum parameters in constraint window
+        nContinuumParams = len(waveIndexRange)
+        # build constraint block
+        coefs = weight*np.ones(nContinuumParams)
+        rows = np.zeros(nContinuumParams)
+        cols = offset+waveIndexRange
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,nModelPixels))
         if self.verbose:
             print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
-                len(waveIndexRange), waveIndexRange[0], waveIndexRange[-1])
-
-        constraintCoefficients = weight*np.ones(len(waveIndexRange))
-        colIndices = offset+waveIndexRange
-        rowIndices = np.zeros(len(waveIndexRange))
-
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
-
-        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices,colIndices)),
-            shape=(1,nModelPixels))
+                nContinuumParams, waveIndexRange[0], waveIndexRange[-1])
+        # append constraint block and update number of constraint equations
         self.constraintBlocks.append(block)
         self.nconstraints += 1
-
+        # append yvalues and update total number of rows
         self.yvalues.append([yvalue])
         self.nTotalPixels += 1
 
     def addTiltConstraint(self, weight):
-        if self.verbose:
-            print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,self.nTargets)
-
-        offset = self.nModelPixels + self.amplitude.count(None)
-        nfittargets = self.nu.count(None)
-
-        constraintCoefficients = weight*np.ones(nfittargets)/nfittargets
-        rowIndices = np.zeros(nfittargets)
-        colIndices = offset+np.arange(nfittargets)
-
+        """
+        Adds a constraint equation on the mean of the free spectral tilt params.
+        """
+        # total number of model parameters
         nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
-
-        block = scipy.sparse.coo_matrix((constraintCoefficients,(rowIndices,colIndices)),
-            shape=(1,nModelPixels))
-
+        # calculate tilt block column offset, tilt params are after normalization params
+        offset = self.nModelPixels + self.amplitude.count(None)
+        # count number of free tilt params
+        nTiltParams = self.nu.count(None)
+        # build constraint block
+        coefs = weight*np.ones(nTiltParams)/nTiltParams
+        rows = np.zeros(nTiltParams)
+        cols = offset+np.arange(nTiltParams)
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,nModelPixels))
+        if self.verbose:
+            print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,nTiltParams)
+        # append constraint block and update number of constraint equations
         self.constraintBlocks.append(block)
         self.nconstraints += 1
-
+        # append yvalues and update total number of rows
         self.yvalues.append([0])
         self.nTotalPixels += 1
 
@@ -271,10 +281,9 @@ class ContinuumModel(object):
         """
         Does final assembly of the sparse matrix representing the model.
         """
-
-        # build the sparse matrix
+        # total number of model parameters
         nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
-
+        # pass through each observation and do final assembly of target param blocks
         for i in range(self.nTargets):
             nPixels = self.obsBlocks[i][0].shape[0]
             # add norm block
@@ -297,9 +306,11 @@ class ContinuumModel(object):
                 else:
                     tiltBlock = scipy.sparse.coo_matrix((nPixels,self.nu.count(None)))
                 self.obsBlocks[i].append(tiltBlock)
-
+        # combine blocks from all observations
         obsBlock = scipy.sparse.bmat(self.obsBlocks)
+        # combine blocks from all constraints
         contraintBlock = scipy.sparse.vstack(self.constraintBlocks)
+        # comebine observations and constraints
         finalModel = scipy.sparse.vstack([obsBlock,contraintBlock])
 
         assert finalModel.shape[0] == self.nTotalPixels
