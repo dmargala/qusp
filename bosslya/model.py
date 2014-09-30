@@ -10,7 +10,7 @@ class ContinuumModel(object):
     Represents a linearized quasar continuum model.
     """
     def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
-        absmin, absmax, absmodelexp, verbose=False):
+        absmin, absmax, absmodelexp, absscale, verbose=False):
         """
         Initializes a linearized quasar continuum model using the specified
         parameter limits and values.
@@ -47,7 +47,7 @@ class ContinuumModel(object):
         self.absMaxIndex = np.argmax(self.restWaveCenters > self.absMax)
         self.absWaveCenters = self.restWaveCenters[self.absMinIndex:self.absMaxIndex]
         self.absNParams = len(self.absWaveCenters)
-        self.absScale = 1e3
+        self.absScale = absscale
         if verbose:
             if self.absNParams > 0:
                 print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
@@ -479,6 +479,8 @@ class ContinuumModel(object):
             help="absoprtion max wavelength (rest frame)")
         parser.add_argument("--absmodelexp", type=float, default=3.92,
             help="absorption model (1+z) factor exponent")
+        parser.add_argument("--absscale", type=float, default=1,
+            help="scale absorption params in fit")
         # spectral tilt parameter options
         parser.add_argument("--tiltwave", type=float, default=1280,
             help="spectral tilt pivot wavelength")

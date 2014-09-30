@@ -352,8 +352,6 @@ def main():
 
     ##### Plot Individual Spectra
 
-    bosslya.target.saveTargetList('%s-targets.txt'%args.output, ndefault['targets'].value)
-
     # Create a list of targets to visualize
     if args.examples is not None:
         targetList = args.examples

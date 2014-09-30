@@ -17,6 +17,8 @@ def main():
         help="print verbose output")
     parser.add_argument("-o","--output", type=str, default=None,
         help="hdf5 output filename")
+    parser.add_argument("--save-model", action="store_true",
+        help="specify to save raw data of sparse matrix model")
     ## BOSS data
     parser.add_argument("--boss-root", type=str, default=None,
         help="path to root directory containing BOSS data (ex: /data/boss)")
@@ -41,12 +43,16 @@ def main():
         help="a stopping tolerance")
     parser.add_argument("--btol", type=float, default=1e-8,
         help="b stopping tolerance")
+
+
     parser.add_argument("--z-col", type=int, default=3,
         help="redshift column of input targetlist")
     parser.add_argument("--norm-col", type=int, default=None,
-        help="redshift column of input targetlist")
+        help="norm param column of input targetlist")
     parser.add_argument("--tilt-col", type=int, default=None,
-        help="redshift column of input targetlist")
+        help="tilt param column of input targetlist")
+    parser.add_argument("--sn-col", type=int, default=None,
+        help="sn column of input targetlist")
     bosslya.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
@@ -64,6 +70,8 @@ def main():
         fields.append(('amp',float,args.norm_col))
     if args.tilt_col is not None:
         fields.append(('nu',float,args.tilt_col))
+    if args.sn_col is not None:
+        fields.append(('sn',float,args.sn_col))
 
     # read target list
     targets = bosslya.target.readTargetList(args.input,fields)
@@ -154,7 +162,7 @@ def main():
         print 'reduced chisq: %.2g' % (chisq/(model.model.shape[1]-model.nconstraints))
 
     # Save HDF5 file with results
-    outfile = model.save(args.output+'.hdf5', soln, args)
+    outfile = model.save(args.output+'.hdf5', soln, args, args.save_model)
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
