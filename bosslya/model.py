@@ -327,6 +327,7 @@ class ContinuumModel(object):
         Returns a dictionary containing fit results
         """
         assert self.model is not None, ('Can\'t request results before model assembly.')
+        assert len(soln) == self.nModelParams, ('Size of soln does not match model.')
         results = dict()
         offset = 0
         # transmission: transform logT -> T
@@ -387,49 +388,52 @@ class ContinuumModel(object):
         # return chisq
         return np.dot(residuals, residuals)/len(residuals)
 
-    def save(self, filename, soln, args):
+    def save(self, filename, soln, args, saveModel=True):
         """
-        Writes the model, solution, and results to hdf5 file to provided filename.
+        Saves soln to the specified filename as an hdf5 file. Parsed results and fit meta data
+        are also saved. Use the saveModel arg to indicate whether or not to save the raw
+        data of the sparse matrix model.
         """
+        results = self.getResults(soln)
         # open hdf5 output file
         outfile = h5py.File(filename,'w')
-
-        outfile.create_dataset('model_data', data=self.model.data)
-        outfile.create_dataset('model_indices', data=self.model.indices)
-        outfile.create_dataset('model_indptr', data=self.model.indptr)
-        outfile.create_dataset('model_shape', data=self.model.shape)
+        # save soln
         outfile.create_dataset('soln', data=soln)
-
+        if saveModel:
+            # save model data
+            outfile.create_dataset('model_data', data=self.model.data)
+            outfile.create_dataset('model_indices', data=self.model.indices)
+            outfile.create_dataset('model_indptr', data=self.model.indptr)
+            outfile.create_dataset('model_shape', data=self.model.shape)
+            outfile.create_dataset('y', data=self.y)
+        # save wavelength grids
         dsetObsWave = outfile.create_dataset('obsWaveCenters', data=self.obsWaveCenters)
         dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
-
-        results = self.getResults(soln)
-
+        # save transmission model params and relevant info
         dsetT = outfile.create_dataset('transmission', data=results['transmission'])
         dsetT.attrs['normmin'] = args.obsnormmin
         dsetT.attrs['normmax'] = args.obsnormmax
         dsetT.attrs['normweight'] = args.obsnormweight
-
+        # save continuum model params and relevant info
         dsetC = outfile.create_dataset('continuum', data=results['continuum'])
         dsetC.attrs['normmin'] = args.restnormmin
         dsetC.attrs['normmax'] = args.restnormmax
         dsetC.attrs['normweight'] = args.restnormweight
-
-        dsetA = outfile.create_dataset('amplitude', data=results['amplitude'])
-
+        # save absorption model params and relevant info
         dsetabs = outfile.create_dataset('absorption', data=results['absorption'])
         dsetabs.attrs['minRestIndex'] = self.absMinIndex
         dsetabs.attrs['maxRestIndex'] = self.absMaxIndex 
         dsetabs.attrs['absmodelexp'] = self.absmodelexp
-
+        # save amplitude params and relevant info
+        dsetA = outfile.create_dataset('amplitude', data=results['amplitude'])
+        # save spectral tilt params and relevant info
         dsetTilt = outfile.create_dataset('nu', data=results['nu'])
         dsetTilt.attrs['tiltwave'] = args.tiltwave
         dsetTilt.attrs['tiltweight'] = args.tiltweight
-    
+        # save per-obs chisqs
         chiSqs = [self.getObservationChiSq(soln, i) for i in range(self.nTargets)]
         outfile.create_dataset('chisq', data=chiSqs)
-
-        # return h5py file
+        # return h5py output file
         return outfile
 
     @staticmethod
