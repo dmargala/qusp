@@ -109,7 +109,7 @@ class ContinuumModel(object):
         # skip target if no valid pixels
         if nPixels <= 0:
             if self.verbose:
-                print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
+                print 'No good pixels in relevant range on target %s (z=%.2f)' % (target, target.z)
             return 0
         # initialize y values to logf + log(1+z)
         yvalues = np.log(flux[validbins]) + np.log(1+target.z)
