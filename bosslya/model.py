@@ -9,23 +9,19 @@ class ContinuumModel(object):
     def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
         absmin, absmax, absmodelexp, verbose=False):
         self.verbose = verbose
-
-        # initialize binning arrays
+        # initialize transmission model params
         assert obsmax > obsmin, ('obsmax must be greater than obsmin')
         self.obsWaveMin = obsmin
         self.obsWaveMax = obsmax
-
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(np.arange(4800))
         self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsmin)
         self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsmax)+1
-
         self.obsWaveCenters = bosslya.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
         self.obsNParams = len(self.obsWaveCenters)
-
         if verbose:
             print 'Observed frame bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.obsWaveCenters[0],self.obsWaveCenters[-1],self.obsNParams)
-
+        # initialize continuum model params
         assert restmax > restmin, ('restmin must be greater than restmax')
         self.restWaveMin = restmin
         self.restWaveMax = restmax
@@ -33,11 +29,10 @@ class ContinuumModel(object):
         self.restWaveDelta = float(restmax-restmin)/nrestbins
         self.restWaveCenters = 0.5*self.restWaveDelta + np.linspace(
             restmin,restmax,nrestbins,endpoint=False)
-
         if verbose:
             print 'Rest frame bin centers span [%.2f:%.2f] with %d bins.' % (
                 self.restWaveCenters[0],self.restWaveCenters[-1],self.restNParams)
-
+        # initialize absorption model params
         self.absmodelexp = absmodelexp
         self.absMin = max(absmin,restmin)
         self.absMax = min(absmax,restmax)
@@ -46,33 +41,30 @@ class ContinuumModel(object):
         self.absWaveCenters = self.restWaveCenters[self.absMinIndex:self.absMaxIndex]
         self.absNParams = len(self.absWaveCenters)
         self.absScale = 1e3
-
         if verbose:
             if self.absNParams > 0:
                 print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
                     self.absWaveCenters[0], self.absWaveCenters[-1], self.absNParams)
             else:
                 print 'No absorption params'
-
+        # spectral tilt pivot wavelength
         self.tiltwave = tiltwave
-
-        # the number of "model" pixels (excluding per target params)
-        self.nModelPixels = self.obsNParams + self.restNParams + self.absNParams
-
+        # the number of model params (excluding per target params)
+        self.nModelParams = self.obsNParams + self.restNParams + self.absNParams
+        if verbose:
+            print 'Fit model initialized with %d model params.\n' % self.nModelParams
         # sparse matrix entry holders
         self.yvalues = list()
         self.obsBlocks = list()
         self.constraintBlocks = list()
-
-        self.model = None
-        self.y = None
-
         self.amplitude = list()
         self.normCoefficients = list()
-
         self.nu = list()
         self.tiltCoefficients = list()
-
+        # store finalized model pieces 
+        self.model = None
+        self.y = None
+        # model stats
         self.nTotalPixels = 0
         self.nTargets = 0
         self.nconstraints = 0
@@ -86,22 +78,19 @@ class ContinuumModel(object):
 
         """
         assert unweighted, ('Weighted fit not implemented yet...')
-
         try:
             z = target.z
         except AttributeError:
             print 'Target does not have z attribute.'
             raise
-
-        # this spectrum's wavelength axis pixel offset
+        # this spectrum's co-add wavelength axis pixel offset
         fiducialOffset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
-
+        # map pixels to observed frame wavelength grid
         obsFiducialIndices = fiducialOffset+np.arange(len(wave))
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
-
+        # map pixels to rest frame wavelength grid
         restWave = obsFiducialWave/(1+target.z)
         restIndices = np.floor((restWave - self.restWaveMin)/self.restWaveDelta).astype(int)
-
         # trim ranges to valid data
         validbins = np.all((
             obsFiducialIndices >= self.obsWaveMinIndex, 
@@ -109,15 +98,14 @@ class ContinuumModel(object):
             restIndices < self.restNParams, 
             restIndices >= 0, 
             flux > 0, ivar > 0), axis=0)
-
         nPixels = np.sum(validbins)
+        # skip target if no valid pixels
         if nPixels <= 0:
             if self.verbose:
                 print 'No good pixels in relavant range on target %s (z=%.2f)' % (target, target.z)
             return 0
-
+        # initialize y values to logf + log(1+z)
         yvalues = np.log(flux[validbins]) + np.log(1+target.z)
-
         '''
         # compute weights
         if unweighted:
@@ -129,40 +117,38 @@ class ContinuumModel(object):
         # Append yvalu values
         yvalues = sqrtw*yvalues
         '''
-
-        # build obs model param block
+        obsBlocks = []
+        # build transmission model param block
         obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
-        assert np.amax(obsIndices) < self.obsNParams, (
-            'Invalid obsmodel index value')
-
+        assert np.amax(obsIndices) < self.obsNParams, ('Invalid obsmodel index value')
         transBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),obsIndices)), 
             shape=(nPixels,self.obsNParams))
-
-        # build rest model param block
+        obsBlocks.append(transBlock)
+        # build continuum model param block
         restIndices = restIndices[validbins]
-        assert np.amax(restIndices) < self.restNParams, (
-            'Invalid rest model index value')
-
+        assert np.amax(restIndices) < self.restNParams, ('Invalid rest model index value')
         contBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),restIndices)), 
             shape=(nPixels,self.restNParams))
-
+        obsBlocks.append(contBlock)
         # build absorption model param block
         absMinIndex = np.argmax(restIndices == self.absMinIndex)
         absMaxIndex = np.argmax(restIndices == self.absMaxIndex)
-
+        # check if any of the this observation has pixels in the relevant absorption range
         if absMaxIndex > absMinIndex:
             absRows = np.arange(nPixels)[absMinIndex:absMaxIndex]
-            absIndices = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
-
-            assert np.amax(absIndices) < self.absNParams, 'Invalid abs index value'
-            absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)/self.absScale
-
-            absBlock = scipy.sparse.coo_matrix((absValues,(absRows,absIndices)), 
+            absCols = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
+            assert np.amax(absCols) < self.absNParams, 'Invalid abs param index value'
+            absCoefs = -np.ones(len(absCols))*np.power(1+target.z,self.absmodelexp)/self.absScale
+            absBlock = scipy.sparse.coo_matrix((absCoefs,(absRows,absCols)), 
                 shape=(nPixels,self.absNParams))
-        else:
+            obsBlocks.append(absBlock)
+        elif self.absNParams > 0:
             absBlock = scipy.sparse.coo_matrix((nPixels,self.absNParams))
-
-        # amplitude param
+            obsBlocks.append(absBlock)
+        else:
+            # no absorption parameters, do nothing
+            pass
+        # process amplitude params
         try:
             amp = target.amp
             yvalues -= np.log(amp)
@@ -170,9 +156,9 @@ class ContinuumModel(object):
         except AttributeError:
             amp = None
             self.normCoefficients.append(np.ones(nPixels))
+            self.nModelParams += 1
         self.amplitude.append(amp)
-
-        # spectral tilt index param
+        # process spectral tilt params
         tiltCoefficients = np.log(self.restWaveCenters[restIndices]/self.tiltwave)
         try:
             nu = target.nu
@@ -181,15 +167,16 @@ class ContinuumModel(object):
         except AttributeError:
             nu = None
             self.tiltCoefficients.append(tiltCoefficients)
+            self.nModelParams += 1
         self.nu.append(nu)
-
-        self.obsBlocks.append([transBlock, contBlock, absBlock])
-
+        # append this observation's blocks to the model
+        self.obsBlocks.append(obsBlocks)
+        # append this observation's y values to the model
         self.yvalues.append(yvalues)
+        # update model stats
         self.nTotalPixels += nPixels
-
         self.nTargets += 1
-        # return number of "pixels" added from this observation
+        # return number of pixels added from this observation
         return nPixels
 
     def addObsConstraint(self, yvalue, wavemin, wavemax, weight):
@@ -197,8 +184,6 @@ class ContinuumModel(object):
         Adds a constraint equation for each of the transmission model params between
         the specified observed frame wavelengths.
         """
-        # total number of model parameters
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
         # transmission model params are first
         offset = 0
         # find range of transmission model params in constraint window
@@ -210,7 +195,7 @@ class ContinuumModel(object):
         coefs = weight*np.ones(nTransmissionParams)
         rows = np.arange(nTransmissionParams)
         cols = offset+waveIndexRange
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(nTransmissionParams,nModelPixels))
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(nTransmissionParams,self.nModelParams))
         if self.verbose:
             print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
@@ -228,8 +213,6 @@ class ContinuumModel(object):
         Adds a constraint equation on the geometric mean of the continuum model in
         between the specified rest frame wavelengths.
         """
-        # total number of model parameters
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
         # rest model params are after obs model params
         offset = self.obsNParams
         # find range of continuum model params in constraint window
@@ -241,7 +224,7 @@ class ContinuumModel(object):
         coefs = weight*np.ones(nContinuumParams)
         rows = np.zeros(nContinuumParams)
         cols = offset+waveIndexRange
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,nModelPixels))
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,self.nModelParams))
         if self.verbose:
             print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
                 weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
@@ -255,19 +238,17 @@ class ContinuumModel(object):
 
     def addTiltConstraint(self, weight):
         """
-        Adds a constraint equation on the mean of the free spectral tilt params.
+        Adds a constraint equation on the mean of the non-fixed spectral tilt params.
         """
-        # total number of model parameters
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
         # calculate tilt block column offset, tilt params are after normalization params
-        offset = self.nModelPixels + self.amplitude.count(None)
+        offset = self.obsNParams + self.restNParams + self.absNParams + self.amplitude.count(None)
         # count number of free tilt params
         nTiltParams = self.nu.count(None)
         # build constraint block
         coefs = weight*np.ones(nTiltParams)/nTiltParams
         rows = np.zeros(nTiltParams)
         cols = offset+np.arange(nTiltParams)
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,nModelPixels))
+        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,self.nModelParams))
         if self.verbose:
             print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,nTiltParams)
         # append constraint block and update number of constraint equations
@@ -281,8 +262,6 @@ class ContinuumModel(object):
         """
         Does final assembly of the sparse matrix representing the model.
         """
-        # total number of model parameters
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
         # pass through each observation and do final assembly of target param blocks
         for i in range(self.nTargets):
             nPixels = self.obsBlocks[i][0].shape[0]
@@ -314,7 +293,7 @@ class ContinuumModel(object):
         finalModel = scipy.sparse.vstack([obsBlock,contraintBlock])
 
         assert finalModel.shape[0] == self.nTotalPixels
-        assert finalModel.shape[1] == nModelPixels
+        assert finalModel.shape[1] == self.nModelParams
 
         self.model = finalModel.tocsc()
 
@@ -330,7 +309,7 @@ class ContinuumModel(object):
             print 'Number of amplitude params: %d' % self.amplitude.count(None)
             print 'Number of tilt params: %d' % self.nu.count(None)
             print ''
-            print 'Total number of model params: %d' % nModelPixels
+            print 'Total number of model params: %d' % self.nModelParams
             print 'Total number of flux measurements: %d (%d constraints)' % (self.nTotalPixels, self.nconstraints)
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
@@ -398,8 +377,7 @@ class ContinuumModel(object):
         """
         assert self.model is not None, ('Can\'t request chisq before model assembly.')
         # check soln size
-        nModelPixels = self.nModelPixels + self.amplitude.count(None) + self.nu.count(None)
-        assert len(soln) == nModelPixels, ('Size of soln does not match model.')
+        assert len(soln) == self.nModelParams, ('Size of soln does not match model.')
         # pick out y value entries for the requested observation
         yvalues = self.yvalues[i]
         # pick out model rows for the requested observation

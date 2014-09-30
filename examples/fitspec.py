@@ -86,7 +86,6 @@ def main():
     model = bosslya.ContinuumModel(**bosslya.ContinuumModel.fromArgs(args))
 
     if args.verbose:
-        print 'Fit model initialized with %d model params.\n' % model.nModelPixels
         print '... adding observations to fit ...\n'
 
     # Add observations to model
