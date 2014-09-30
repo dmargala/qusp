@@ -165,6 +165,7 @@ def plotAmpDist(specfits):
     plt.hist(amplitudes, bins=50, linewidth=.1, alpha=.5)
     plt.xlabel(r'Amplitude A')
     plt.ylabel(r'Number of Targets')
+    plt.xscale('log')
     plt.grid()
 
 def plotSNDist(specfits):
