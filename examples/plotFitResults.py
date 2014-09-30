@@ -161,8 +161,8 @@ def plotRedshiftDist(specfits):
     plt.grid()
 
 def plotAmpDist(specfits):
-    logAmp = np.log(specfits['amplitude'].value)
-    plt.hist(logAmp, bins=np.logspace(1e-1, 1e4, 50), linewidth=.1, alpha=.5)
+    amp = specfits['amplitude'].value
+    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), linewidth=.1, alpha=.5)
     plt.xlabel(r'Amplitude A')
     plt.ylabel(r'Number of Targets')
     plt.xscale('log')
