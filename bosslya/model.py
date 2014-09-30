@@ -45,6 +45,7 @@ class ContinuumModel(object):
         self.absMaxIndex = np.argmax(self.restWaveCenters > self.absMax)
         self.absWaveCenters = self.restWaveCenters[self.absMinIndex:self.absMaxIndex]
         self.absNParams = len(self.absWaveCenters)
+        self.absScale = 1e3
 
         if verbose:
             if self.absNParams > 0:
@@ -154,7 +155,7 @@ class ContinuumModel(object):
             absIndices = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
 
             assert np.amax(absIndices) < self.absNParams, 'Invalid abs index value'
-            absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)
+            absValues = -np.ones(len(absIndices))*np.power(1+target.z,self.absmodelexp)/self.absScale
 
             absBlock = scipy.sparse.coo_matrix((absValues,(absRows,absIndices)), 
                 shape=(nPixels,self.absNParams))
@@ -345,7 +346,7 @@ class ContinuumModel(object):
         results['continuum'] = np.exp(soln[offset:offset+self.restNParams])
         offset += self.restNParams
         # absorption
-        results['absorption'] = soln[offset:offset+self.absNParams]
+        results['absorption'] = soln[offset:offset+self.absNParams]*self.absScale
         offset += self.absNParams
         # amplitude: transform logA -> A
         amplitude = list()
