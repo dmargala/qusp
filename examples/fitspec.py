@@ -8,6 +8,7 @@ from astropy.io import fits
 import matplotlib.pyplot as plt
 
 import bosslya
+import random
 
 def main():
     # parse command-line arguments
@@ -70,8 +71,8 @@ def main():
 
     # use the first n targets or a random sample
     if args.random:
-        np.random.seed(args.seed)
-        targets = [targets[i] for i in np.random.randint(len(targets), size=ntargets)]
+        random.seed(args.seed)
+        targets = random.sample(targets, ntargets)
     else:
         targets = targets[:ntargets]
 
