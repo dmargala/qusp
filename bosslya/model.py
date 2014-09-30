@@ -6,8 +6,15 @@ import h5py
 import bosslya
 
 class ContinuumModel(object):
+    """
+    Represents a linearized quasar continuum model.
+    """
     def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
         absmin, absmax, absmodelexp, verbose=False):
+        """
+        Initializes a linearized quasar continuum model using the specified
+        parameter limits and values.
+        """
         self.verbose = verbose
         # initialize transmission model params
         assert obsmax > obsmin, ('obsmax must be greater than obsmin')
