@@ -73,6 +73,9 @@ def main():
     if args.sn_col is not None:
         fields.append(('sn',float,args.sn_col))
 
+    if args.verbose:
+        print 'Using fields: %s' % (', '.join([field[0] for field in fields]))
+
     # read target list
     targets = bosslya.target.readTargetList(args.input,fields)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
