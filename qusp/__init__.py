@@ -3,3 +3,5 @@ from target import Target
 import wavelength
 
 from model import ContinuumModel
+
+from paths import Paths
