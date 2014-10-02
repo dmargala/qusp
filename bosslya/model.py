@@ -86,8 +86,8 @@ class ContinuumModel(object):
         """
         assert unweighted, ('Weighted fit not implemented yet...')
         try:
-            z = target.z
-        except AttributeError:
+            z = target['z']
+        except KeyError:
             print 'Target does not have z attribute.'
             raise
         # this spectrum's co-add wavelength axis pixel offset
@@ -96,7 +96,7 @@ class ContinuumModel(object):
         obsFiducialIndices = fiducialOffset+np.arange(len(wave))
         obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
         # map pixels to rest frame wavelength grid
-        restWave = obsFiducialWave/(1+target.z)
+        restWave = obsFiducialWave/(1+z)
         restIndices = np.floor((restWave - self.restWaveMin)/self.restWaveDelta).astype(int)
         # trim ranges to valid data
         validbins = np.all((
@@ -109,10 +109,10 @@ class ContinuumModel(object):
         # skip target if no valid pixels
         if nPixels <= 0:
             if self.verbose:
-                print 'No good pixels in relevant range on target %s (z=%.2f)' % (target, target.z)
+                print 'No good pixels in relevant range on target %s (z=%.2f)' % (target['target'], z)
             return 0
         # initialize y values to logf + log(1+z)
-        yvalues = np.log(flux[validbins]) + np.log(1+target.z)
+        yvalues = np.log(flux[validbins]) + np.log(1+z)
         '''
         # compute weights
         if unweighted:
@@ -145,7 +145,7 @@ class ContinuumModel(object):
             absRows = np.arange(nPixels)[absMinIndex:absMaxIndex]
             absCols = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
             assert np.amax(absCols) < self.absNParams, 'Invalid abs param index value'
-            absCoefs = -np.ones(len(absCols))*np.power(1+target.z,self.absmodelexp)/self.absScale
+            absCoefs = -np.ones(len(absCols))*np.power(1+z,self.absmodelexp)/self.absScale
             absBlock = scipy.sparse.coo_matrix((absCoefs,(absRows,absCols)), 
                 shape=(nPixels,self.absNParams))
             obsBlocks.append(absBlock)
@@ -157,10 +157,10 @@ class ContinuumModel(object):
             pass
         # process amplitude params
         try:
-            amp = target.amp
+            amp = target['amp']
             yvalues -= np.log(amp)
             self.normCoefficients.append(None)
-        except AttributeError:
+        except KeyError:
             amp = None
             self.normCoefficients.append(np.ones(nPixels))
             self.nModelParams += 1
@@ -168,10 +168,10 @@ class ContinuumModel(object):
         # process spectral tilt params
         tiltCoefficients = np.log(self.restWaveCenters[restIndices]/self.tiltwave)
         try:
-            nu = target.nu
+            nu = target['nu']
             yvalues -= nu*tiltCoefficients
             self.tiltCoefficients.append(None)
-        except AttributeError:
+        except KeyError:
             nu = None
             self.tiltCoefficients.append(tiltCoefficients)
             self.nModelParams += 1
