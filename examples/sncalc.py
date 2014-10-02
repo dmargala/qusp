@@ -21,7 +21,7 @@ def main():
         help = "number of targets to use, 0 for all")
     parser.add_argument("--boss-root", type=str, default=None,
         help = "path to root directory containing BOSS data (ex: /data/boss)")
-    parser.add_argument("--boss-version", type=str, default=None,
+    parser.add_argument("--boss-version", type=str, default='v5_7_0',
         help = "boss pipeline version tag (ex: v5_7_0)")
     parser.add_argument("-o","--output", type=str, default="sn.txt",
         help = "output file name")
@@ -39,7 +39,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = qusp.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
+    targets = qusp.target.loadTargetData(args.input)
     ntargets = len(targets)
 
     if args.verbose: 
@@ -52,23 +52,23 @@ def main():
             break
         target = targets[targetIndex]
 
+        plate,mjd,fiber = target['target'].split('-')
+
         # load the spectrum file
-        if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
-            plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
-            fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
+        if plateFileName != 'spPlate-%s-%s.fits' % (plate, mjd):
+            plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
+            fullName = os.path.join(fitsPath,plate,plateFileName)
             if args.verbose:
                 print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
         # read this target's combined spectrum
-        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
 
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
 
-        print str(target),
-        for attr in target.attrs():
-            print attr,
-        print mediansn
+        target['mediansn'] = mediansn
+        print target
 
 
 
