@@ -136,7 +136,7 @@ def main():
                 if wsum > 0 and imin > 0:
                     normFlux = (1+target['z'])*np.mean(flux[imin:imax])
                     normFluxWeighted = (1+target['z'])*np.dot(ivar[imin:imax],flux[imin:imax])/wsum
-                    if normFlux < 0:
+                    if normFluxWeighted <= 0:
                         continue
                     target['amp'] = normFluxWeighted
                 else:
