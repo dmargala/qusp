@@ -2,6 +2,9 @@ from collections import namedtuple
 from operator import itemgetter
 import numpy as np
 
+from astropy.io import fits
+import os
+
 class Target(namedtuple('Target',('plate','mjd','fiber'))):
     def __str__(self):
         return '%d-%d-%d' % (self.plate,self.mjd,self.fiber)
@@ -42,3 +45,26 @@ def saveTargetData(filename, targets, fields=[]):
         fields = ['target'] + fields
         for target in targets:
             outfile.write(' '.join([str(target[key]) for key in fields])+'\n')
+
+def readTargetPlates(boss_path, targets, sort=True, verbose=False):
+    """
+    A generator that yields (target,spPlate) tuples for the provided list of 
+    targets. With sort=True, the targets will be sorted by plate-mjd-fiber 
+    reduce the number of io operations.
+    """
+    if sort:
+        targets = sorted(targets, key=lambda target: target['target'])
+    currentlyOpened = None
+    for target in targets:
+        plate, mjd, fiber = target['target'].split('-')
+        plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
+        if plateFileName != currentlyOpened:
+            # load the spectrum file
+            if currentlyOpened is not None:
+                spPlate.close()
+            fullName = os.path.join(boss_path,plate,plateFileName)
+            if verbose:
+               print 'Opening plate file %s...' % fullName
+            spPlate = fits.open(fullName)
+            currentlyOpened = plateFileName
+        yield target, spPlate

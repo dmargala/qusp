@@ -3,13 +3,7 @@
 Calculates SN ratio of BOSS spectra
 """
 
-import os
 import argparse
-
-import numpy as np
-
-from astropy.io import fits
-
 import qusp
 
 def main():
@@ -26,40 +20,25 @@ def main():
     qusp.Paths.addArgs(parser)
     args = parser.parse_args()
 
+    # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.fromArgs(args))
-
     # read target list
     targets = qusp.target.loadTargetData(args.input)
-    ntargets = len(targets)
 
-    if args.verbose: 
-        print 'Read %d targets from %s' % (ntargets,args.input)
+    # trim target list if requested
+    ntargets = args.ntargets if args.ntargets > 0 else len(targets)
+    targets = targets[:ntargets]
 
     # loop over targets
-    plateFileName = None
-    for targetIndex in range(ntargets):
-        if args.ntargets > 0 and targetIndex > args.ntargets:
-            break
-        target = targets[targetIndex]
-
-        plate,mjd,fiber = target['target'].split('-')
-
-        # load the spectrum file
-        if plateFileName != 'spPlate-%s-%s.fits' % (plate, mjd):
-            plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
-            fullName = os.path.join(paths.boss_path,plate,plateFileName)
-            if args.verbose:
-                print 'Opening plate file %s...' % fullName
-            spPlate = fits.open(fullName)
-
+    for target, spPlate in qusp.target.readTargetPlates(paths.boss_path,targets,verbose=args.verbose):
+        plate, mjd, fiber = target['target'].split('-')
         # read this target's combined spectrum
         combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
-
+        # calculate median sn
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
-
         target['mediansn'] = mediansn
-        print target
-
+    # save target list with sn column
+    qusp.target.saveTargetData(args.output, targets, ['mediansn'])
 
 
 if __name__ == '__main__':
