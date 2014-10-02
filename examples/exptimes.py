@@ -43,7 +43,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = qusp.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
+    targets = qusp.target.loadTargetData(args.input)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # we want to open the spPlate files in plate-mjd order
@@ -53,19 +53,19 @@ def main():
         print 'Read %d targets from %s' % (ntargets,args.input)
 
     # Add observations to fitter
-    plateFileName = None
-    fitTargets = []
-    npixels = []
-    for i, target in enumerate(targets):
+    currentlyOpened = None
+    for targetIndex, target in enumerate(targets):
+        plate, mjd, fiber = target['target'].split('-')
+        plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
         # load the spectrum file
-        if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
-            if plateFileName:
+        if plateFileName != currentlyOpened:
+            if currentlyOpened is not None:
                 spPlate.close()
-            plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
-            fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
-            if args.verbose:
-               print 'Opening plate file %s...' % fullName
+            fullName = os.path.join(fitsPath,plate,plateFileName)
+            # if args.verbose:
+            #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
+            currentlyOpened = plateFileName
 
             taibeg = spPlate[0].header['TAI-BEG']
             taiend = spPlate[0].header['TAI-END']
@@ -73,7 +73,6 @@ def main():
             ra = spPlate[0].header['RA']
             dec = spPlate[0].header['RA']
             print taibeg, taiend, taiend-taibeg, nexp, ra
-
 
             plateDiameter = (3.0*u.deg).to(u.rad)
 
