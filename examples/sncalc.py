@@ -19,24 +19,14 @@ def main():
         help = "target list")
     parser.add_argument("-n","--ntargets", type=int, default=0,
         help = "number of targets to use, 0 for all")
-    parser.add_argument("--boss-root", type=str, default=None,
-        help = "path to root directory containing BOSS data (ex: /data/boss)")
-    parser.add_argument("--boss-version", type=str, default='v5_7_0',
-        help = "boss pipeline version tag (ex: v5_7_0)")
     parser.add_argument("-o","--output", type=str, default="sn.txt",
         help = "output file name")
     parser.add_argument("--verbose", action="store_true",
         help = "more verbose output")
+    qusp.Paths.addArgs(parser)
     args = parser.parse_args()
 
-    # set up paths
-    boss_root = args.boss_root if args.boss_root is not None else os.getenv('BOSS_ROOT', None)
-    boss_version = args.boss_version if args.boss_version is not None else os.getenv('BOSS_VERSION', None)
-
-    if boss_root is None or boss_version is None:
-        raise RuntimeError('Must speciy --boss-(root|version) or env var BOSS_(ROOT|VERSION)')
-
-    fitsPath = os.path.join(boss_root, boss_version)
+    paths = qusp.Paths(**qusp.Paths.fromArgs(args))
 
     # read target list
     targets = qusp.target.loadTargetData(args.input)
@@ -57,7 +47,7 @@ def main():
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (plate, mjd):
             plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
-            fullName = os.path.join(fitsPath,plate,plateFileName)
+            fullName = os.path.join(paths.boss_path,plate,plateFileName)
             if args.verbose:
                 print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
