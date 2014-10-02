@@ -2,7 +2,7 @@
 
 import h5py
 import scipy.sparse
-import bosslya
+import qusp
 
 import os
 import argparse
@@ -189,7 +189,7 @@ def plotTarget(target, fitsPath):
     plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
     fullName = os.path.join(fitsPath,plate,plateFileName)
     spPlate = fits.open(fullName)
-    combined = bosslya.readCombinedSpectrum(spPlate, int(fiber))
+    combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
     x = combined.wavelength
     y = combined.flux
     plt.plot(x, y, c='b',lw=.5)
@@ -251,9 +251,9 @@ def plotFitTarget(specfits, targetList, fitsPath):
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
         plt.grid()
 
-        bosslya.wavelength.drawLines((1+z)*np.array(bosslya.wavelength.QuasarEmissionLines), bosslya.wavelength.QuasarEmissionLabels, 
+        qusp.wavelength.drawLines((1+z)*np.array(qusp.wavelength.QuasarEmissionLines), qusp.wavelength.QuasarEmissionLabels, 
             0.89,-0.1, c='orange', alpha=.5)
-        bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
+        qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
             0.01, 0.1, c='magenta', alpha=.5)
 
 def main():
@@ -304,7 +304,7 @@ def main():
     fig = plt.figure(figsize=(20,8))
     plotContinuum(ndefault,c='black')
     drawNormWindow(ndefault['continuum'])
-    bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
+    qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.89,-0.1, c='orange', alpha=.5)
 
     # plt.xticks(np.arange(900, 2900, 200))
@@ -313,9 +313,9 @@ def main():
 
     # Draw Transmission Model
     fig = plt.figure(figsize=(20,8))
-    bosslya.wavelength.drawLines(bosslya.wavelength.BallmerLines, bosslya.wavelength.BallmerLabels, 
+    qusp.wavelength.drawLines(qusp.wavelength.BallmerLines, qusp.wavelength.BallmerLabels, 
         0.89,-0.1, c='green', alpha=.5)
-    bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
+    qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
         0.01, 0.1, c='magenta', alpha=.5)
     plotTransmission(ndefault,c='black')
     # plt.xticks(np.arange(3600, 9000, 400))
@@ -326,7 +326,7 @@ def main():
     # Plot Absorption Model
     fig = plt.figure(figsize=(8,6))
     plotAbsorption(ndefault, c='black')
-    bosslya.wavelength.drawLines(bosslya.wavelength.QuasarEmissionLines, bosslya.wavelength.QuasarEmissionLabels, 
+    qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.01,0.1, c='orange', alpha=.5)
     plt.ylim([0,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')

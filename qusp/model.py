@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse
 import h5py
 
-import bosslya
+import qusp
 
 class ContinuumModel(object):
     """
@@ -20,10 +20,10 @@ class ContinuumModel(object):
         assert obsmax > obsmin, ('obsmax must be greater than obsmin')
         self.obsWaveMin = obsmin
         self.obsWaveMax = obsmax
-        obsFiducialWave = bosslya.wavelength.getFiducialWavelength(np.arange(4800))
+        obsFiducialWave = qusp.wavelength.getFiducialWavelength(np.arange(4800))
         self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsmin)
         self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsmax)+1
-        self.obsWaveCenters = bosslya.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
+        self.obsWaveCenters = qusp.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
         self.obsNParams = len(self.obsWaveCenters)
         if verbose:
             print 'Observed frame bin centers span [%.2f:%.2f] with %d bins.' % (
@@ -91,10 +91,10 @@ class ContinuumModel(object):
             print 'Target does not have z attribute.'
             raise
         # this spectrum's co-add wavelength axis pixel offset
-        fiducialOffset = bosslya.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
+        fiducialOffset = qusp.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
         # map pixels to observed frame wavelength grid
         obsFiducialIndices = fiducialOffset+np.arange(len(wave))
-        obsFiducialWave = bosslya.wavelength.getFiducialWavelength(obsFiducialIndices)
+        obsFiducialWave = qusp.wavelength.getFiducialWavelength(obsFiducialIndices)
         # map pixels to rest frame wavelength grid
         restWave = obsFiducialWave/(1+z)
         restIndices = np.floor((restWave - self.restWaveMin)/self.restWaveDelta).astype(int)

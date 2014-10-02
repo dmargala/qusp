@@ -96,7 +96,7 @@ def plotSpectrum(spectrum, **kwargs):
         plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
         fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
         spPlate = fits.open(fullName)
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
         spPlate.close()
     elif isinstance(spectrum, Spectrum):
         combined = spectrum

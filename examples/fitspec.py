@@ -7,7 +7,7 @@ from astropy.io import fits
 
 import matplotlib.pyplot as plt
 
-import bosslya
+import qusp
 import random
 
 def main():
@@ -56,7 +56,7 @@ def main():
         help="fix norm param")
     parser.add_argument("--fix-tilt", action="store_true",
         help="fix tilt param")
-    bosslya.ContinuumModel.addArgs(parser)
+    qusp.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
     # set up paths
@@ -80,7 +80,7 @@ def main():
         print 'Using fields: %s' % (', '.join([field[0] for field in fields]))
 
     # read target list
-    targets = bosslya.target.loadTargetData(args.input,fields)
+    targets = qusp.target.loadTargetData(args.input,fields)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # use the first n targets or a random sample
@@ -97,7 +97,7 @@ def main():
         print 'Read %d targets from %s' % (ntargets,args.input)
 
     # Initialize model 
-    model = bosslya.ContinuumModel(**bosslya.ContinuumModel.fromArgs(args))
+    model = qusp.ContinuumModel(**qusp.ContinuumModel.fromArgs(args))
 
     if args.verbose:
         print '... adding observations to fit ...\n'
@@ -120,7 +120,7 @@ def main():
             currentlyOpened = plateFileName
 
         # read this target's combined spectrum
-        combined = bosslya.readCombinedSpectrum(spPlate, int(fiber))
+        combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
         wavelength = combined.wavelength
         ivar = combined.ivar
         flux = combined.flux
@@ -212,7 +212,7 @@ def main():
     for i,target in enumerate(fitTargets):
         target['amp'] = results['amplitude'][i]
         target['nu'] = results['nu'][i]
-    bosslya.target.saveTargetData(args.output+'.txt', fitTargets, ['z','amp','nu'])
+    qusp.target.saveTargetData(args.output+'.txt', fitTargets, ['z','amp','nu'])
 
 if __name__ == '__main__':
     main()
