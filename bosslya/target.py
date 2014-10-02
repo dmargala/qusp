@@ -1,5 +1,6 @@
 from collections import namedtuple
 from operator import itemgetter
+import numpy as np
 
 class Target(namedtuple('Target',('plate','mjd','fiber'))):
     def __str__(self):
@@ -29,8 +30,15 @@ def readTargetList(filename, fields=[]):
             targetList.append(Target(*namedTokens))
     return targetList
 
-def saveTargetList(filename, targets):
+def loadTargetData(filename, fields=[]):
+    fields = [('target','S15',0)] + fields
+    names, formats, cols = zip(*fields)
+    targetData = np.genfromtxt(filename,dtype={'names':names,'formats':formats},usecols=cols)
+
+    return [dict(zip(targetData.dtype.names,target)) for target in targetData]
+
+def saveTargetData(filename, targets, fields=[]):
     with open(filename, 'w') as outfile:
+        fields = ['target'] + fields
         for target in targets:
-            attrstr = ' '.join([str(attr) for attr in target.attrs()])
-            outfile.write('%s %s\n' % (str(target), attrstr))
+            outfile.write(' '.join([str(target[key]) for key in fields])+'\n')
