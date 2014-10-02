@@ -63,7 +63,7 @@ def readTargetPlates(boss_path, targets, sort=True, verbose=False):
     reduce the number of io operations.
     """
     if sort:
-        targets = sorted(targets, key=lambda target: target['target'])
+        targets = sorted(targets, key=lambda target: (target['plate'],target['mjd'],target['fiber']))
     currentlyOpened = None
     for target in targets:
         plateFileName = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
