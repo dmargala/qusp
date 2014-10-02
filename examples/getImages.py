@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import subprocess
-import bosslya
+import qusp
 
 def targetImageURL(target, w=256, h=256, opt='IOG', scale=.1):
     # see http://skyserver.sdss3.org/dr10/en/help/docs/api.aspx#cutout
@@ -27,7 +27,7 @@ def main():
         help="target list")
     args = parser.parse_args()
 
-    targets = bosslya.readTargetList(args.input,fields=[('ra',float),('dec',float)])
+    targets = qusp.readTargetList(args.input,fields=[('ra',float),('dec',float)])
 
     for target in targets:
         url = targetImageURL(target)

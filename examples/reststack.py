@@ -11,7 +11,7 @@ import numpy as np
 from astropy.io import fits
 import h5py
 
-import bosslya
+import qusp
 
 def main():
     # parse command-line arguments
@@ -64,7 +64,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
+    targets = qusp.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
 
     ntargets = len(targets)
     firstTarget = args.first_target
@@ -74,7 +74,7 @@ def main():
 
     # initialize stack arrays
     nxbins = 4800
-    xbincenters = bosslya.getFiducialWavelength(np.arange(nxbins))
+    xbincenters = qusp.getFiducialWavelength(np.arange(nxbins))
 
     zmin = args.zmin
     zmax = args.zmax
@@ -123,10 +123,10 @@ def main():
             spPlate = fits.open(fullPath) 
 
         # read this target's combined spectrum
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
 
         # determine pixel offset
-        offset = bosslya.getFiducialPixelIndexOffset(np.log10(combined.wavelength[0]))
+        offset = qusp.getFiducialPixelIndexOffset(np.log10(combined.wavelength[0]))
         if combined.nPixels + offset > nxbins:
             raise RuntimeError('woh! sprectrum out of range!')
 
@@ -233,7 +233,7 @@ def main():
         dset.attrs['label'] = label
         return dset
 
-    xbinedges = bosslya.getFiducialWavelength(np.arange(0, nxbins+1)-0.5) 
+    xbinedges = qusp.getFiducialWavelength(np.arange(0, nxbins+1)-0.5) 
     xdset = saveDataset('xbinedges', xbinedges, 'Observed Wavelength', '$(\AA)$')
 
     if not args.resty:

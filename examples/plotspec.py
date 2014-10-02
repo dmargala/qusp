@@ -5,7 +5,7 @@ import os
 import numpy
 from astropy.io import fits
 
-import bosslya
+import qusp
 
 def main():
 
@@ -33,9 +33,9 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     if args.target_list:
-        targets = bosslya.readTargetList(args.target_list)
+        targets = qusp.readTargetList(args.target_list)
     elif args.target:
-        targets = [bosslya.Target.fromString(args.target)]
+        targets = [qusp.Target.fromString(args.target)]
 
     if args.save:
         # Force matplotlib to not use any Xwindows backend.
@@ -56,7 +56,7 @@ def main():
             print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
 
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
 
         fig = plt.figure()
         x = combined.wavelength

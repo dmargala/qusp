@@ -8,7 +8,7 @@ from astropy.io import fits
 
 import matplotlib.pyplot as plt
 
-import bosslya
+import qusp
 
 import desimodel.simulate
 
@@ -43,7 +43,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
+    targets = qusp.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # we want to open the spPlate files in plate-mjd order

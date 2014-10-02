@@ -196,7 +196,7 @@ def main():
     outfile = model.save(args.output+'.hdf5', soln, args, args.save_model)
 
     outfile.create_dataset('npixels', data=npixels)
-    outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
+    outfile.create_dataset('targets', data=[target['target'] for target in fitTargets])
     outfile.create_dataset('redshifts', data=[target['z'] for target in fitTargets])
 
     try:

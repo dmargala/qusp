@@ -262,7 +262,7 @@ def loadSDSSFilterCurves(whichColumn=1):
     myPath = os.path.dirname(os.path.abspath(__file__))
     # Build the path where the filter curves should be.
     filterPath = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(myPath))),'data','throughput')
+        os.path.dirname(os.path.dirname(myPath)),'data','throughput')
     curves = { }
     for band in 'ugriz':
         filterData = np.loadtxt(os.path.join(filterPath,'sdss_jun2001_%s_atm.dat' % band),unpack=True)

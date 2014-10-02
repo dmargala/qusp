@@ -10,7 +10,7 @@ import numpy as np
 
 from astropy.io import fits
 
-import bosslya
+import qusp
 
 def main():
     # parse command-line arguments
@@ -39,7 +39,7 @@ def main():
     fitsPath = os.path.join(boss_root, boss_version)
 
     # read target list
-    targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
+    targets = qusp.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int)])
     ntargets = len(targets)
 
     if args.verbose: 
@@ -61,7 +61,7 @@ def main():
             spPlate = fits.open(fullName)
 
         # read this target's combined spectrum
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
 
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
 

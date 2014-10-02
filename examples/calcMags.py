@@ -8,7 +8,7 @@ from astropy.io import fits
 
 import matplotlib.pyplot as plt
 
-import bosslya
+import qusp
 
 import desimodel.simulate
 
@@ -60,28 +60,28 @@ def main():
     restWaveCenters = fitResults['restWaveCenters'].value
     obsWaveCenters = fitResults['obsWaveCenters'].value
 
-    T = fitResults['T'].value
-    C = fitResults['C'].value
+    T = fitResults['transmission'].value
+    C = fitResults['continuum'].value
 
-    absorption = fitResults['alpha']
-    beta = absorption.attrs['beta']
+    absorption = fitResults['absorption']
+    beta = absorption.attrs['absmodelexp']
     amin = absorption.attrs['minRestIndex']
     amax = absorption.attrs['maxRestIndex']
 
-    amplitudes = fitResults['A'].value
+    amplitudes = fitResults['amplitude'].value
     tiltindices = fitResults['nu'].value
-    nuwave = fitResults['nu'].attrs['nuwave']
+    nuwave = fitResults['nu'].attrs['tiltwave']
 
     # read target list
-    # targets = bosslya.readTargetList(args.input,[('ra',float),('dec',float),('z',float),('thingid',int),('sn',float)])
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # use the first n targets or a random sample
     if args.random:
-        np.random.seed(args.seed)
-        targets = [targets[i] for i in np.random.randint(len(targets), size=ntargets)]
+        random.seed(args.seed)
+        targets = random.sample(targets, ntargets)
     else:
         targets = targets[:ntargets]
+
 
     # we want to open the spPlate files in plate-mjd order
     #targets = sorted(targets)
@@ -96,7 +96,7 @@ def main():
     fitTargets = []
     npixels = []
     for i, targetstr in enumerate(targets):
-        target = bosslya.Target.fromString(targetstr)
+        target = qusp.Target.fromString(targetstr)
         # load the spectrum file
         if plateFileName != 'spPlate-%s-%s.fits' % (target.plate, target.mjd):
             if plateFileName:
@@ -122,7 +122,7 @@ def main():
             mags[key][0].append(mag)
 
         # read this target's combined spectrum
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
         wave = combined.wavelength
         ivar = combined.ivar
         flux = combined.flux
@@ -164,9 +164,9 @@ def main():
             plt.ylim(ylim)
 
             # Annotate with common emission/absorption lines
-            bosslya.wavelength.drawLines((1+z)*np.array(bosslya.wavelength.QuasarEmissionLines), bosslya.wavelength.QuasarEmissionLabels, 
+            qusp.wavelength.drawLines((1+z)*np.array(qusp.wavelength.QuasarEmissionLines), qusp.wavelength.QuasarEmissionLabels, 
                 0.89,-0.1, c='orange', alpha=.5)
-            bosslya.wavelength.drawLines(bosslya.wavelength.SkyLineList, bosslya.wavelength.SkyLabels, 
+            qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
                 0.01, 0.1, c='magenta', alpha=.5)
 
             # Label axes
