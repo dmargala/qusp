@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 import argparse
 import os
+import random
 
 import numpy as np
-from astropy.io import fits
-
 import matplotlib.pyplot as plt
 
 import qusp
-import random
 
 def main():
     # parse command-line arguments
@@ -19,11 +17,6 @@ def main():
         help="hdf5 output filename")
     parser.add_argument("--save-model", action="store_true",
         help="specify to save raw data of sparse matrix model")
-    ## BOSS data
-    parser.add_argument("--boss-root", type=str, default=None,
-        help="path to root directory containing BOSS data (ex: /data/boss)")
-    parser.add_argument("--boss-version", type=str, default="v5_7_0",
-        help="boss pipeline version tag")
     ## targets to fit
     parser.add_argument("-i","--input", type=str, default=None,
         help="target list")
@@ -56,18 +49,14 @@ def main():
         help="fix norm param")
     parser.add_argument("--fix-tilt", action="store_true",
         help="fix tilt param")
+    qusp.Paths.addArgs(parser)
     qusp.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
-    # set up paths
-    boss_root = args.boss_root if args.boss_root is not None else os.getenv('BOSS_ROOT', None)
-    boss_version = args.boss_version if args.boss_version is not None else os.getenv('BOSS_VERSION', None)
+    # setup boss data directory path
+    paths = qusp.Paths(**qusp.Paths.fromArgs(args))
 
-    if boss_root is None or boss_version is None:
-        raise RuntimeError('Must speciy --boss-(root|version) or env var BOSS_(ROOT|VERSION)')
-
-    fitsPath = os.path.join(boss_root, boss_version)
-
+    # read target data
     fields = [('z',float,args.z_col)]
     if args.norm_col is not None:
         fields.append(('amp',float,args.norm_col))
@@ -75,83 +64,50 @@ def main():
         fields.append(('nu',float,args.tilt_col))
     if args.sn_col is not None:
         fields.append(('sn',float,args.sn_col))
-
-    if args.verbose:
-        print 'Using fields: %s' % (', '.join([field[0] for field in fields]))
-
-    # read target list
-    targets = qusp.target.loadTargetData(args.input,fields)
-    ntargets = args.ntargets if args.ntargets > 0 else len(targets)
+    targets = qusp.target.loadTargetData(args.input,fields,verbose=args.verbose)
 
     # use the first n targets or a random sample
+    ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     if args.random:
         random.seed(args.seed)
         targets = random.sample(targets, ntargets)
     else:
         targets = targets[:ntargets]
 
-    # we want to open the spPlate files in plate-mjd order
-    targets = sorted(targets, key=lambda target: target['target'])
-
-    if args.verbose: 
-        print 'Read %d targets from %s' % (ntargets,args.input)
-
     # Initialize model 
     model = qusp.ContinuumModel(**qusp.ContinuumModel.fromArgs(args))
 
-    if args.verbose:
-        print '... adding observations to fit ...\n'
-
     # Add observations to model
-    currentlyOpened = None
     fitTargets = []
     npixels = []
-    for targetIndex, target in enumerate(targets):
-        plate, mjd, fiber = target['target'].split('-')
-        plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
-        # load the spectrum file
-        if plateFileName != currentlyOpened:
-            if currentlyOpened is not None:
-                spPlate.close()
-            fullName = os.path.join(fitsPath,plate,plateFileName)
-            # if args.verbose:
-            #    print 'Opening plate file %s...' % fullName
-            spPlate = fits.open(fullName)
-            currentlyOpened = plateFileName
-
+    if args.verbose:
+        print '... adding observations to fit ...\n'
+    for target, spPlate in qusp.target.readTargetPlates(paths.boss_path,targets,verbose=args.verbose):
         # read this target's combined spectrum
-        combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
+        combined = qusp.readCombinedSpectrum(spPlate, target['fiber'])
         wavelength = combined.wavelength
         ivar = combined.ivar
         flux = combined.flux
 
+        # fix quasar spectrum normalization
         if args.fix_norm:
             try:
                 amp = target['amp']
             except KeyError:
-                imin = np.argmax(wavelength > args.restnormmin*(1+target['z']))
-                imax = np.argmax(wavelength > args.restnormmax*(1+target['z']))+1
-
-                wsum = np.sum(ivar[imin:imax])
-                if wsum > 0 and imin > 0:
-                    normFlux = (1+target['z'])*np.mean(flux[imin:imax])
-                    normFluxWeighted = (1+target['z'])*np.dot(ivar[imin:imax],flux[imin:imax])/wsum
-                    if normFluxWeighted <= 0:
-                        continue
-                    target['amp'] = normFluxWeighted
-                else:
+                # estimate quasar normalization
+                norm = combined.getMeanFlux(args.restnormmin*(1+target['z']), args.restnormmax*(1+target['z']))
+                if norm <= 0:
                     continue
-
+                target['amp'] = norm
+        # fix spectal tilt
         if args.fix_tilt:
             try:
                 nu = target['nu']
             except KeyError:
                 target['nu'] = 0
 
-
         # Add this observation to our model
-        nPixelsAdded = model.addObservation(target, flux, wavelength, ivar, 
-            unweighted=args.unweighted)
+        nPixelsAdded = model.addObservation(target, flux, wavelength, ivar, unweighted=args.unweighted)
         if nPixelsAdded > 0:
             fitTargets.append(target)
             npixels.append(nPixelsAdded)
@@ -167,7 +123,7 @@ def main():
     if args.verbose:
         print ''
 
-    # run the fitter
+    # Construct the model
     X, y = model.getModel()
 
     # perform fit
@@ -212,7 +168,7 @@ def main():
     for i,target in enumerate(fitTargets):
         target['amp'] = results['amplitude'][i]
         target['nu'] = results['nu'][i]
-    qusp.target.saveTargetData(args.output+'.txt', fitTargets, ['z','amp','nu'])
+    qusp.target.saveTargetData(args.output+'.txt', fitTargets, ['z','amp','nu'], verbose=args.verbose)
 
 if __name__ == '__main__':
     main()
