@@ -1,8 +1,18 @@
+"""
+Provides support for working with BOSS spectra.
+"""
 import numpy as np
 from wavelength import *
 
 class Spectrum:
+    """
+    Represents a BOSS co-added spectrum.
+    """
     def __init__(self, wavelength, flux, ivar):
+        """
+        Initializes a spectrum with the provided wavelength, flux, and
+        ivar arrays.
+        """
         self.wavelength = wavelength
         self.flux = flux
         self.ivar = ivar
@@ -68,7 +78,7 @@ def readCombinedSpectrum(spPlate, fiber):
     """
     Returns the combined spectrum of the specified fiber from the provided spPlate.
     """
-    # those pesky fiber numbers start at 1
+    # those pesky fiber numbers start at 1 but the fits table is 0-indexed
     index = fiber - 1
 
     coeff0 = spPlate[0].header['COEFF0']

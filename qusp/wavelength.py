@@ -1,12 +1,23 @@
+"""
+Provides support for working with BOSS wavelengths
+"""
 import math
 
 def getFiducialWavelength(pixelIndex):
+    """
+    Returns the wavelength at the center of the specified
+    index of the BOSS co-add fiducial wavelength grid.
+    """
     return 3500.26*(10**(1e-4*pixelIndex))
 
 def getFiducialWavelengthRatio(lambda1, lambda2=3500.26):
     return 1e4*math.log10(lambda1/lambda2)
 
 def getFiducialPixelIndexOffset(coeff0, coeff1=1e-4):
+    """
+    Returns the pixel index offset from the start of the 
+    BOSS co-add fiducial wavelength grid. 
+    """
     if coeff1 != 1e-4:
         return 0
     delta = (math.log10(3500.26)-coeff0)/coeff1

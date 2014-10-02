@@ -38,7 +38,7 @@ def main():
         mediansn = combined.getMedianSignalToNoise(combined.wavelength[0],combined.wavelength[-1])
         target['mediansn'] = mediansn
     # save target list with sn column
-    qusp.target.saveTargetData(args.output, targets, ['mediansn'])
+    qusp.target.saveTargetData(args.output, targets, 'mediansn')
 
 
 if __name__ == '__main__':
