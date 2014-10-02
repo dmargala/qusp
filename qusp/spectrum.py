@@ -47,12 +47,12 @@ class Spectrum:
         s = slice(minPixel,maxPixel+1)
         # only use "good" pixels
         nonzero = np.nonzero(self.ivar[s])
-        if len(nonzero) == 0:
-            return 0
         # use weights?
         weights = self.ivar[s][nonzero] if ivarWeighting else np.ones(len(nonzero))
         # calculate mean
         wsum = np.sum(weights)
+        if wsum <= 0:
+            return 0
         wfluxsum = np.sum(weights*self.flux[s][nonzero])
         return wfluxsum/wsum
 

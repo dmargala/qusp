@@ -98,7 +98,8 @@ def main():
                 norm = combined.getMeanFlux(args.restnormmin*(1+target['z']), args.restnormmax*(1+target['z']))
                 if norm <= 0:
                     continue
-                target['amp'] = norm
+                # restframe amplitude
+                target['amp'] = norm*(1+target['z'])
         # fix spectal tilt
         if args.fix_tilt:
             try:
