@@ -43,16 +43,19 @@ def main():
         help="a stopping tolerance")
     parser.add_argument("--btol", type=float, default=1e-8,
         help="b stopping tolerance")
-
-
+    # input data columns
     parser.add_argument("--z-col", type=int, default=3,
         help="redshift column of input targetlist")
+    parser.add_argument("--sn-col", type=int, default=None,
+        help="sn column of input targetlist")
     parser.add_argument("--norm-col", type=int, default=None,
         help="norm param column of input targetlist")
     parser.add_argument("--tilt-col", type=int, default=None,
         help="tilt param column of input targetlist")
-    parser.add_argument("--sn-col", type=int, default=None,
-        help="sn column of input targetlist")
+    parser.add_argument("--fix-norm", action="store_true",
+        help="fix norm param")
+    parser.add_argument("--fix-tilt", action="store_true",
+        help="fix tilt param")
     bosslya.ContinuumModel.addArgs(parser)
     args = parser.parse_args()
 
@@ -77,7 +80,7 @@ def main():
         print 'Using fields: %s' % (', '.join([field[0] for field in fields]))
 
     # read target list
-    targets = bosslya.target.readTargetList(args.input,fields)
+    targets = bosslya.target.loadTargetData(args.input,fields)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
     # use the first n targets or a random sample
@@ -88,7 +91,7 @@ def main():
         targets = targets[:ntargets]
 
     # we want to open the spPlate files in plate-mjd order
-    targets = sorted(targets)
+    targets = sorted(targets, key=lambda target: target['target'])
 
     if args.verbose: 
         print 'Read %d targets from %s' % (ntargets,args.input)
@@ -104,22 +107,47 @@ def main():
     fitTargets = []
     npixels = []
     for targetIndex, target in enumerate(targets):
-        plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
+        plate, mjd, fiber = target['target'].split('-')
+        plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
         # load the spectrum file
         if plateFileName != currentlyOpened:
             if currentlyOpened is not None:
                 spPlate.close()
-            fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
+            fullName = os.path.join(fitsPath,plate,plateFileName)
             # if args.verbose:
             #    print 'Opening plate file %s...' % fullName
             spPlate = fits.open(fullName)
             currentlyOpened = plateFileName
 
         # read this target's combined spectrum
-        combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+        combined = bosslya.readCombinedSpectrum(spPlate, int(fiber))
         wavelength = combined.wavelength
         ivar = combined.ivar
         flux = combined.flux
+
+        if args.fix_norm:
+            try:
+                amp = target['amp']
+            except KeyError:
+                imin = np.argmax(wavelength > args.restnormmin*(1+target['z']))
+                imax = np.argmax(wavelength > args.restnormmax*(1+target['z']))+1
+
+                wsum = np.sum(ivar[imin:imax])
+                if wsum > 0 and imin > 0:
+                    normFlux = (1+target['z'])*np.mean(flux[imin:imax])
+                    normFluxWeighted = (1+target['z'])*np.dot(ivar[imin:imax],flux[imin:imax])/wsum
+                    if normFlux < 0:
+                        continue
+                    target['amp'] = normFluxWeighted
+                else:
+                    continue
+
+        if args.fix_tilt:
+            try:
+                nu = target['nu']
+            except KeyError:
+                target['nu'] = 0
+
 
         # Add this observation to our model
         nPixelsAdded = model.addObservation(target, flux, wavelength, ivar, 
@@ -169,25 +197,22 @@ def main():
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset('targets', data=[str(target) for target in fitTargets])
-    outfile.create_dataset('redshifts', data=[target.z for target in fitTargets])
+    outfile.create_dataset('redshifts', data=[target['z'] for target in fitTargets])
 
     try:
-        sn = [target.sn for target in fitTargets]
-    except AttributeError:
+        sn = [target['sn'] for target in fitTargets]
+    except TypeError:
         sn = np.zeros(len(fitTargets))
 
     outfile.create_dataset('sn', data=sn)
-
     outfile.close()
 
+    # Save target list text file
     results = model.getResults(soln)
-    with open(args.output+'.txt', 'w') as outfile:
-        for i,target in enumerate(fitTargets):
-            attrs = list(target.attrs())
-            attrs.append(results['amplitude'][i])
-            attrs.append(results['nu'][i])
-            attrstr = ' '.join([str(attr) for attr in attrs])
-            outfile.write('%s %s\n' % (str(target), attrstr))
+    for i,target in enumerate(fitTargets):
+        target['amp'] = results['amplitude'][i]
+        target['nu'] = results['nu'][i]
+    bosslya.target.saveTargetData(args.output+'.txt', fitTargets, ['z','amp','nu'])
 
 if __name__ == '__main__':
     main()
