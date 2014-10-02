@@ -1,0 +1,6 @@
+fig/
+*.pdf
+*.out
+*.log
+*.gz
+*.aux
