@@ -201,7 +201,7 @@ def main():
 
     try:
         sn = [target['sn'] for target in fitTargets]
-    except TypeError:
+    except KeyError:
         sn = np.zeros(len(fitTargets))
 
     outfile.create_dataset('sn', data=sn)
