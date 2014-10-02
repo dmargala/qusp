@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+import ast
+
 # Plot the model matrix, add flare to show model parameter regions and lines between targets
 def plotModelMatrix(specfits, targetList):
     modelData = specfits['model_data'].value
@@ -183,10 +185,11 @@ def plotChiSq(specfits):
     plt.grid()
 
 def plotTarget(target, fitsPath):
-    plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
-    fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
+    plate, mjd, fiber = target['target'].split('-')
+    plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
+    fullName = os.path.join(fitsPath,plate,plateFileName)
     spPlate = fits.open(fullName)
-    combined = bosslya.readCombinedSpectrum(spPlate, target.fiber)
+    combined = bosslya.readCombinedSpectrum(spPlate, int(fiber))
     x = combined.wavelength
     y = combined.flux
     plt.plot(x, y, c='b',lw=.5)
@@ -203,7 +206,7 @@ def plotFitTarget(specfits, targetList, fitsPath):
     modelShape = specfits['model_shape'].value
     redshifts = specfits['redshifts'].value
     npixels = specfits['npixels'].value
-    targetNames = specfits['targets'].value
+    targets = specfits['targets'].value
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     beta = specfits['soln'].value
@@ -226,8 +229,7 @@ def plotFitTarget(specfits, targetList, fitsPath):
         m = scipy.sparse.coo_matrix(mlil)
 
         # Look up target name and redshift
-        targetName = targetNames[targetIndex]
-        target = bosslya.Target.fromString(targetName)
+        target = ast.literal_eval(targets[targetIndex])
         z = redshifts[targetIndex]
         # Draw observation
         plotTarget(target, fitsPath)
@@ -243,7 +245,7 @@ def plotFitTarget(specfits, targetList, fitsPath):
         plt.ylim(ylim)
         
         ax2 = ax.twinx()
-        ax2.set_ylabel(r'%s'%str(target))
+        ax2.set_ylabel(r'%s'%target['target'])
         plt.tick_params(axis='y',labelright='off')
         plt.sca(ax)
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
