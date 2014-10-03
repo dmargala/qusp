@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+import scipy.interpolate
+
 import ast
 
 # Plot the model matrix, add flare to show model parameter regions and lines between targets
@@ -184,61 +186,66 @@ def plotChiSq(specfits):
     plt.ylabel(r'Number of Targets')
     plt.grid()
 
-def plotTarget(target, boss_path):
-    plate, mjd, fiber = target['target'].split('-')
-    plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
-    fullName = os.path.join(boss_path,plate,plateFileName)
-    spPlate = fits.open(fullName)
-    combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
-    x = combined.wavelength
-    y = combined.flux
-    plt.plot(x, y, c='b',lw=.5)
+def plotSpectrum(spectrum):
+    plt.plot(spectrum.wavelength, spectrum.flux, c='b',lw=.5)
+    plt.xlabel(r'Observed Wavelength $(\AA)$')
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
-    ymax = 1.2*np.percentile(y,99)
-    ymin = min(0,1.2*np.percentile(y,1))
+    ymax = 1.2*np.percentile(spectrum.flux,99)
+    ymin = min(0,1.2*np.percentile(spectrum.flux,1))
     plt.ylim([ymin,ymax])
-    spPlate.close()
       
 def plotFitTarget(specfits, targetList, boss_path):
-    modelData = specfits['model_data'].value
-    modelIndices = specfits['model_indices'].value
-    modelIndPtr = specfits['model_indptr'].value
-    modelShape = specfits['model_shape'].value
     redshifts = specfits['redshifts'].value
-    npixels = specfits['npixels'].value
     targets = specfits['targets'].value
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
-    beta = specfits['soln'].value
+    continuum = specfits['continuum'].value
+    transmission = specfits['transmission'].value
+    amp = specfits['amplitude'].value
+    nu = specfits['nu'].value
+    tiltwave = specfits['nu'].attrs['tiltwave']
+
     aoffset = len(obsWaveCenters)+len(restWaveCenters)
     naparams = len(specfits['absorption'].value)
 
-    model = scipy.sparse.csc_matrix((modelData,modelIndices,modelIndPtr), modelShape)
-    
-    for j, targetIndex in enumerate(targetList):
-        plt.subplot(len(targetList),1,j+1)
-        ax = plt.gca()
-        # pick out rows corresponding to targets in target list
-        modelRowIndices = np.arange(np.sum(npixels[:targetIndex]),np.sum(npixels[:targetIndex+1]))
-        
-        # remove absorption
-        mlil = model[modelRowIndices,:].tolil()
-        mlil[:,aoffset:aoffset+naparams] = 0
-        
-        # convert matrix
-        m = scipy.sparse.coo_matrix(mlil)
+    T = scipy.interpolate.UnivariateSpline(obsWaveCenters, transmission, s=0)
+    C = scipy.interpolate.UnivariateSpline(restWaveCenters, continuum, s=0)
 
-        # Look up target name and redshift
-        target = ast.literal_eval(targets[targetIndex])
-        z = redshifts[targetIndex]
-        # Draw observation
-        plotTarget(target, boss_path)
-        if j+1 == len(targetList):
-            plt.xlabel(r'Observed Wavelength $(\AA)$')
-        # Draw predication
-        wave = obsWaveCenters[m.col[m.col < len(obsWaveCenters)]]
-        pred = np.exp(m.dot(beta))/(1+redshifts[targetIndex])
-        plt.plot(wave, pred, c='red', marker='', ls='-', lw=1)
+    mytargets = []
+    for i in targetList:
+        print targets[i]
+        target = qusp.target.Target(ast.literal_eval(targets[i]))
+        target['z'] = redshifts[i]
+        target['nu'] = nu[i]
+        target['amp'] = amp[i]
+        mytargets.append(target)
+    ntargets = len(mytargets)
+
+    subplotIndex = 1
+    for target, spPlate in qusp.target.readTargetPlates(boss_path,mytargets):    
+        plt.subplot(ntargets,1,subplotIndex)
+        subplotIndex += 1
+        ax = plt.gca()
+        # draw observed spectrum
+        combined = qusp.readCombinedSpectrum(spPlate, target)
+        plotSpectrum(combined)
+        if subplotIndex < ntargets:
+            plt.xlabel(r'')
+            plt.tick_params(labelbottom='off')
+        # draw predication
+        z = target['z']
+        amp = target['amp']
+        nu = target['nu']
+
+        redshiftedWaves = obsWaveCenters/(1+z)
+        wavemin = np.argmax(redshiftedWaves > specfits['restWaveCenters'].value[0])
+        wavemax = np.argmax(redshiftedWaves > specfits['restWaveCenters'].value[-1])
+
+        print wavemin, wavemax
+        pred = amp/(1+z)*T(obsWaveCenters)
+        pred *= C(redshiftedWaves) 
+
+        plt.plot(obsWaveCenters, pred, c='red', marker='', ls='-', lw=1)
 
         ylim0 = plt.gca().get_ylim()
         ylim = [ylim0[0],max(1.2*max(pred),ylim0[1])]
@@ -351,9 +358,9 @@ def main():
         targetList = args.examples
 
         ## visualize Model Matrix
-        fig = plt.figure(figsize=(15,1*len(targetList)))
-        plotModelMatrix(ndefault, targetList)
-        fig.savefig('%s-matrix.png'%args.output, bbox_inches='tight')
+        # fig = plt.figure(figsize=(15,1*len(targetList)))
+        # plotModelMatrix(ndefault, targetList)
+        # fig.savefig('%s-matrix.png'%args.output, bbox_inches='tight')
 
         ## plot example spectra
         fig = plt.figure(figsize=(15,4*len(targetList)))

@@ -24,6 +24,13 @@ class Target(dict):
         Returns the standard plate-mjd-fiber string represntation of the target.
         """
         return self['target']
+    @classmethod
+    def fromString(cls, targetString):
+        """
+        Returns a Target object constructed from a 
+        """
+        return cls({'target':targetString})
+
 
 def loadTargetData(filename, fields=[], verbose=False):
     """

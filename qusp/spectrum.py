@@ -4,6 +4,8 @@ Provides support for working with BOSS spectra.
 import numpy as np
 from wavelength import *
 
+import qusp
+
 class Spectrum:
     """
     Represents a BOSS co-added spectrum.
@@ -79,7 +81,10 @@ def readCombinedSpectrum(spPlate, fiber):
     Returns the combined spectrum of the specified fiber from the provided spPlate.
     """
     # those pesky fiber numbers start at 1 but the fits table is 0-indexed
-    index = fiber - 1
+    if type(fiber) is qusp.target.Target:
+        index = fiber['fiber'] - 1
+    else:
+        index = fiber - 1
 
     coeff0 = spPlate[0].header['COEFF0']
     coeff1 = spPlate[0].header['COEFF1']
