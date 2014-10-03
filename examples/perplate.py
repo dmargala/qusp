@@ -37,7 +37,7 @@ def main():
 
     print ntargets
 
-    currentObs = '%s-%s' % (targets[0]['plate'],target[0]['mjd'])
+    currentObs = '%s-%s' % (targets[0]['plate'],targets[0]['mjd'])
     samePlateTargets = []
     for target in targets:
         plateMJD = '%s-%s' % (target['plate'],target['mjd'])
