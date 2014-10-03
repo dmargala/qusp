@@ -61,13 +61,6 @@ def plotModelMatrix(specfits, targetList):
     ax.set_yticklabels(yTickLabels)
     ax.invert_yaxis()
 
-    # x axis labels
-    # xTickLabels = ['Transmission','Continuum','Absorption','Target']
-    # xTicks = [nObs/2,nObs+nRest/2,nObs+nRest+nAlpha/2,nObs+nRest+nAlpha+2*nTargets/2]
-    # ax.set_xticks(xTicks)
-    # ax.set_xticklabels(xTickLabels)
-    # ax.xaxis.tick_top()
-
     # color background regions
     start, stop = (0, nObs)
     ax.axvspan(start, stop, facecolor='blue', alpha=0.3)
@@ -87,18 +80,13 @@ def plotModelMatrix(specfits, targetList):
         ax.axhline(np.sum(npixels[targetList][:i+1]), c='gray', ls='--')
     
 # Plot rest frame continuum
-def plotContinuum(specfits, normwave=None, dnorm=None, z=None, **kwargs):
+def plotContinuum(specfits, **kwargs):
     wavelengths = specfits['restWaveCenters'].value
     continuum = specfits['continuum'].value
     plt.plot(wavelengths, continuum, **kwargs)
     plt.xlim([wavelengths[0], wavelengths[-1]])
     plt.xlabel(r'Rest Wavlength $(\AA)$')
     plt.ylabel(r'Continuum')
-
-def drawNormWindow(wavedset):
-    normmin = wavedset.attrs['normmin']
-    normmax = wavedset.attrs['normmax']
-    plt.axvspan(normmin, normmax, facecolor='gray', alpha=0.5)
 
 # Plot observed frame transmission
 def plotTransmission(specfits, **kwargs):
@@ -110,12 +98,10 @@ def plotTransmission(specfits, **kwargs):
     plt.ylabel(r'Transmission')
     plt.axhline(1,ls='--',c='gray')
 
-def plotNu(specfits):
-    nu = specfits['nu'].value
-    plt.hist(nu,bins=50,linewidth=.1, alpha=.5)
-    plt.xlabel(r'Spectral Tilt $\nu$')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
+def drawNormWindow(wavedset):
+    normmin = wavedset.attrs['normmin']
+    normmax = wavedset.attrs['normmax']
+    plt.axvspan(normmin, normmax, facecolor='gray', alpha=0.5)
 
 def plotAbsorption(specfits, **kwargs):
     absorption = specfits['absorption']
@@ -128,93 +114,55 @@ def plotAbsorption(specfits, **kwargs):
     plt.ylabel(r'Absorption Coefficient $a$')
     plt.xlim([restWaves[0],restWaves[-1]])
     plt.grid()
-    
-def plotAbsorbedContinuum(specfits, z, **kwargs):
-    absorption = specfits['absorption']
-    absmodelexp = absorption.attrs['absmodelexp']
-    amin = absorption.attrs['minRestIndex']
-    amax = absorption.attrs['maxRestIndex']
-    restWaves = specfits['restWaveCenters'].value[amin:amax+1]
-    continuum = specfits['continuum'].value[amin:amax+1]
-    absorption = np.concatenate([absorption.value,[0]])
-    absorbed = continuum*np.exp(-absorption*((1+z)**absmodelexp))
-    plt.plot(restWaves,absorbed,**kwargs)
 
-def plotAmpVsNu(specfits, **kwargs):
-    redshifts = specfits['redshifts'].value
-    A = specfits['amplitude'].value
-    nu = specfits['nu'].value
-    plt.scatter(nu, A, c=redshifts, cmap=plt.cm.jet, **kwargs)
-    #plt.gca().set_ylim(bottom=0)
-    plt.ylabel(r'Amplitude A')
-    plt.yscale('log')
-    plt.xlabel(r'Spectral Tilt $\nu$')
-    cbar = plt.colorbar(label=r'Redshift $z$')
-    cbar.solids.set_edgecolor("face")
-    cbar.solids.set_rasterized(True) 
-
-def plotRedshiftDist(specfits):
-    redshifts = specfits['redshifts'].value
-    plt.hist(redshifts, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'Redshift z')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-
-def plotAmpDist(specfits):
-    amp = specfits['amplitude'].value
-    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), linewidth=.1, alpha=.5)
-    plt.xlabel(r'Amplitude A')
-    plt.ylabel(r'Number of Targets')
-    plt.xscale('log')
-    plt.grid()
-
-def plotSNDist(specfits):
-    sn = specfits['sn'].value
-    plt.hist(sn, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'Median Signal-to-Noise Ratio')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-
-def plotChiSq(specfits):
-    chisq = specfits['chisq'].value
-    plt.hist(chisq, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'ChiSq')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-
-def plotSpectrum(spectrum):
-    plt.plot(spectrum.wavelength, spectrum.flux, c='b',lw=.5)
+def plotSpectrum(spectrum, **kwargs):
+    plt.plot(spectrum.wavelength, spectrum.flux, **kwargs)
     plt.xlabel(r'Observed Wavelength $(\AA)$')
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
     ymax = 1.2*np.percentile(spectrum.flux,99)
     ymin = min(0,1.2*np.percentile(spectrum.flux,1))
     plt.ylim([ymin,ymax])
       
-def plotFitTarget(specfits, targetList, boss_path):
-    redshifts = specfits['redshifts'].value
+def plotTargets(specfits, targetIndices, boss_path):
+    # construct list of Targets from specified indices
     targets = specfits['targets'].value
-    restWaveCenters = specfits['restWaveCenters'].value
-    obsWaveCenters = specfits['obsWaveCenters'].value
-    continuum = specfits['continuum'].value
-    transmission = specfits['transmission'].value
+    redshifts = specfits['redshifts'].value
     amp = specfits['amplitude'].value
-    nu = specfits['nu'].value
-    tiltwave = specfits['nu'].attrs['tiltwave']
-
-    aoffset = len(obsWaveCenters)+len(restWaveCenters)
-    naparams = len(specfits['absorption'].value)
-
-    T = scipy.interpolate.UnivariateSpline(obsWaveCenters, transmission, s=0)
-    C = scipy.interpolate.UnivariateSpline(restWaveCenters, continuum, s=0)
-
+    nu = specfits['nu'].value    
     mytargets = []
-    for i in targetList:
-        target = qusp.target.Target(ast.literal_eval(targets[i]))
+    for i in targetIndices:
+        try:
+            target = qusp.target.Target.fromString(targets[i])
+        except ValueError:
+            # for backwards compatibility...
+            target = qusp.target.Target(ast.literal_eval(targets[i]))
         target['z'] = redshifts[i]
         target['nu'] = nu[i]
         target['amp'] = amp[i]
         mytargets.append(target)
     ntargets = len(mytargets)
+
+    # build continumm and transmission model
+    restWaveCenters = specfits['restWaveCenters'].value
+    obsWaveCenters = specfits['obsWaveCenters'].value
+    continuum = specfits['continuum'].value
+    transmission = specfits['transmission'].value
+    T = scipy.interpolate.UnivariateSpline(obsWaveCenters, transmission, s=0)
+    C = scipy.interpolate.UnivariateSpline(restWaveCenters, continuum, s=0)
+
+    tiltwave = specfits['nu'].attrs['tiltwave']
+    def plotPrediction(target, **kwargs):
+        z = target['z']
+        amp = target['amp']
+        nu = target['nu']
+        redshiftedWaves = obsWaveCenters/(1+z)
+        pred = amp/(1+z)*(redshiftedWaves/tiltwave)**nu*T(obsWaveCenters)*C(redshiftedWaves)
+        plt.plot(obsWaveCenters, pred, **kwargs)
+        # set axes ranges
+        # ylim0 = plt.gca().get_ylim()
+        # ylim = [ylim0[0],min(1.2*max(pred),ylim0[1])]
+        # plt.ylim(ylim)
+        plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
 
     subplotIndex = 1
     for target, spPlate in qusp.target.readTargetPlates(boss_path,mytargets):    
@@ -223,34 +171,23 @@ def plotFitTarget(specfits, targetList, boss_path):
         ax = plt.gca()
         # draw observed spectrum
         combined = qusp.readCombinedSpectrum(spPlate, target)
-        plotSpectrum(combined)
+        plotSpectrum(combined, c='blue', lw=.5)
         # draw predication
-        z = target['z']
-        amp = target['amp']
-        nu = target['nu']
-        redshiftedWaves = obsWaveCenters/(1+z)
-        pred = amp/(1+z)*(redshiftedWaves/tiltwave)**nu*T(obsWaveCenters)*C(redshiftedWaves)
-        plt.plot(obsWaveCenters, pred, c='red', marker='', ls='-', lw=1)
+        plotPrediction(target, c='red', marker='', ls='-', lw=1)
+        # draw emission lines
+        qusp.wavelength.drawLines((1+target['z'])*np.array(qusp.wavelength.QuasarEmissionLines), 
+            qusp.wavelength.QuasarEmissionLabels, 0.89,-0.1, c='orange', alpha=.5)
+        qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, 
+            qusp.wavelength.SkyLabels, 0.01, 0.1, c='magenta', alpha=.5)
         # only keep xaxis label of the bottom/last plot
         if subplotIndex <= ntargets:
             plt.xlabel(r'')
-        # set axes ranges
-        ylim0 = plt.gca().get_ylim()
-        ylim = [ylim0[0],max(1.2*max(pred),ylim0[1])]
-        plt.ylim(ylim)
-        plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
         # add horizontal grid lines
         plt.grid(axis='y')
         # add target label to right side
         ax2 = ax.twinx()
         ax2.set_ylabel(r'%s'%target['target'])
         plt.tick_params(axis='y',labelright='off',right='off')
-        # draw emission lines
-        plt.sca(ax)
-        qusp.wavelength.drawLines((1+z)*np.array(qusp.wavelength.QuasarEmissionLines), qusp.wavelength.QuasarEmissionLabels, 
-            0.89,-0.1, c='orange', alpha=.5)
-        qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
-            0.01, 0.1, c='magenta', alpha=.5)
 
 def main():
     # parse command-line arguments
@@ -264,100 +201,126 @@ def main():
     ## Plot options
     parser.add_argument("--examples", nargs='+', type=int,
         help="plot example spectra")
+    parser.add_argument("--save-model", action="store_true",
+        help="save example model matrix")
     qusp.paths.Paths.addArgs(parser)
     args = parser.parse_args()
 
-    mpl.rcParams['font.size'] = 16
-
     paths = qusp.paths.Paths(**qusp.paths.Paths.fromArgs(args))
 
+    mpl.rcParams['font.size'] = 16
+
     # Import specfits results
-    ndefault = h5py.File(args.input)
-
-    ### Target sample plots
-
-    # redshift distribution
-    fig = plt.figure(figsize=(8,6))
-    plotRedshiftDist(ndefault)
-    fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
-    
-    # S/N distribution
-    fig = plt.figure(figsize=(8,6))
-    plotSNDist(ndefault)
-    fig.savefig('%s-sn.png'%args.output, bbox_inches='tight')
+    specfits = h5py.File(args.input)
 
     ### Visualize Fit Results
     # Draw Continuum Model
     fig = plt.figure(figsize=(20,8))
-    plotContinuum(ndefault,c='black')
-    drawNormWindow(ndefault['continuum'])
+    plotContinuum(specfits,c='black')
+    drawNormWindow(specfits['continuum'])
     qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.89,-0.1, c='orange', alpha=.5)
-
-    # plt.xticks(np.arange(900, 2900, 200))
     plt.grid(axis='y')
     fig.savefig('%s-continuum.png'%args.output, bbox_inches='tight')
 
     # Draw Transmission Model
     fig = plt.figure(figsize=(20,8))
-    plotTransmission(ndefault,c='black')
+    plotTransmission(specfits,c='black')
     qusp.wavelength.drawLines(qusp.wavelength.BallmerLines, qusp.wavelength.BallmerLabels, 
         0.89,-0.1, c='green', alpha=.5)
     qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
         0.01, 0.1, c='magenta', alpha=.5)
-    # plt.xticks(np.arange(3600, 9000, 400))
     plt.ylim([.9,1.1])
     plt.grid(axis='y')
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
 
     # Plot Absorption Model
     fig = plt.figure(figsize=(8,6))
-    plotAbsorption(ndefault, c='black')
+    plotAbsorption(specfits, c='black')
     qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.01,0.1, c='orange', alpha=.5)
-    plt.ylim([0,.004])
+    plt.ylim([0.0005,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
 
     # Plot Spectral Tilt Indices
     fig = plt.figure(figsize=(8,6))
-    plotNu(ndefault)
-    fig.savefig('%s-nu.png'%args.output, bbox_inches='tight')
-
-    # Compare Amplitudes to Spectral Tilt
-    fig = plt.figure(figsize=(8,6))
-    plotAmpVsNu(ndefault, marker='o', alpha=1, s=15, linewidth=0)
+    nu = specfits['nu'].value
+    plt.hist(nu,bins=50,linewidth=.1, alpha=.5)
+    plt.xlabel(r'Spectral Tilt $\nu$')
+    plt.ylabel(r'Number of Targets')
     plt.grid()
-    plt.tight_layout()
-    fig.savefig('%s-nuVsA.png'%args.output, bbox_inches='tight')
+    fig.savefig('%s-nu.png'%args.output, bbox_inches='tight')
 
     # Plot amplitude distribution
     fig = plt.figure(figsize=(8,6))
-    plotAmpDist(ndefault)
+    amp = specfits['amplitude'].value
+    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), linewidth=.1, alpha=.5)
+    plt.xlabel(r'Amplitude A')
+    plt.ylabel(r'Number of Targets')
+    plt.xscale('log')
+    plt.grid()
     fig.savefig('%s-amplitude.png'%args.output, bbox_inches='tight')
+
+    # Compare Amplitudes to Spectral Tilt
+    fig = plt.figure(figsize=(8,6))
+    plt.scatter(nu, amp, c=redshifts, cmap=plt.cm.jet, marker='o', alpha=1, s=15, linewidth=0)
+    plt.xlabel(r'Spectral Tilt $\nu$')
+    plt.ylabel(r'Amplitude A')
+    plt.yscale('log')
+    cbar = plt.colorbar(label=r'Redshift $z$')
+    cbar.solids.set_edgecolor("face")
+    cbar.solids.set_rasterized(True)     
+    plt.grid()
+    fig.savefig('%s-nuVsA.png'%args.output, bbox_inches='tight')
 
     # Plot ChiSq distribution
     fig = plt.figure(figsize=(8,6))
-    plotChiSq(ndefault)
+    chisq = specfits['chisq'].value
+    plt.hist(chisq, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'ChiSq')
+    plt.ylabel(r'Number of Targets')
+    plt.grid()
     fig.savefig('%s-chisq.png'%args.output, bbox_inches='tight')
 
-    ##### Plot Individual Spectra
+    ##### Target sample plots
+
+    # redshift distribution
+    fig = plt.figure(figsize=(8,6))
+    redshifts = specfits['redshifts'].value
+    plt.hist(redshifts, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Redshift z')
+    plt.ylabel(r'Number of Targets')
+    plt.grid()
+    fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
+    
+    # S/N distribution
+    fig = plt.figure(figsize=(8,6))
+    sn = specfits['sn'].value
+    plt.hist(sn, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Median Signal-to-Noise Ratio')
+    plt.ylabel(r'Number of Targets')
+    plt.grid()
+    fig.savefig('%s-sn.png'%args.output, bbox_inches='tight')
+
+    ##### Plot Example Spectra
 
     # Create a list of targets to visualize
     if args.examples is not None:
-        targetList = args.examples
-
-        ## visualize Model Matrix
-        # fig = plt.figure(figsize=(15,1*len(targetList)))
-        # plotModelMatrix(ndefault, targetList)
-        # fig.savefig('%s-matrix.png'%args.output, bbox_inches='tight')
+        targetIndices = args.examples
 
         ## plot example spectra
-        fig = plt.figure(figsize=(15,4*len(targetList)))
-        plotFitTarget(ndefault,targetList,paths.boss_path)
+        fig = plt.figure(figsize=(15,4*len(targetIndices)))
+        plotTargets(specfits, targetIndices, paths.boss_path)
         fig.savefig('%s-examples.png'%args.output, bbox_inches='tight')
 
+        ## visualize Model Matrix
+        if args.save_model:
+            fig = plt.figure(figsize=(15,1*len(targetIndices)))
+            plotModelMatrix(specfits, targetIndices)
+            fig.savefig('%s-matrix.png'%args.output, bbox_inches='tight')
+
         ## worst spectra
-        # chisq = ndefault['chisq'].value
+        # chisq = specfits['chisq'].value
         # worstList = sorted(zip(chisq,range(0,len(chisq))),reverse=True)
         # targetList = [value[1] for value in worstList[:nTargets]]
 
@@ -368,7 +331,7 @@ def main():
         #     n = min(numPerPage,maxTargets-i)
         #     targetList = range(i:i+n)
         #     fig = plt.figure(figsize=(15,4*numPerPage))
-        #     plotFitTarget(ndefault,targetList)
+        #     plotFitTarget(specfits,targetList)
 
 
 if __name__ == '__main__':
