@@ -42,7 +42,7 @@ def main():
     for target in targets:
         plateMJD = '%s-%s' % (target['plate'],target['mjd'])
         if currentObs != plateMJD:
-            if len(samePlateTargets) > 100:
+            if len(samePlateTargets) > 130:
                 qusp.target.saveTargetData('%s-%s.txt' % (args.output,currentObs), samePlateTargets, 'z')
             samePlateTargets = []
             currentObs = plateMJD
