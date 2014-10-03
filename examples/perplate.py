@@ -35,17 +35,17 @@ def main():
 
     targets = sorted(targets[:ntargets], key=lambda target: (target['plate'],target['mjd'],target['fiber']))
 
-    currentObs = None
+    print ntargets
+
+    currentObs = '%s-%s' % (targets[0]['plate'],target[0]['mjd'])
     samePlateTargets = []
     for target in targets:
         plateMJD = '%s-%s' % (target['plate'],target['mjd'])
-        if len(samePlateTargets) == 0 or currentObs == plateMJD:
-            currentObs = plateMJD
-            samePlateTargets.append(target)
-        else:
-            samePlateTargets.append(target)
+        if currentObs != plateMJD:
             qusp.target.saveTargetData('%s-%s.txt' % (args.output,plateMJD), samePlateTargets, 'z')
             samePlateTargets = []
+            currentObs = plateMJD
+        samePlateTargets.append(target)
     qusp.target.saveTargetData('%s-%s.txt' % (args.output,plateMJD), samePlateTargets, 'z')
 
     # fig = plt.figure(figsize=(8,8))
