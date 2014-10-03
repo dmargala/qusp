@@ -111,14 +111,10 @@ def plotTransmission(specfits, **kwargs):
     plt.axhline(1,ls='--',c='gray')
 
 def plotNu(specfits):
-    soln = specfits['soln']
-    targetNames = specfits['targets'].value
-    nTargets = len(targetNames)
-    nu = soln[-2*nTargets+1::2]
+    nu = specfits['nu'].value
     plt.hist(nu,bins=50,linewidth=.1, alpha=.5)
     plt.xlabel(r'Spectral Tilt $\nu$')
     plt.ylabel(r'Number of Targets')
-    # print '%.4g'%np.mean(nu)
     plt.grid()
 
 def plotAbsorption(specfits, **kwargs):
@@ -213,7 +209,6 @@ def plotFitTarget(specfits, targetList, boss_path):
 
     mytargets = []
     for i in targetList:
-        print targets[i]
         target = qusp.target.Target(ast.literal_eval(targets[i]))
         target['z'] = redshifts[i]
         target['nu'] = nu[i]
@@ -229,35 +224,29 @@ def plotFitTarget(specfits, targetList, boss_path):
         # draw observed spectrum
         combined = qusp.readCombinedSpectrum(spPlate, target)
         plotSpectrum(combined)
-        if subplotIndex < ntargets:
-            plt.xlabel(r'')
-            plt.tick_params(labelbottom='off')
         # draw predication
         z = target['z']
         amp = target['amp']
         nu = target['nu']
-
         redshiftedWaves = obsWaveCenters/(1+z)
-        wavemin = np.argmax(redshiftedWaves > specfits['restWaveCenters'].value[0])
-        wavemax = np.argmax(redshiftedWaves > specfits['restWaveCenters'].value[-1])
-
-        print wavemin, wavemax
-        pred = amp/(1+z)*T(obsWaveCenters)
-        pred *= C(redshiftedWaves) 
-
+        pred = amp/(1+z)*(redshiftedWaves/tiltwave)**nu*T(obsWaveCenters)*C(redshiftedWaves)
         plt.plot(obsWaveCenters, pred, c='red', marker='', ls='-', lw=1)
-
+        # only keep xaxis label of the bottom/last plot
+        if subplotIndex <= ntargets:
+            plt.xlabel(r'')
+        # set axes ranges
         ylim0 = plt.gca().get_ylim()
         ylim = [ylim0[0],max(1.2*max(pred),ylim0[1])]
         plt.ylim(ylim)
-        
+        plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
+        # add horizontal grid lines
+        plt.grid(axis='y')
+        # add target label to right side
         ax2 = ax.twinx()
         ax2.set_ylabel(r'%s'%target['target'])
-        plt.tick_params(axis='y',labelright='off')
+        plt.tick_params(axis='y',labelright='off',right='off')
+        # draw emission lines
         plt.sca(ax)
-        plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
-        plt.grid()
-
         qusp.wavelength.drawLines((1+z)*np.array(qusp.wavelength.QuasarEmissionLines), qusp.wavelength.QuasarEmissionLabels, 
             0.89,-0.1, c='orange', alpha=.5)
         qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
@@ -306,7 +295,7 @@ def main():
         0.89,-0.1, c='orange', alpha=.5)
 
     # plt.xticks(np.arange(900, 2900, 200))
-    plt.grid()
+    plt.grid(axis='y')
     fig.savefig('%s-continuum.png'%args.output, bbox_inches='tight')
 
     # Draw Transmission Model
@@ -318,7 +307,7 @@ def main():
         0.01, 0.1, c='magenta', alpha=.5)
     # plt.xticks(np.arange(3600, 9000, 400))
     plt.ylim([.9,1.1])
-    plt.grid()
+    plt.grid(axis='y')
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
 
     # Plot Absorption Model
