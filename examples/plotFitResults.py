@@ -213,6 +213,26 @@ def main():
     # Import specfits results
     specfits = h5py.File(args.input)
 
+    ##### Target sample plots
+
+    # redshift distribution
+    fig = plt.figure(figsize=(8,6))
+    redshifts = specfits['redshifts'].value
+    plt.hist(redshifts, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Redshift z')
+    plt.ylabel(r'Number of Targets')
+    plt.grid()
+    fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
+    
+    # S/N distribution
+    fig = plt.figure(figsize=(8,6))
+    sn = specfits['sn'].value
+    plt.hist(sn, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Median Signal-to-Noise Ratio')
+    plt.ylabel(r'Number of Targets')
+    plt.grid()
+    fig.savefig('%s-sn.png'%args.output, bbox_inches='tight')
+
     ### Visualize Fit Results
     # Draw Continuum Model
     fig = plt.figure(figsize=(20,8))
@@ -281,26 +301,6 @@ def main():
     plt.ylabel(r'Number of Targets')
     plt.grid()
     fig.savefig('%s-chisq.png'%args.output, bbox_inches='tight')
-
-    ##### Target sample plots
-
-    # redshift distribution
-    fig = plt.figure(figsize=(8,6))
-    redshifts = specfits['redshifts'].value
-    plt.hist(redshifts, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'Redshift z')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-    fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
-    
-    # S/N distribution
-    fig = plt.figure(figsize=(8,6))
-    sn = specfits['sn'].value
-    plt.hist(sn, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'Median Signal-to-Noise Ratio')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-    fig.savefig('%s-sn.png'%args.output, bbox_inches='tight')
 
     ##### Plot Example Spectra
 
