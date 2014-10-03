@@ -184,10 +184,10 @@ def plotChiSq(specfits):
     plt.ylabel(r'Number of Targets')
     plt.grid()
 
-def plotTarget(target, fitsPath):
+def plotTarget(target, boss_path):
     plate, mjd, fiber = target['target'].split('-')
     plateFileName = 'spPlate-%s-%s.fits' % (plate, mjd)
-    fullName = os.path.join(fitsPath,plate,plateFileName)
+    fullName = os.path.join(boss_path,plate,plateFileName)
     spPlate = fits.open(fullName)
     combined = qusp.readCombinedSpectrum(spPlate, int(fiber))
     x = combined.wavelength
@@ -199,7 +199,7 @@ def plotTarget(target, fitsPath):
     plt.ylim([ymin,ymax])
     spPlate.close()
       
-def plotFitTarget(specfits, targetList, fitsPath):
+def plotFitTarget(specfits, targetList, boss_path):
     modelData = specfits['model_data'].value
     modelIndices = specfits['model_indices'].value
     modelIndPtr = specfits['model_indptr'].value
@@ -232,7 +232,7 @@ def plotFitTarget(specfits, targetList, fitsPath):
         target = ast.literal_eval(targets[targetIndex])
         z = redshifts[targetIndex]
         # Draw observation
-        plotTarget(target, fitsPath)
+        plotTarget(target, boss_path)
         if j+1 == len(targetList):
             plt.xlabel(r'Observed Wavelength $(\AA)$')
         # Draw predication
@@ -265,24 +265,15 @@ def main():
         help="fitspec results file")
     parser.add_argument("-o","--output", type=str, default=None,
         help="output filename base")
-    ## BOSS data
-    parser.add_argument("--boss-root", type=str, default=None,
-        help="path to root directory containing BOSS data (ex: /data/boss)")
-    parser.add_argument("--boss-version", type=str, default="v5_7_0",
-        help="boss pipeline version tag")
     ## Plot options
     parser.add_argument("--examples", nargs='+', type=int,
         help="plot example spectra")
+    qusp.paths.Paths.addArgs(parser)
     args = parser.parse_args()
 
     mpl.rcParams['font.size'] = 16
 
-    # set up paths
-    boss_root = args.boss_root if args.boss_root is not None else os.getenv('BOSS_ROOT', None)
-    boss_version = args.boss_version if args.boss_version is not None else os.getenv('BOSS_VERSION', None)
-    if boss_root is None or boss_version is None:
-        raise RuntimeError('Must speciy --boss-(root|version) or env var BOSS_(ROOT|VERSION)')
-    fitsPath = os.path.join(boss_root, boss_version)
+    paths = qusp.paths.Paths(**qusp.paths.Paths.fromArgs(args))
 
     # Import specfits results
     ndefault = h5py.File(args.input)
@@ -366,7 +357,7 @@ def main():
 
         ## plot example spectra
         fig = plt.figure(figsize=(15,4*len(targetList)))
-        plotFitTarget(ndefault,targetList,fitsPath)
+        plotFitTarget(ndefault,targetList,paths.boss_path)
         fig.savefig('%s-examples.png'%args.output, bbox_inches='tight')
 
         ## worst spectra
