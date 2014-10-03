@@ -313,11 +313,11 @@ def main():
 
     # Draw Transmission Model
     fig = plt.figure(figsize=(20,8))
+    plotTransmission(ndefault,c='black')
     qusp.wavelength.drawLines(qusp.wavelength.BallmerLines, qusp.wavelength.BallmerLabels, 
         0.89,-0.1, c='green', alpha=.5)
     qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
         0.01, 0.1, c='magenta', alpha=.5)
-    plotTransmission(ndefault,c='black')
     # plt.xticks(np.arange(3600, 9000, 400))
     plt.ylim([.9,1.1])
     plt.grid()
