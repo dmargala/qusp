@@ -33,17 +33,17 @@ def main():
     targets = qusp.target.loadTargetData(args.input, fields=fields)
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
 
-    targets = sorted(targets, key=lambda target: (target['plate'],target['mjd'],target['fiber']))
+    targets = sorted(targets[:ntargets], key=lambda target: (target['plate'],target['mjd'],target['fiber']))
 
     currentObs = None
     samePlateTargets = []
     for target in targets:
         plateMJD = '%s-%s' % (target['plate'],target['mjd'])
-        print plateMJD
         if len(samePlateTargets) == 0 or currentObs == plateMJD:
             currentObs = plateMJD
             samePlateTargets.append(target)
         else:
+            samePlateTargets.append(target)
             qusp.target.saveTargetData('%s-%s.txt' % (args.output,plateMJD), samePlateTargets, 'z')
             samePlateTargets = []
     qusp.target.saveTargetData('%s-%s.txt' % (args.output,plateMJD), samePlateTargets, 'z')
