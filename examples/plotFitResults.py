@@ -203,6 +203,9 @@ def main():
         help="plot example spectra")
     parser.add_argument("--save-model", action="store_true",
         help="save example model matrix")
+    ##
+    parser.add_argument("--force-y", action="store_true",
+        help="force y limit ranges to nominal values")
     qusp.paths.Paths.addArgs(parser)
     args = parser.parse_args()
 
@@ -240,6 +243,8 @@ def main():
     drawNormWindow(specfits['continuum'])
     qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.89,-0.1, c='orange', alpha=.5)
+    if args.force_y:
+        plt.ylim([0,5])
     plt.grid(axis='y')
     fig.savefig('%s-continuum.png'%args.output, bbox_inches='tight')
 
@@ -250,7 +255,8 @@ def main():
         0.89,-0.1, c='green', alpha=.5)
     qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
         0.01, 0.1, c='magenta', alpha=.5)
-    plt.ylim([.9,1.1])
+    if args.force_y:
+        plt.ylim([.9,1.1])
     plt.grid(axis='y')
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
 
@@ -259,7 +265,8 @@ def main():
     plotAbsorption(specfits, c='black')
     qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.01,0.1, c='orange', alpha=.5)
-    plt.ylim([-0.0005,.004])
+    if args.force_y:
+        plt.ylim([-0.0005,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
 
     # Plot Spectral Tilt Indices
