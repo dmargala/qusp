@@ -259,7 +259,7 @@ def main():
     plotAbsorption(specfits, c='black')
     qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
         0.01,0.1, c='orange', alpha=.5)
-    plt.ylim([0.0005,.004])
+    plt.ylim([-0.0005,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
 
     # Plot Spectral Tilt Indices
