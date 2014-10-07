@@ -2,21 +2,26 @@
 Provides support for working with BOSS wavelengths
 """
 import math
+import os
+import numpy as np
 
-def getFiducialWavelength(pixelIndex):
+def get_fiducial_wavelength(pixel_index):
     """
     Returns the wavelength at the center of the specified
     index of the BOSS co-add fiducial wavelength grid.
     """
-    return 3500.26*(10**(1e-4*pixelIndex))
+    return 3500.26*(10**(1e-4*pixel_index))
 
-def getFiducialWavelengthRatio(lambda1, lambda2=3500.26):
+def get_fiducial_wavelength_ratio(lambda1, lambda2=3500.26):
+    """
+    Returns the fiducial wavelength ratio
+    """
     return 1e4*math.log10(lambda1/lambda2)
 
-def getFiducialPixelIndexOffset(coeff0, coeff1=1e-4):
+def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
     """
-    Returns the pixel index offset from the start of the 
-    BOSS co-add fiducial wavelength grid. 
+    Returns the pixel index offset from the start of the
+    BOSS co-add fiducial wavelength grid.
     """
     if coeff1 != 1e-4:
         return 0
@@ -27,58 +32,85 @@ def getFiducialPixelIndexOffset(coeff0, coeff1=1e-4):
     return -offset
 
 class Wavelength(float):
+    """
+    A Wavelength is a float
+    """
     def __init__(self, value):
         float.__init__(value)
     def __new__(cls, value, *args, **kwargs):
         return float.__new__(cls, value)
     def observed(self, redshift):
+        """
+        Returns the shifted observed wavelength.
+        """
         return self*(1+redshift)
     def rest(self, redshift):
+        """
+        Returns the shifted rest wavelength.
+        """
         return self/(1+redshift)
 
 class LabeledWavelength(Wavelength):
+    """
+    A LabeledWavelength is a Wavelength with a label attribute
+    """
     def __init__(self, value, label):
-        Wavelength.__init__(value)
+        Wavelength.__init__(self, value)
         self.label = label
+    def __str__(self):
+        return str((self, self.label))
 
-# SDSS lines
-# http://classic.sdss.org/dr7/algorithms/linestable.html
+def load_wavelengths(filename):
+    """
+    loads wavelength data
 
-SkyLineList = [3933.68, 3968.47, 5578.5,5894.6,6301.7,7246.0]
-SkyLabels = ['Ca II','Ca II','sky','sky','sky','sky']
-SkyLines = [Wavelength(value) for value in SkyLineList]
+    Args:
+        filename (str): wavelength data filename
 
-BallmerLines = [3646,3835,3889,3970,4102,4341,4861,6563]
-BallmerLabels = [r'$Hlimit$',r'$H\eta$',r'$H\zeta$',r'$H\epsilon$',r'$H\delta$',r'$H\gamma$',r'$H\beta$',r'$H\alpha$']
-
-QuasarEmissionLines = [912, 972, 1026,1033.82,1215.6701,1225,1240.81,1305.53,
-    1335.31,1397.61,1399.8,1549.48,1640.4,1665.85,1857.4,
-    1908.734,2326.0,2439.5,2799.117,3346.79,3426.85,3727.092,
-    3729.875,3889.0,4072.3,4102.89,4341.68,4364.436,4862.68,
-    4932.603,4960.295,5008.240,6302.046,6365.536,6529.03,
-    6549.86,6564.61,6585.27,6718.29,6732.67]
-
-QuasarEmissionLabels = ['LyLimit',r'Ly$\gamma$',r'Ly$\beta$','O VI',r'Ly$\alpha$','Si III','N V','O I','C II',
-    'Si IV','O IV','C IV','He II','O III','Al III',
-    'C III','C II','Ne IV','Mg II','Ne V','Ne VI','O II','O II',
-    'He I','S II',r'H$\delta$',r'H$\gamma$','O III',r'H$\beta$','O III','O III','O III',
-    'O I','O I','N I','N II',r'H$\alpha$','N II','S II','S II']
-
-QuasarLines = [Wavelength(value) for value in QuasarEmissionLines]
+    Returns:
+        wavelengths
+    """
+    # Get the path that this module was loaded from.
+    my_path = os.path.dirname(os.path.abspath(__file__))
+    # Build the path where the filter curves should be.
+    wavelegths_path = os.path.join(
+        os.path.dirname(my_path), 'data', 'wavelengths')
+    wavelengths = np.genfromtxt(
+        os.path.join(wavelegths_path, '%s.dat' % filename),
+        dtype={'names':('wavelengths', 'labels'), 'formats':(float, 'S10')},
+        usecols=(0, 1))
+    return [LabeledWavelength(*wave) for wave in wavelengths]
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 
-def drawLines(waves, labels, offset=0, delta=.1, **kwargs):
+def draw_lines(waves, offset=0, delta=.1, **kwargs):
+    """
+    Draws vertical lines on the current plot.
+    """
 
     wavemin, wavemax = plt.gca().get_xlim()
 
-    ax = plt.gca()
-    trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+    transform = transforms.blended_transform_factory(
+        plt.gca().transData, plt.gca().transAxes)
 
-    for i,(wave,label) in enumerate(zip(waves,labels)):
+    for index, wave in enumerate(waves):
         if wave < wavemin or wave > wavemax:
             continue
-        plt.axvline(wave,**kwargs)
-        plt.text(wave, offset+(i%2)*delta, label, transform=trans, horizontalalignment='left')
+        plt.axvline(wave, **kwargs)
+        try:
+            plt.text(wave, offset+(index%2)*delta, wave.label,
+                     transform=transform, horizontalalignment='left')
+        except AttributeError:
+            pass
 
+def main():
+    """
+    tests for wavelengths module
+    """
+    waves = load_wavelengths('sky')
+    for wave in waves:
+        print wave.label
+
+if __name__ == '__main__':
+    main()

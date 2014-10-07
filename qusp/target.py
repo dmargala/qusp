@@ -11,7 +11,7 @@ class Target(dict):
     """
     Represents a BOSS target.
     """
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Initializes a Target object. Parses the plate-mjd-fiber identifier
         and adds separate fields to the dictionary.
@@ -21,12 +21,13 @@ class Target(dict):
             kwargs: Arbitrary keyword arguments.
         """
         super(Target, self).__init__(*args, **kwargs)
-        assert 'target' in self, 'Target: must have plate-mjd-fiber identifier key'
-        plate,mjd,fiber = self['target'].split('-')
+        assert 'target' in self, \
+            'Target: must have plate-mjd-fiber identifier key'
+        plate, mjd, fiber = self['target'].split('-')
         self['plate'] = int(plate)
         self['mjd'] = int(mjd)
         self['fiber'] = int(fiber)
-    def toString(self):
+    def to_string(self):
         """
         Returns the standard plate-mjd-fiber string represntation of the target.
 
@@ -35,97 +36,112 @@ class Target(dict):
         """
         return self['target']
     @classmethod
-    def fromString(cls, targetString):
+    def from_string(cls, target_string):
         """
         Returns a Target object constructed from a target string identifier.
 
         Args:
-            targetString (str): a target string identifier.
+            target_string (str): a target string identifier.
 
         Returns:
             :class:`Target` object
         """
-        return cls({'target':targetString})
+        return cls({'target':target_string})
 
 
-def loadTargetData(filename, fields=[], verbose=False):
+def load_target_list(filename, fields=None, verbose=False):
     """
-    Loads a target data from a text file. 
+    Loads a target data from a text file.
 
-    The first column must be plate-mjd-fiber target identifier. 
+    The first column must be plate-mjd-fiber target identifier.
     Use the fields argument to specify additional columns to
     read. Must specify a (name, type, column index) tuple for each field.
 
     Examples:
         Read a target list along with ra, dec, and z columns.
 
-        >>> loadTargetData(<filename>, fields=[('ra',float,1),('dec',float,2),('z',float,3)])
+        >>> loadTargetData(<filename>,
+        >>>     fields=[('ra',float,1),('dec',float,2),('z',float,3)])
 
     Args:
         filename (str): The filename to load.
-        fields (list, optional): A list of columns to read, see example. Defaults to empty list.
-        verbose (bool, optional): Whether or not to print verbose output. Defaults to False.
+        fields (list, optional): A list of columns to read, see example.
+            Defaults to None.
+        verbose (bool, optional): Whether or not to print verbose output.
+            Defaults to False.
 
     Returns:
         list of :class:`Target` objects.
     """
-    fields = [('target','S15',0)] + fields
+    if fields is None:
+        fields = []
+    fields = [('target', 'S15', 0)] + fields
     names, formats, cols = zip(*fields)
     if verbose:
         print 'Reading fields: %s' % (', '.join(names))
-    targetData = np.genfromtxt(filename,dtype={'names':names,'formats':formats},usecols=cols)
+    targets = np.genfromtxt(
+        filename, dtype={'names':names, 'formats':formats}, usecols=cols)
 
-    return [Target(dict(zip(targetData.dtype.names,target))) for target in targetData]
+    return [Target(dict(zip(targets.dtype.names, t))) for t in targets]
 
-def saveTargetData(filename, targets, fields=[], verbose=False):
+def save_target_list(filename, targets, fields=None, verbose=False):
     """
-    Writes a list of targets to the provided file. 
+    Writes a list of targets to the provided file.
 
-    By default, only the target plate-mjd-fiber is written to file. Use the fields argument
-    to specify additional target fields to save.
+    By default, only the target plate-mjd-fiber is written to file.
+    Use the fields argument to specify additional target fields to save.
 
     Args:
         filename (str): The filename of the output text file to create.
         targets (:class:`Target`): A list of :class:`Target` objects to save.
-        fields (list, optional): A list of :class:`Target` keys to annotate output list. Defaults to empty list.
-        verbose (bool, optional): Whether or not to print verbose output. Defaults to False.
+        fields (list, optional): A list of :class:`Target` keys to
+            annotate output list. Defaults to None.
+        verbose (bool, optional): Whether or not to print verbose output.
+            Defaults to False.
     """
     keys = ['target']
-    keys.extend(fields if type(fields) is list else [fields])
+    if fields is not None:
+        keys.extend(fields if type(fields) is list else [fields])
     if verbose:
-        print 'Saving fields: %s' % (', '.join(keys))
+        print 'Saving targets to %s w/ fields: %s' % (filename, ', '.join(keys))
     with open(filename, 'w') as outfile:
         for target in targets:
             outfile.write(' '.join([str(target[key]) for key in keys])+'\n')
 
-def readTargetPlates(boss_path, targets, sort=True, verbose=False):
+def read_target_plates(boss_path, targets, sort=True, verbose=False):
     """
-    A generator that yields (target,spPlate) tuples for the provided list of 
-    targets. With sort=True, the targets will be sorted by plate-mjd-fiber 
+    A generator that yields (target,spplate) tuples for the provided list of
+    targets. With sort=True, the targets will be sorted by plate-mjd-fiber
     reduce the number of io operations.
 
     Args:
         boss_path (str): path to boss data directory.
-        targets (:class:`Target`): list of :class:`Target` objects to iterate through.
-        sort (bool, optional): Whether or not to sort the provided targets by plate-mjd-fiber. Defaults to True.
-        verbose (bool, optional): Whether or not to print verbose output. Defaults to False.
+        targets (:class:`Target`): list of :class:`Target` objects
+            to iterate through.
+        sort (bool, optional): Whether or not to sort the provided targets
+            by plate-mjd-fiber. Defaults to True.
+        verbose (bool, optional): Whether or not to print verbose output.
+            Defaults to False.
 
     Yields:
-        The next tuple ``(target, spPlate)``, where *target* is a :class:`Target` and *spPlate* is the 
-            corresponding FITS file containing its coadded spectrum from the list of `targets`.
+        The next tuple ``(target, spplate)``, where *target* is a
+            :class:`Target` and *spplate* is the corresponding FITS file
+            containing its coadded spectrum from the list of `targets`.
     """
     if sort:
-        targets = sorted(targets, key=lambda target: (target['plate'],target['mjd'],target['fiber']))
-    currentlyOpened = None
+        targets = sorted(
+            targets, key=lambda t: (t['plate'], t['mjd'], t['fiber']))
+    currently_opened_filename = None
     for target in targets:
-        plateFileName = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
-        if plateFileName != currentlyOpened:
+        plate_filename = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
+        if plate_filename != currently_opened_filename:
             # load the spectrum file
-            if currentlyOpened is not None:
-                spPlate.close()
-            fullName = os.path.join(boss_path,str(target['plate']),plateFileName)
+            if currently_opened_filename is not None:
+                spplate.close()
+            full_path_to_spplate = os.path.join(
+                boss_path, str(target['plate']), plate_filename)
             if verbose:
-               print 'Opening plate file %s...' % fullName
-            spPlate = fits.open(fullName)
-            currentlyOpened = plateFileName
-        yield target, spPlate
+                print 'Opening plate file %s...' % full_path_to_spplate
+            spplate = fits.open(full_path_to_spplate)
+            currently_opened_filename = plate_filename
+        yield target, spplate

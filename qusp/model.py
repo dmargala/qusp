@@ -1,3 +1,7 @@
+"""
+Provides support for modeling a universal quasar continuum.
+"""
+
 import inspect
 import numpy as np
 import scipy.sparse
@@ -10,20 +14,26 @@ class ContinuumModel(object):
     Represents a linearized quasar continuum model.
     """
     def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
-        absmin, absmax, absmodelexp, absscale, verbose=False):
+                 absmin, absmax, absmodelexp, absscale, verbose=False):
         """
         Initializes a linearized quasar continuum model using the specified
         parameter limits and values.
 
         Args:
-            obsmin (float): minimum observed frame wavelength bin center of transmission model.
-            obsmax (float): maximum observed frame wavelength bin center of transmission model.
-            restmin (float): minimum rest frame wavelength bin center of continuum model.
-            restmax (float): maximum rest frame wavelength bin center of continuum model.
+            obsmin (float): minimum observed frame wavelength bin center of
+                transmission model.
+            obsmax (float): maximum observed frame wavelength bin center of
+                transmission model.
+            restmin (float): minimum rest frame wavelength bin center of
+                continuum model.
+            restmax (float): maximum rest frame wavelength bin center of
+                continuum model.
             nrestbins (int): number of rest frame bins of continuum model.
             tiltwave (float): pivot wavelength of rest frame spectral tilt.
-            absmin (float): minimum rest frame wavelength bin center of absorption model.
-            absmax (float): maximum rest frame wavelength bin center of absorption model.
+            absmin (float): minimum rest frame wavelength bin center of
+                absorption model.
+            absmax (float): maximum rest frame wavelength bin center of
+                absorption model.
             absmodelexp (float): exponent of (1+z) factor of absorption model.
             absscale (float): internal scaling of absorption model coefficients.
             verbose (bool, optional): whether or not to print verbose output.
@@ -31,68 +41,77 @@ class ContinuumModel(object):
         self.verbose = verbose
         # initialize transmission model params
         assert obsmax > obsmin, ('obsmax must be greater than obsmin')
-        self.obsWaveMin = obsmin
-        self.obsWaveMax = obsmax
-        obsFiducialWave = qusp.wavelength.getFiducialWavelength(np.arange(4800))
-        self.obsWaveMinIndex = np.argmax(obsFiducialWave > obsmin)
-        self.obsWaveMaxIndex = np.argmax(obsFiducialWave > obsmax)+1
-        self.obsWaveCenters = qusp.wavelength.getFiducialWavelength(np.arange(self.obsWaveMinIndex,self.obsWaveMaxIndex))
-        self.obsNParams = len(self.obsWaveCenters)
+        self.obs_wave_min = obsmin
+        self.obs_wave_max = obsmax
+        obs_fid_wave = qusp.wavelength.get_fiducial_wavelength(np.arange(4800))
+        self.obs_wave_min_index = np.argmax(obs_fid_wave > obsmin)
+        self.obs_wave_max_index = np.argmax(obs_fid_wave > obsmax)+1
+        self.obs_wave_centers = qusp.wavelength.get_fiducial_wavelength(
+            np.arange(self.obs_wave_min_index, self.obs_wave_max_index))
+        self.obs_nparams = len(self.obs_wave_centers)
         if verbose:
-            print 'Observed frame bin centers span [%.2f:%.2f] with %d bins.' % (
-                self.obsWaveCenters[0],self.obsWaveCenters[-1],self.obsNParams)
+            print ('Observed frame bin centers span [%.2f:%.2f] with %d bins.' %
+                   (self.obs_wave_centers[0], self.obs_wave_centers[-1],
+                    self.obs_nparams))
         # initialize continuum model params
         assert restmax > restmin, ('restmin must be greater than restmax')
-        self.restWaveMin = restmin
-        self.restWaveMax = restmax
-        self.restNParams = nrestbins
-        self.restWaveDelta = float(restmax-restmin)/nrestbins
-        self.restWaveCenters = 0.5*self.restWaveDelta + np.linspace(
-            restmin,restmax,nrestbins,endpoint=False)
+        self.rest_wave_min = restmin
+        self.rest_wave_max = restmax
+        self.rest_nparams = nrestbins
+        self.rest_wave_delta = float(restmax-restmin)/nrestbins
+        self.rest_wave_centers = 0.5*self.rest_wave_delta + np.linspace(
+            restmin, restmax, nrestbins, endpoint=False)
         if verbose:
-            print 'Rest frame bin centers span [%.2f:%.2f] with %d bins.' % (
-                self.restWaveCenters[0],self.restWaveCenters[-1],self.restNParams)
+            print ('Rest frame bin centers span [%.2f:%.2f] with %d bins.' %
+                   (self.rest_wave_centers[0], self.rest_wave_centers[-1],
+                    self.rest_nparams))
         # initialize absorption model params
         self.absmodelexp = absmodelexp
-        self.absMin = max(absmin,restmin)
-        self.absMax = min(absmax,restmax)
-        self.absMinIndex = np.argmax(self.restWaveCenters >= self.absMin)
-        self.absMaxIndex = np.argmax(self.restWaveCenters > self.absMax)
-        self.absWaveCenters = self.restWaveCenters[self.absMinIndex:self.absMaxIndex]
-        self.absNParams = len(self.absWaveCenters)
-        self.absScale = absscale
+        self.abs_wave_min = max(absmin, restmin)
+        self.abs_wave_max = min(absmax, restmax)
+        self.abs_wave_min_index = np.argmax(
+            self.rest_wave_centers >= self.abs_wave_min)
+        self.abs_wave_max_index = np.argmax(
+            self.rest_wave_centers > self.abs_wave_max)
+        self.abs_wave_centers = self.rest_wave_centers[self.abs_wave_min_index:self.abs_wave_max_index]
+        self.abs_nparams = len(self.abs_wave_centers)
+        self.abs_scale = absscale
         if verbose:
-            if self.absNParams > 0:
-                print 'Absorption bin centers span [%.2f:%.2f] with %d bins.' % (
-                    self.absWaveCenters[0], self.absWaveCenters[-1], self.absNParams)
+            if self.abs_nparams > 0:
+                print ('Absorption bin centers span [%.2f:%.2f] with %d bins.' %
+                       (self.abs_wave_centers[0], self.abs_wave_centers[-1],
+                        self.abs_nparams))
             else:
                 print 'No absorption params'
         # spectral tilt pivot wavelength
         self.tiltwave = tiltwave
         # the number of model params (excluding per target params)
-        self.nModelParams = self.obsNParams + self.restNParams + self.absNParams
+        self.model_nparams = (self.obs_nparams + self.rest_nparams +
+                              self.abs_nparams)
         if verbose:
-            print 'Fit model initialized with %d model params.\n' % self.nModelParams
+            print 'Fit model initialized with %d model params.\n' % (
+                self.model_nparams)
         # sparse matrix entry holders
-        self.yvalues = list()
-        self.obsBlocks = list()
-        self.constraintBlocks = list()
+        self.modelyvalues = list()
+        self.obs_blocks = list()
+        self.constraint_blocks = list()
         self.amplitude = list()
-        self.normCoefficients = list()
-        self.nu = list()
-        self.tiltCoefficients = list()
-        # store finalized model pieces 
+        self.norm_coefficients = list()
+        self.tilt = list()
+        self.tilt_coefficients = list()
+        # store finalized model pieces
         self.model = None
-        self.y = None
+        self.modely = None
         # model stats
-        self.nTotalPixels = 0
-        self.nTargets = 0
-        self.nconstraints = 0
+        self.model_npixels = 0
+        self.ntargets = 0
+        self.model_nconstraints = 0
 
-    def addObservation(self, target, flux, wave, ivar, unweighted=True):
+    def add_observation(self, target, flux, wave, ivar, unweighted=True):
         """
-        Adds an observation to be fit. Returns the number of pixels added. The provided
-        target argument must have an attribute named 'z' with the target's redshift.
+        Adds an observation to be fit. Returns the number of pixels added.
+        The provided target argument must have an attribute named 'z' with
+        the target's redshift.
 
         Note:
             Weighted fit not yet implemented.
@@ -102,7 +121,8 @@ class ContinuumModel(object):
             flux (numpy.array): flux array
             wave (numpy.array): wavelength array
             ivar (numpy.array): ivar array
-            unweighted (bool, optional): ignore pixel variances. Defaults to True.
+            unweighted (bool, optional): ignore pixel variances.
+                Defaults to True.
 
         Returns:
             npixels (int): number of pixels added to model from this observation
@@ -110,72 +130,83 @@ class ContinuumModel(object):
         """
         assert unweighted, ('Weighted fit not implemented yet...')
         try:
-            z = target['z']
+            redshift = target['z']
         except KeyError:
             print 'Target does not have z attribute.'
             raise
         # this spectrum's co-add wavelength axis pixel offset
-        fiducialOffset = qusp.wavelength.getFiducialPixelIndexOffset(np.log10(wave[0]))
+        fiducial_pixel_offset = qusp.wavelength.get_fiducial_pixel_index_offset(
+            np.log10(wave[0]))
         # map pixels to observed frame wavelength grid
-        obsFiducialIndices = fiducialOffset+np.arange(len(wave))
-        obsFiducialWave = qusp.wavelength.getFiducialWavelength(obsFiducialIndices)
+        obs_fiducial_indices = fiducial_pixel_offset+np.arange(len(wave))
+        obs_fid_wave = qusp.wavelength.get_fiducial_wavelength(
+            obs_fiducial_indices)
         # map pixels to rest frame wavelength grid
-        restWave = obsFiducialWave/(1+z)
-        restIndices = np.floor((restWave - self.restWaveMin)/self.restWaveDelta).astype(int)
+        rest_wave = obs_fid_wave/(1+redshift)
+        rest_indices = np.floor(
+            (rest_wave - self.rest_wave_min)/self.rest_wave_delta).astype(int)
         # trim ranges to valid data
-        validbins = np.all((
-            obsFiducialIndices >= self.obsWaveMinIndex, 
-            obsFiducialIndices  < self.obsWaveMaxIndex, 
-            restIndices < self.restNParams, 
-            restIndices >= 0, 
+        valid_pixels = np.all((
+            obs_fiducial_indices >= self.obs_wave_min_index,
+            obs_fiducial_indices < self.obs_wave_max_index,
+            rest_indices < self.rest_nparams,
+            rest_indices >= 0,
             flux > 0, ivar > 0), axis=0)
-        nPixels = np.sum(validbins)
+        npixels = np.sum(valid_pixels)
         # skip target if no valid pixels
-        if nPixels <= 0:
+        if npixels <= 0:
             if self.verbose:
-                print 'No good pixels in relevant range on target %s (z=%.2f)' % (target['target'], z)
+                print 'No good pixels for target %s (z=%.2f)' % (
+                    target['target'], redshift)
             return 0
-        # initialize y values to logf + log(1+z)
-        yvalues = np.log(flux[validbins]) + np.log(1+z)
-        '''
-        # compute weights
-        if unweighted:
-            weights = np.ones(nPixels)
-        else:
-            weights = ivar[validbins]
-        sqrtw = np.sqrt(weights)
-
-        # Append yvalu values
-        yvalues = sqrtw*yvalues
-        '''
-        obsBlocks = []
+        # initialize y values to logf + log(1+redshift)
+        yvalues = np.log(flux[valid_pixels]) + np.log(1+redshift)
+        ##### TODO: compute weights
+        #if unweighted:
+        #     weights = np.ones(npixels)
+        # else:
+        #     weights = ivar[valid_pixels]
+        # sqrtw = np.sqrt(weights)
+        # yvalues = sqrtw*yvalues
+        ###################
+        obs_blocks = []
         # build transmission model param block
-        obsIndices = obsFiducialIndices[validbins]-self.obsWaveMinIndex
-        assert np.amax(obsIndices) < self.obsNParams, ('Invalid obsmodel index value')
-        transBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),obsIndices)), 
-            shape=(nPixels,self.obsNParams))
-        obsBlocks.append(transBlock)
+        obs_indices = obs_fiducial_indices[valid_pixels]-self.obs_wave_min_index
+        assert np.amax(obs_indices) < self.obs_nparams, (
+            'Invalid obsmodel index value')
+        transmission_block = scipy.sparse.coo_matrix(
+            (np.ones(npixels), (np.arange(npixels), obs_indices)),
+            shape=(npixels, self.obs_nparams))
+        obs_blocks.append(transmission_block)
         # build continuum model param block
-        restIndices = restIndices[validbins]
-        assert np.amax(restIndices) < self.restNParams, ('Invalid rest model index value')
-        contBlock = scipy.sparse.coo_matrix((np.ones(nPixels),(np.arange(nPixels),restIndices)), 
-            shape=(nPixels,self.restNParams))
-        obsBlocks.append(contBlock)
+        rest_indices = rest_indices[valid_pixels]
+        assert np.amax(rest_indices) < self.rest_nparams, (
+            'Invalid rest model index value')
+        continuum_block = scipy.sparse.coo_matrix(
+            (np.ones(npixels), (np.arange(npixels), rest_indices)),
+            shape=(npixels, self.rest_nparams))
+        obs_blocks.append(continuum_block)
         # build absorption model param block
-        absMinIndex = np.argmax(restIndices == self.absMinIndex)
-        absMaxIndex = np.argmax(restIndices == self.absMaxIndex)
-        # check if any of the this observation has pixels in the relevant absorption range
-        if absMaxIndex > absMinIndex:
-            absRows = np.arange(nPixels)[absMinIndex:absMaxIndex]
-            absCols = restIndices[absMinIndex:absMaxIndex] - self.absMinIndex
-            assert np.amax(absCols) < self.absNParams, 'Invalid abs param index value'
-            absCoefs = -np.ones(len(absCols))*np.power(1+z,self.absmodelexp)/self.absScale
-            absBlock = scipy.sparse.coo_matrix((absCoefs,(absRows,absCols)), 
-                shape=(nPixels,self.absNParams))
-            obsBlocks.append(absBlock)
-        elif self.absNParams > 0:
-            absBlock = scipy.sparse.coo_matrix((nPixels,self.absNParams))
-            obsBlocks.append(absBlock)
+        abs_wave_min_index = np.argmax(rest_indices == self.abs_wave_min_index)
+        abs_wave_max_index = np.argmax(rest_indices == self.abs_wave_max_index)
+        # check if any of the this observation has pixels in the relevant
+        # absorption range
+        if abs_wave_max_index > abs_wave_min_index:
+            abs_rows = np.arange(npixels)[abs_wave_min_index:abs_wave_max_index]
+            abs_cols = (rest_indices[abs_wave_min_index:abs_wave_max_index] -
+                        self.abs_wave_min_index)
+            assert np.amax(abs_cols) < self.abs_nparams, (
+                'Invalid abs param index value')
+            abs_coefficients = -np.ones(len(abs_cols))*(
+                np.power(1+redshift, self.absmodelexp)/self.abs_scale)
+            absorption_block = scipy.sparse.coo_matrix(
+                (abs_coefficients, (abs_rows, abs_cols)),
+                shape=(npixels, self.abs_nparams))
+            obs_blocks.append(absorption_block)
+        elif self.abs_nparams > 0:
+            absorption_block = scipy.sparse.coo_matrix(
+                (npixels, self.abs_nparams))
+            obs_blocks.append(absorption_block)
         else:
             # no absorption parameters, do nothing
             pass
@@ -183,216 +214,245 @@ class ContinuumModel(object):
         try:
             amp = target['amp']
             yvalues -= np.log(amp)
-            self.normCoefficients.append(None)
+            self.norm_coefficients.append(None)
         except KeyError:
             amp = None
-            self.normCoefficients.append(np.ones(nPixels))
-            self.nModelParams += 1
+            self.norm_coefficients.append(np.ones(npixels))
+            self.model_nparams += 1
         self.amplitude.append(amp)
         # process spectral tilt params
-        tiltCoefficients = np.log(self.restWaveCenters[restIndices]/self.tiltwave)
+        tilt_coefficients = (
+            np.log(self.rest_wave_centers[rest_indices]/self.tiltwave))
         try:
-            nu = target['nu']
-            yvalues -= nu*tiltCoefficients
-            self.tiltCoefficients.append(None)
+            tilt = target['nu']
+            yvalues -= tilt*tilt_coefficients
+            self.tilt_coefficients.append(None)
         except KeyError:
-            nu = None
-            self.tiltCoefficients.append(tiltCoefficients)
-            self.nModelParams += 1
-        self.nu.append(nu)
+            tilt = None
+            self.tilt_coefficients.append(tilt_coefficients)
+            self.model_nparams += 1
+        self.tilt.append(tilt)
         # append this observation's blocks to the model
-        self.obsBlocks.append(obsBlocks)
+        self.obs_blocks.append(obs_blocks)
         # append this observation's y values to the model
-        self.yvalues.append(yvalues)
+        self.modelyvalues.append(yvalues)
         # update model stats
-        self.nTotalPixels += nPixels
-        self.nTargets += 1
+        self.model_npixels += npixels
+        self.ntargets += 1
         # return number of pixels added from this observation
-        return nPixels
+        return npixels
 
-    def addObsConstraint(self, yvalue, wavemin, wavemax, weight):
+    def add_obs_constraint(self, yvalue, wavemin, wavemax, weight):
         """
-        Adds a constraint equation for each of the transmission model params between
-        the specified observed frame wavelengths.
+        Adds a constraint equation for each of the transmission model params
+        between the specified observed frame wavelengths.
 
         Args:
             yvalue (float): y value of constraint equation.
-            wavemin (float): minimum observed frame wavelength bin center to constrain.
-            wavemax (float): maxmimum observed frame wavelength bin center to constrain.
+            wavemin (float): minimum observed frame wavelength bin center
+                to constrain.
+            wavemax (float): maxmimum observed frame wavelength bin center
+                to constrain.
             weight (float): weight to apply to constraint equation.
         """
         # transmission model params are first
         offset = 0
         # find range of transmission model params in constraint window
-        waves = self.obsWaveCenters
-        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
+        waves = self.obs_wave_centers
+        wave_index_range = np.arange(np.argmax(waves > wavemin),
+                                     np.argmax(waves > wavemax)+1)
         # number of transmission parameters in constraint window
-        nTransmissionParams = len(waveIndexRange)
+        transmission_nparams = len(wave_index_range)
         # build constraint block
-        coefs = weight*np.ones(nTransmissionParams)
-        rows = np.arange(nTransmissionParams)
-        cols = offset+waveIndexRange
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(nTransmissionParams,self.nModelParams))
+        coefs = weight*np.ones(transmission_nparams)
+        rows = np.arange(transmission_nparams)
+        cols = offset+wave_index_range
+        block = scipy.sparse.coo_matrix(
+            (coefs, (rows, cols)),
+            shape=(transmission_nparams, self.model_nparams))
         if self.verbose:
             print 'Adding constraint: %.2g*logT([%.2f:%.2f]) = %.1f (%d logT params [%d:%d])' % (
-                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
-                nTransmissionParams, waveIndexRange[0], waveIndexRange[-1])
+                weight, waves[wave_index_range[0]], waves[wave_index_range[-1]], yvalue,
+                transmission_nparams, wave_index_range[0], wave_index_range[-1])
         # append constraint block and update number of constraint equations
-        self.constraintBlocks.append(block)
-        self.nconstraints += nTransmissionParams
+        self.constraint_blocks.append(block)
+        self.model_nconstraints += transmission_nparams
         # append yvalues and update total number of rows
-        yvalues = yvalue*np.ones(nTransmissionParams)
-        self.yvalues.append(yvalues)
-        self.nTotalPixels += nTransmissionParams
+        yvalues = yvalue*np.ones(transmission_nparams)
+        self.modelyvalues.append(yvalues)
+        self.model_npixels += transmission_nparams
 
-    def addRestConstraint(self, yvalue, wavemin, wavemax, weight):
+    def add_rest_constraint(self, yvalue, wavemin, wavemax, weight):
         """
-        Adds a constraint equation on the geometric mean of the continuum model in
-        between the specified rest frame wavelengths.
+        Adds a constraint equation on the geometric mean of the continuum model
+        in between the specified rest frame wavelengths.
 
         Args:
             yvalue (float): y value of constraint equation.
-            wavemin (float): minimum rest frame wavelength bin center to constrain.
-            wavemax (float): maxmimum rest frame wavelength bin center to constrain.
+            wavemin (float): minimum rest frame wavelength bin center
+                to constrain.
+            wavemax (float): maxmimum rest frame wavelength bin center
+                to constrain.
             weight (float): weight to apply to constraint equation.
         """
         # rest model params are after obs model params
-        offset = self.obsNParams
+        offset = self.obs_nparams
         # find range of continuum model params in constraint window
-        waves = self.restWaveCenters
-        waveIndexRange = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
+        waves = self.rest_wave_centers
+        wave_index_range = np.arange(np.argmax(waves > wavemin),
+                                     np.argmax(waves > wavemax))
         # number of continuum parameters in constraint window
-        nContinuumParams = len(waveIndexRange)
+        continuum_nparams = len(wave_index_range)
         # build constraint block
-        coefs = weight*np.ones(nContinuumParams)
-        rows = np.zeros(nContinuumParams)
-        cols = offset+waveIndexRange
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,self.nModelParams))
+        coefs = weight*np.ones(continuum_nparams)
+        rows = np.zeros(continuum_nparams)
+        cols = offset+wave_index_range
+        block = scipy.sparse.coo_matrix(
+            (coefs, (rows, cols)), shape=(1, self.model_nparams))
         if self.verbose:
             print 'Adding constraint: sum(%.2g*logC([%.2f:%.2f])) = %.1f (%d logC params [%d:%d])' % (
-                weight, waves[waveIndexRange[0]], waves[waveIndexRange[-1]], yvalue, 
-                nContinuumParams, waveIndexRange[0], waveIndexRange[-1])
+                weight, waves[wave_index_range[0]], waves[wave_index_range[-1]], yvalue,
+                continuum_nparams, wave_index_range[0], wave_index_range[-1])
         # append constraint block and update number of constraint equations
-        self.constraintBlocks.append(block)
-        self.nconstraints += 1
+        self.constraint_blocks.append(block)
+        self.model_nconstraints += 1
         # append yvalues and update total number of rows
-        self.yvalues.append([yvalue])
-        self.nTotalPixels += 1
+        self.modelyvalues.append([yvalue])
+        self.model_npixels += 1
 
-    def addTiltConstraint(self, weight):
+    def add_tilt_constraint(self, weight):
         """
-        Adds a constraint equation on the mean of the non-fixed spectral tilt params.
+        Adds a constraint equation on the mean of the non-fixed spectral tilt
+        params.
 
         Args:
             weight (float): weight to apply to constraint equation.
         """
-        # calculate tilt block column offset, tilt params are after normalization params
-        offset = self.obsNParams + self.restNParams + self.absNParams + self.amplitude.count(None)
+        # calculate tilt block column offset, tilt params are after
+        # normalization params
+        offset = (self.obs_nparams + self.rest_nparams + self.abs_nparams +
+                  self.amplitude.count(None))
         # count number of free tilt params
-        nTiltParams = self.nu.count(None)
+        tilt_nparams = self.tilt.count(None)
         # build constraint block
-        coefs = weight*np.ones(nTiltParams)/nTiltParams
-        rows = np.zeros(nTiltParams)
-        cols = offset+np.arange(nTiltParams)
-        block = scipy.sparse.coo_matrix((coefs,(rows,cols)),shape=(1,self.nModelParams))
+        coefs = weight*np.ones(tilt_nparams)/tilt_nparams
+        rows = np.zeros(tilt_nparams)
+        cols = offset+np.arange(tilt_nparams)
+        block = scipy.sparse.coo_matrix(
+            (coefs, (rows, cols)), shape=(1, self.model_nparams))
         if self.verbose:
-            print 'Adding constraint: %.2g*sum(nu) = 0 (%d nu params)' % (weight,nTiltParams)
+            print 'Adding constraint: %.2g*sum(nu) = 0 (%d tilt params)' % (
+                weight, tilt_nparams)
         # append constraint block and update number of constraint equations
-        self.constraintBlocks.append(block)
-        self.nconstraints += 1
+        self.constraint_blocks.append(block)
+        self.model_nconstraints += 1
         # append yvalues and update total number of rows
-        self.yvalues.append([0])
-        self.nTotalPixels += 1
+        self.modelyvalues.append([0])
+        self.model_npixels += 1
 
     def finalize(self):
         """
         Does final assembly of the sparse matrix representing the model.
         """
-        # pass through each observation and do final assembly of target param blocks
-        for i in range(self.nTargets):
-            nPixels = self.obsBlocks[i][0].shape[0]
+        # pass through each observation and do final assembly of
+        # target param blocks
+        for obs_index in range(self.ntargets):
+            npixels = self.obs_blocks[obs_index][0].shape[0]
             # add norm block
             if self.amplitude.count(None) > 0:
-                a = self.amplitude[i]
-                if a is None:
-                    ampIndices = self.amplitude[:i].count(None)*np.ones(nPixels)
-                    normBlock = scipy.sparse.coo_matrix((self.normCoefficients[i],(np.arange(nPixels),ampIndices)),
-                        shape=(nPixels,self.amplitude.count(None)))
+                amp = self.amplitude[obs_index]
+                if amp is None:
+                    amp_indices = self.amplitude[:obs_index].count(None)*(
+                        np.ones(npixels))
+                    amplitude_block = scipy.sparse.coo_matrix(
+                        (self.norm_coefficients[obs_index],
+                        (np.arange(npixels), amp_indices)),
+                        shape=(npixels, self.amplitude.count(None)))
                 else:
-                    normBlock = scipy.sparse.coo_matrix((nPixels,self.amplitude.count(None)))
-                self.obsBlocks[i].append(normBlock)
+                    amplitude_block = scipy.sparse.coo_matrix(
+                        (npixels, self.amplitude.count(None)))
+                self.obs_blocks[obs_index].append(amplitude_block)
             # add tilt block
-            if self.nu.count(None) > 0:
-                nu = self.nu[i]
-                if nu is None:
-                    nuIndices = self.nu[:i].count(None)*np.ones(nPixels)
-                    tiltBlock = scipy.sparse.coo_matrix((self.tiltCoefficients[i],(np.arange(nPixels),nuIndices)),
-                        shape=(nPixels,self.nu.count(None)))
+            if self.tilt.count(None) > 0:
+                tilt = self.tilt[obs_index]
+                if tilt is None:
+                    tilt_indices = self.tilt[:obs_index].count(None)*(
+                        np.ones(npixels))
+                    tilt_block = scipy.sparse.coo_matrix(
+                        (self.tilt_coefficients[obs_index],
+                        (np.arange(npixels), tilt_indices)),
+                        shape=(npixels, self.tilt.count(None)))
                 else:
-                    tiltBlock = scipy.sparse.coo_matrix((nPixels,self.nu.count(None)))
-                self.obsBlocks[i].append(tiltBlock)
+                    tilt_block = scipy.sparse.coo_matrix(
+                        (npixels, self.tilt.count(None)))
+                self.obs_blocks[obs_index].append(tilt_block)
         # combine blocks from all observations
-        obsBlock = scipy.sparse.bmat(self.obsBlocks)
+        obs_block = scipy.sparse.bmat(self.obs_blocks)
         # combine blocks from all constraints
-        contraintBlock = scipy.sparse.vstack(self.constraintBlocks)
+        constraint_block = scipy.sparse.vstack(self.constraint_blocks)
         # comebine observations and constraints
-        finalModel = scipy.sparse.vstack([obsBlock,contraintBlock])
+        final_model = scipy.sparse.vstack([obs_block, constraint_block])
 
-        assert finalModel.shape[0] == self.nTotalPixels
-        assert finalModel.shape[1] == self.nModelParams
+        assert final_model.shape[0] == self.model_npixels
+        assert final_model.shape[1] == self.model_nparams
 
-        self.model = finalModel.tocsc()
+        self.model = final_model.tocsc()
 
         # concatenate y values
-        yvalues = np.concatenate(self.yvalues)
-        self.y = yvalues
+        yvalues = np.concatenate(self.modelyvalues)
+        self.modely = yvalues
 
         if self.verbose:
-            print 'Number of transmission model params: %d' % self.obsNParams
-            print 'Number of continuum model params: %d' % self.restNParams
-            print 'Number of absorption model params: %d' % self.absNParams
-            print 'Number of targets: %d' % self.nTargets
+            print 'Number of transmission model params: %d' % self.obs_nparams
+            print 'Number of continuum model params: %d' % self.rest_nparams
+            print 'Number of absorption model params: %d' % self.abs_nparams
+            print 'Number of targets: %d' % self.ntargets
             print 'Number of amplitude params: %d' % self.amplitude.count(None)
-            print 'Number of tilt params: %d' % self.nu.count(None)
+            print 'Number of tilt params: %d' % self.tilt.count(None)
             print ''
-            print 'Total number of model params: %d' % self.nModelParams
-            print 'Total number of flux measurements: %d (%d constraints)' % (self.nTotalPixels, self.nconstraints)
+            print 'Total number of model params: %d' % self.model_nparams
+            print 'Total number of flux measurements: %d (%d constraints)' % (
+                self.model_npixels, self.model_nconstraints)
             print 'Total nbytes of sparse matrix arrays (data, ptr, indices): (%d,%d,%d)\n' % (
                 self.model.data.nbytes, self.model.indptr.nbytes, self.model.indices.nbytes)
 
-    def getModel(self):
+    def get_model(self):
         """
         Returns the assembled model matrix and corresponding y values
 
         Returns:
-            A tuple of ``(model, yvalues)``, where *model* is a :class:`scipy.sparse.csc_matrix` and
-            *yvalues* is a :class:`numpy.array`.
+            A tuple of ``(model, yvalues)``, where *model* is a
+                :class:`scipy.sparse.csc_matrix` and *yvalues* is a
+                :class:`numpy.array`.
         """
         if self.model is None:
             self.finalize()
-        return self.model, self.y
+        return self.model, self.modely
 
-    def getResults(self, soln):
+    def get_results(self, soln):
         """
-        Converts the provided solution to model params. Transforms log params to linear and inserts
-        fixed model params.
+        Converts the provided solution to model params. Transforms log params
+        to linear and inserts fixed model params.
 
         Returns:
             results (dict): a dictionary of model params
         """
-        assert self.model is not None, ('Can\'t request results before model assembly.')
-        assert len(soln) == self.nModelParams, ('Size of soln does not match model.')
+        assert self.model is not None, (
+            'Can\'t request results before model assembly.')
+        assert len(soln) == self.model_nparams, (
+            'Size of soln does not match model.')
         results = dict()
         offset = 0
         # transmission: transform logT -> T
-        results['transmission'] = np.exp(soln[offset:offset+self.obsNParams])
-        offset += self.obsNParams
+        results['transmission'] = np.exp(soln[offset:offset+self.obs_nparams])
+        offset += self.obs_nparams
         # continuum: transform logC -> C
-        results['continuum'] = np.exp(soln[offset:offset+self.restNParams])
-        offset += self.restNParams
+        results['continuum'] = np.exp(soln[offset:offset+self.rest_nparams])
+        offset += self.rest_nparams
         # absorption
-        results['absorption'] = soln[offset:offset+self.absNParams]*self.absScale
-        offset += self.absNParams
+        results['absorption'] = soln[offset:offset+self.abs_nparams]*(
+            self.abs_scale)
+        offset += self.abs_nparams
         # amplitude: transform logA -> A
         amplitude = list()
         ampindex = 0
@@ -404,21 +464,22 @@ class ContinuumModel(object):
         results['amplitude'] = amplitude
         offset += self.amplitude.count(None)
         # spectral tilt
-        nu = list()
-        nuindex = 0
-        for nuvalue in self.nu:
-            if nuvalue is None:
-                nuvalue = soln[offset+nuindex]
-                nuindex += 1
-            nu.append(nuvalue)
-        results['nu'] = nu
-        offset += self.nu.count(None)
+        tilt = list()
+        tiltindex = 0
+        for tiltvalue in self.tilt:
+            if tiltvalue is None:
+                tiltvalue = soln[offset+tiltindex]
+                tiltindex += 1
+            tilt.append(tiltvalue)
+        results['nu'] = tilt
+        offset += self.tilt.count(None)
         # return dictionary of parameters
         return results
 
-    def getChiSq(self, soln):
+    def get_chisq(self, soln):
         """
-        Calculates the chi-squared between the specified solution and the model y values.
+        Calculates the chi-squared between the specified solution and
+        the model y values.
 
         Args:
             soln (numpy.array): model parameter solution array
@@ -426,95 +487,102 @@ class ContinuumModel(object):
         Returns:
             chisq (float): value
         """
-        assert self.model is not None, ('Can\'t request chisq before model assembly.')
+        assert self.model is not None, (
+            'Can\'t request chisq before model assembly.')
         # calculate residuals
-        residuals = self.y - self.model.dot(soln)
+        residuals = self.modely - self.model.dot(soln)
         # return chisq
-        return np.dot(residuals,residuals)/len(residuals)
+        return np.dot(residuals, residuals)/len(residuals)
 
-    def getObservationChiSq(self, soln, obsIndex):
+    def get_obs_chisq(self, soln, obs_index):
         """
-        Returns the chi-squared value of the specified observation index, *obsIndex*, using the 
-        specified soln.
+        Returns the chi-squared value of the specified observation index,
+        *obs_index*, using the specified soln.
 
         Args:
             soln (numpy.array): model parameter solution array
-            obsIndex (int): observation index
+            obs_index (int): observation index
 
         Returns:
             chisq (float): value
         """
-        assert self.model is not None, ('Can\'t request chisq before model assembly.')
+        assert self.model is not None, (
+            'Can\'t request chisq before model assembly.')
         # check soln size
-        assert len(soln) == self.nModelParams, ('Size of soln does not match model.')
+        assert len(soln) == self.model_nparams, (
+            'Size of soln does not match model.')
         # pick out y value entries for the requested observation
-        yvalues = self.yvalues[i]
+        yvalues = self.modelyvalues[obs_index]
         # pick out model rows for the requested observation
-        model = scipy.sparse.hstack(self.obsBlocks[i]).tocsc()
+        model = scipy.sparse.hstack(self.obs_blocks[obs_index]).tocsc()
         # calculate residuals
         residuals = yvalues - model.dot(soln)
         # return chisq
         return np.dot(residuals, residuals)/len(residuals)
 
-    def save(self, filename, soln, args, saveModel=True):
+    def save(self, filename, soln, args, save_model=True):
         """
-        Saves soln to the specified filename as an hdf5 file. Parsed results and fit meta data
-        are also saved. Use the saveModel arg to indicate whether or not to save the raw
-        data of the sparse matrix model.
+        Saves soln to the specified filename as an hdf5 file. Parsed results
+        and fit meta data are also saved. Use the saveModel arg to indicate
+        whether or not to save the raw data of the sparse matrix model.
 
         Args:
             filename (str): filename of the hdf5 output to create
             soln (numpy.array): model parameter solution array
             args (argparse.Namespace): argparse argument namespace
-            saveModel (bool, optional): whether or not to save the model matrix and y values. Defaults to True.
+            save_model (bool, optional): whether or not to save the model
+                matrix and y values. Defaults to True.
 
         Returns:
             outfile (h5py.File): the output hdf5 file created
         """
-        results = self.getResults(soln)
+        results = self.get_results(soln)
         # open hdf5 output file
-        outfile = h5py.File(filename,'w')
+        outfile = h5py.File(filename, 'w')
         # save soln
         outfile.create_dataset('soln', data=soln)
-        if saveModel:
+        if save_model:
             # save model data
             outfile.create_dataset('model_data', data=self.model.data)
             outfile.create_dataset('model_indices', data=self.model.indices)
             outfile.create_dataset('model_indptr', data=self.model.indptr)
             outfile.create_dataset('model_shape', data=self.model.shape)
-            outfile.create_dataset('y', data=self.y)
+            outfile.create_dataset('y', data=self.modely)
         # save wavelength grids
-        dsetObsWave = outfile.create_dataset('obsWaveCenters', data=self.obsWaveCenters)
-        dsetRestWave = outfile.create_dataset('restWaveCenters', data=self.restWaveCenters)
+        outfile.create_dataset('obsWaveCenters', data=self.obs_wave_centers)
+        outfile.create_dataset('rest_wave_centers', data=self.rest_wave_centers)
         # save transmission model params and relevant info
-        dsetT = outfile.create_dataset('transmission', data=results['transmission'])
-        dsetT.attrs['normmin'] = args.obsnormmin
-        dsetT.attrs['normmax'] = args.obsnormmax
-        dsetT.attrs['normweight'] = args.obsnormweight
+        transmission = outfile.create_dataset(
+            'transmission', data=results['transmission'])
+        transmission.attrs['normmin'] = args.obsnormmin
+        transmission.attrs['normmax'] = args.obsnormmax
+        transmission.attrs['normweight'] = args.obsnormweight
         # save continuum model params and relevant info
-        dsetC = outfile.create_dataset('continuum', data=results['continuum'])
-        dsetC.attrs['normmin'] = args.restnormmin
-        dsetC.attrs['normmax'] = args.restnormmax
-        dsetC.attrs['normweight'] = args.restnormweight
+        continuum = outfile.create_dataset(
+            'continuum', data=results['continuum'])
+        continuum.attrs['normmin'] = args.restnormmin
+        continuum.attrs['normmax'] = args.restnormmax
+        continuum.attrs['normweight'] = args.restnormweight
         # save absorption model params and relevant info
-        dsetabs = outfile.create_dataset('absorption', data=results['absorption'])
-        dsetabs.attrs['minRestIndex'] = self.absMinIndex
-        dsetabs.attrs['maxRestIndex'] = self.absMaxIndex 
-        dsetabs.attrs['absmodelexp'] = self.absmodelexp
+        absorption = outfile.create_dataset(
+            'absorption', data=results['absorption'])
+        absorption.attrs['minRestIndex'] = self.abs_wave_min_index
+        absorption.attrs['maxRestIndex'] = self.abs_wave_max_index
+        absorption.attrs['absmodelexp'] = self.absmodelexp
         # save amplitude params and relevant info
-        dsetA = outfile.create_dataset('amplitude', data=results['amplitude'])
+        outfile.create_dataset('amplitude', data=results['amplitude'])
         # save spectral tilt params and relevant info
-        dsetTilt = outfile.create_dataset('nu', data=results['nu'])
-        dsetTilt.attrs['tiltwave'] = args.tiltwave
-        dsetTilt.attrs['tiltweight'] = args.tiltweight
+        tilt = outfile.create_dataset('nu', data=results['nu'])
+        tilt.attrs['tiltwave'] = args.tiltwave
+        tilt.attrs['tiltweight'] = args.tiltweight
         # save per-obs chisqs
-        chiSqs = [self.getObservationChiSq(soln, i) for i in range(self.nTargets)]
-        outfile.create_dataset('chisq', data=chiSqs)
+        chisqs = [self.get_obs_chisq(soln, i) for i in range(self.ntargets)]
+        outfile.create_dataset('chisq', data=chisqs)
         # return h5py output file
         return outfile
 
     @staticmethod
-    def addArgs(parser):
+    def add_args(parser):
         """
         Add arguments to the provided command-line parser.
 
@@ -540,9 +608,9 @@ class ContinuumModel(object):
         parser.add_argument("--nrestbins", type=int, default=1000,
             help="number of restframe bins")
         parser.add_argument("--restnormmin", type=float, default=1275,
-            help="restframe wavelength to normalize at")
+            help="restframe window normalization minimum")
         parser.add_argument("--restnormmax", type=float, default=1285,
-            help="restframe window size +/- on each side of restnorm wavelength")
+            help="restframe window normalization maximum")
         parser.add_argument("--restnormweight", type=float, default=1e3,
             help="norm constraint weight")
         # absorption model parameter options
@@ -559,14 +627,16 @@ class ContinuumModel(object):
             help="spectral tilt pivot wavelength")
         parser.add_argument("--tiltweight", type=float, default=1e3,
             help="spectral tilt constraint weight")
-        # fit options 
-        parser.add_argument("--unweighted", action="store_true",
+        # fit options
+        parser.add_argument(
+            "--unweighted", action="store_true",
             help="perform unweighted least squares fit")
 
     @staticmethod
-    def fromArgs(args):
+    def from_args(args):
         """
-        Returns a dictionary of constructor parameter values based on the parsed args provided.
+        Returns a dictionary of constructor parameter values based on the
+        parsed args provided.
 
         Args:
             args (argparse.Namespace): argparse argument namespace
@@ -577,6 +647,6 @@ class ContinuumModel(object):
         # Look up the named ContinuumModel constructor parameters.
         pnames = (inspect.getargspec(ContinuumModel.__init__)).args[1:]
         # Get a dictionary of the arguments provided.
-        argsDict = vars(args)
+        args_dict = vars(args)
         # Return a dictionary of constructor parameters provided in args.
-        return { key:argsDict[key] for key in (set(pnames) & set(argsDict)) }
+        return {key:args_dict[key] for key in set(pnames) & set(args_dict)}

@@ -1,4 +1,8 @@
-from spectrum import Spectrum, readCombinedSpectrum
+"""
+Package for working with quasar spectra
+"""
+
+from spectrum import Spectrum, read_combined_spectrum
 from target import Target
 import wavelength
 

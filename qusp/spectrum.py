@@ -2,11 +2,10 @@
 Provides support for working with BOSS spectra.
 """
 import numpy as np
-from wavelength import *
 
 import qusp
 
-class Spectrum:
+class Spectrum(object):
     """
     Represents a BOSS co-added spectrum.
     """
@@ -23,12 +22,12 @@ class Spectrum:
         self.wavelength = wavelength
         self.flux = flux
         self.ivar = ivar
-        self.nPixels = len(wavelength)
-        self.nZeroIvarPixels = np.sum(ivar == 0)
+        self.npixels = len(wavelength)
+        self.nzero_ivar_pixels = np.sum(ivar == 0)
 
-    def findPixel(self, wavelength):
+    def find_pixel(self, wavelength):
         """
-        Returns the corresponding pixel index of the specified wavelength
+        Returns the corresponding pixel index of the specified wavelength.
 
         Args:
             wavelength (float): value
@@ -39,79 +38,91 @@ class Spectrum:
         if wavelength <= self.wavelength[0]:
             return -1
         if wavelength >= self.wavelength[-1]:
-            return self.nPixels-1
+            return self.npixels-1
         # find first pixel with a central wavelength greater than wavelength
         candidate = np.argmax(self.wavelength >= wavelength)
         # compare wavelength with this pixel's lower boundary
-        if wavelength > getFiducialWavelength(candidate-0.5):
+        if wavelength > qusp.wavelength.get_fiducial_wavelength(candidate-0.5):
             return candidate
         else:
             return candidate - 1
 
-    def getMeanFlux(self, minWavelength, maxWavelength, ivarWeighting=True):
+    def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
-        Returns the mean flux between the specified wavelengths. Use ivarWeighting=False
-        option to turn ignore weights.
+        Returns the mean flux between the specified wavelengths.
+        Use ivar_weighting=False option to turn ignore weights.
 
         Args:
-            minWavelength (float): minimum wavelength for mean flux calculation range.
-            maxWavelength (float): maximum wavelength for mean flux calculation range.
-            ivarWeighting (bool, optional): Whether or not to weight calculation using inverse variance.
+            min_wavelength (float): minimum wavelength for mean flux calculation
+                range.
+            max_wavelength (float): maximum wavelength for mean flux calculation
+                range.
+            ivar_weighting (bool, optional): Whether or not to weight
+                calculation using inverse variance.
 
         Returns:
-            meanFlux (float): the mean flux between `minWavelength` and `maxWavelength`.
+            the mean flux between `min_wavelength` and `max_wavelength`.
         """
-        minPixel = self.findPixel(minWavelength)+1
-        maxPixel = self.findPixel(maxWavelength)
-        if minPixel > maxPixel:
+        min_pixel = self.find_pixel(min_wavelength)+1
+        max_pixel = self.find_pixel(max_wavelength)
+        if min_pixel > max_pixel:
             return 0
-        s = slice(minPixel,maxPixel+1)
+        pixels = slice(min_pixel, max_pixel+1)
         # only use "good" pixels
-        nonzero = np.nonzero(self.ivar[s])
+        nonzero = np.nonzero(self.ivar[pixels])
         # use weights?
-        weights = self.ivar[s][nonzero] if ivarWeighting else np.ones(len(nonzero))
+        weights = self.ivar[pixels][nonzero] if ivar_weighting else (
+            np.ones(len(nonzero)))
         # calculate mean
-        wsum = np.sum(weights)
-        if wsum <= 0:
+        weights_sum = np.sum(weights)
+        if weights_sum <= 0:
             return 0
-        wfluxsum = np.sum(weights*self.flux[s][nonzero])
-        return wfluxsum/wsum
+        weighted_flux_sum = np.sum(weights*self.flux[pixels][nonzero])
+        return weighted_flux_sum/weights_sum
 
-    def getMedianSignalToNoise(self, minWavelength, maxWavelength):
+    def median_signal_to_noise(self, min_wavelength, max_wavelength):
         """
-        Returns the median signal to noise ratio between the specified wavelengths.
+        Returns the median signal to noise ratio between the specified
+        wavelengths.
 
         Args:
-            minWavelength (float): minimum wavelength for median flux calculation range.
-            maxWavelength (float): maximum wavelength for median flux calculation range.
+            min_wavelength (float): minimum wavelength for median flux
+                calculation range.
+            max_wavelength (float): maximum wavelength for median flux
+                calculation range.
 
         Returns:
-            median (float): the median flux between `minWavelength` and `maxWavelength`.
+            median (float): the median flux between `min_wavelength` and
+                `max_wavelength`.
         """
-        minPixel = self.findPixel(minWavelength)+1
-        maxPixel = self.findPixel(maxWavelength)
-        if minPixel > maxPixel:
+        min_pixel = self.find_pixel(min_wavelength)+1
+        max_pixel = self.find_pixel(max_wavelength)
+        if min_pixel > max_pixel:
             return 0
-        s = slice(minPixel,maxPixel+1)
+        pixels = slice(min_pixel, max_pixel+1)
         # only use "good" pixels
-        nonzero = np.nonzero(self.ivar[s])
+        nonzero = np.nonzero(self.ivar[pixels])
         if len(nonzero) == 0:
             return 0
         # calculate signal to noise
-        sn = np.fabs(self.flux[s][nonzero])*np.sqrt(self.ivar[s][nonzero])
+        signal_to_noise = np.fabs(
+            self.flux[pixels][nonzero])*np.sqrt(self.ivar[pixels][nonzero])
         # return median
-        return np.median(sn)
+        return np.median(signal_to_noise)
 
-def readCombinedSpectrum(spPlate, fiber):
+def read_combined_spectrum(spplate, fiber):
     """
-    Returns the combined spectrum of the specified fiber from the provided spPlate.
+    Returns the combined spectrum of the specified fiber from the provided
+    spPlate.
 
     Args:
-        spPlate (astropy.io.fits.HDUList): spPlate file
-        fiber (int,:class:`qusp.target.Target`): boss target's fiberid, or a :class:`qusp.target.Target` object.
+        spplate (astropy.io.fits.HDUList): spPlate file
+        fiber (int,:class:`qusp.target.Target`): boss target's fiberid, or a
+            :class:`qusp.target.Target` object.
 
     Returns:
-        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of `fiber` of `spPlate`.
+        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of `fiber`
+            of `spplate`.
     """
     # those pesky fiber numbers start at 1 but the fits table is 0-indexed
     if type(fiber) is qusp.target.Target:
@@ -119,39 +130,22 @@ def readCombinedSpectrum(spPlate, fiber):
     else:
         index = fiber - 1
 
-    coeff0 = spPlate[0].header['COEFF0']
-    coeff1 = spPlate[0].header['COEFF1']
+    coeff0 = spplate[0].header['COEFF0']
+    coeff1 = spplate[0].header['COEFF1']
 
-    flux = spPlate[0].data[index]
-    ivar = spPlate[1].data[index]
-    andMask = spPlate[2].data[index]
-    orMask = spPlate[3].data[index]
-    pixelDispersion = spPlate[4].data[index]
+    flux = spplate[0].data[index]
+    ivar = spplate[1].data[index]
+    and_mask = spplate[2].data[index]
+    or_mask = spplate[3].data[index]
+    pixel_dispersion = spplate[4].data[index]
     # Calculate the wavelength sequence to use.
-    nPixels = len(flux)
-    wavelength = np.power(10,coeff0 + coeff1*np.arange(0, nPixels))
+    npixels = len(flux)
+    wavelength = np.power(10, coeff0 + coeff1*np.arange(0, npixels))
 
     # Build the spectrum (no masking yet).
     spectrum = Spectrum(wavelength, flux, ivar)
     # Filter on the AND mask
-    spectrum.ivar[andMask > 0] = 0
+    spectrum.ivar[and_mask > 0] = 0
 
     return spectrum
 
-
-def plotSpectrum(spectrum, **kwargs):
-    if isinstance(spectrum, basestring):
-        plateFileName = 'spPlate-%s-%s.fits' % (target.plate, target.mjd)
-        fullName = os.path.join(fitsPath,str(target.plate),plateFileName)
-        spPlate = fits.open(fullName)
-        combined = qusp.readCombinedSpectrum(spPlate, target.fiber)
-        spPlate.close()
-    elif isinstance(spectrum, Spectrum):
-        combined = spectrum
-    else:
-        assert False, 'Invalid spectrum argument'
-    x = combined.wavelength
-    y = combined.flux
-    plt.plot(x, y, **kwargs)
-    plt.xlim([x[0], x[-1]])
-    plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
