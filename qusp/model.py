@@ -550,7 +550,7 @@ class ContinuumModel(object):
             outfile.create_dataset('y', data=self.modely)
         # save wavelength grids
         outfile.create_dataset('obsWaveCenters', data=self.obs_wave_centers)
-        outfile.create_dataset('rest_wave_centers', data=self.rest_wave_centers)
+        outfile.create_dataset('restWaveCenters', data=self.rest_wave_centers)
         # save transmission model params and relevant info
         transmission = outfile.create_dataset(
             'transmission', data=results['transmission'])

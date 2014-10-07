@@ -132,7 +132,7 @@ def plotTargets(specfits, targetIndices, boss_path):
     mytargets = []
     for i in targetIndices:
         try:
-            target = qusp.target.Target.fromString(targets[i])
+            target = qusp.target.Target.from_string(targets[i])
         except ValueError:
             # for backwards compatibility...
             target = qusp.target.Target(ast.literal_eval(targets[i]))
@@ -165,20 +165,22 @@ def plotTargets(specfits, targetIndices, boss_path):
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
 
     subplotIndex = 1
-    for target, spPlate in qusp.target.readTargetPlates(boss_path,mytargets):    
+    for target, spPlate in qusp.target.read_target_plates(boss_path, mytargets):    
         plt.subplot(ntargets,1,subplotIndex)
         subplotIndex += 1
         ax = plt.gca()
         # draw observed spectrum
-        combined = qusp.readCombinedSpectrum(spPlate, target)
+        combined = qusp.read_combined_spectrum(spPlate, target)
         plotSpectrum(combined, c='blue', lw=.5)
         # draw predication
         plotPrediction(target, c='red', marker='', ls='-', lw=1)
+        quasar_lines = qusp.wavelength.load_wavelengths('quasar')
+        for line in quasar_lines:
+            line *= (1+target['z'])
         # draw emission lines
-        qusp.wavelength.drawLines((1+target['z'])*np.array(qusp.wavelength.QuasarEmissionLines), 
-            qusp.wavelength.QuasarEmissionLabels, 0.89,-0.1, c='orange', alpha=.5)
-        qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, 
-            qusp.wavelength.SkyLabels, 0.01, 0.1, c='magenta', alpha=.5)
+        qusp.wavelength.draw_lines(quasar_lines, 0.89,-0.1, c='orange', alpha=.5)
+        qusp.wavelength.draw_lines(
+            qusp.wavelength.load_wavelengths('sky'), 0.01, 0.1, c='magenta', alpha=.5)
         # only keep xaxis label of the bottom/last plot
         if subplotIndex <= ntargets:
             plt.xlabel(r'')
@@ -191,7 +193,8 @@ def plotTargets(specfits, targetIndices, boss_path):
 
 def main():
     # parse command-line arguments
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--verbose", action="store_true",
         help="print verbose output")
     parser.add_argument("-i","--input", type=str, default=None,
@@ -206,10 +209,10 @@ def main():
     ##
     parser.add_argument("--force-y", action="store_true",
         help="force y limit ranges to nominal values")
-    qusp.paths.Paths.addArgs(parser)
+    qusp.paths.Paths.add_args(parser)
     args = parser.parse_args()
 
-    paths = qusp.paths.Paths(**qusp.paths.Paths.fromArgs(args))
+    paths = qusp.paths.Paths(**qusp.paths.Paths.from_args(args))
 
     mpl.rcParams['font.size'] = 16
 
@@ -241,8 +244,8 @@ def main():
     fig = plt.figure(figsize=(20,8))
     plotContinuum(specfits,c='black')
     drawNormWindow(specfits['continuum'])
-    qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
-        0.89,-0.1, c='orange', alpha=.5)
+    qusp.wavelength.draw_lines(
+        qusp.wavelength.load_wavelengths('ballmer'), 0.89,-0.1, c='orange', alpha=.5)
     if args.force_y:
         plt.ylim([0,5])
     plt.grid(axis='y')
@@ -251,10 +254,10 @@ def main():
     # Draw Transmission Model
     fig = plt.figure(figsize=(20,8))
     plotTransmission(specfits,c='black')
-    qusp.wavelength.drawLines(qusp.wavelength.BallmerLines, qusp.wavelength.BallmerLabels, 
-        0.89,-0.1, c='green', alpha=.5)
-    qusp.wavelength.drawLines(qusp.wavelength.SkyLineList, qusp.wavelength.SkyLabels, 
-        0.01, 0.1, c='magenta', alpha=.5)
+    qusp.wavelength.draw_lines(
+        qusp.wavelength.load_wavelengths('ballmer'), 0.89,-0.1, c='green', alpha=.5)
+    qusp.wavelength.draw_lines(
+        qusp.wavelength.load_wavelengths('sky'), 0.01, 0.1, c='magenta', alpha=.5)
     if args.force_y:
         plt.ylim([.9,1.1])
     plt.grid(axis='y')
@@ -263,8 +266,8 @@ def main():
     # Plot Absorption Model
     fig = plt.figure(figsize=(8,6))
     plotAbsorption(specfits, c='black')
-    qusp.wavelength.drawLines(qusp.wavelength.QuasarEmissionLines, qusp.wavelength.QuasarEmissionLabels, 
-        0.01,0.1, c='orange', alpha=.5)
+    qusp.wavelength.draw_lines(
+        qusp.wavelength.load_wavelengths('quasar'), 0.01,0.1, c='orange', alpha=.5)
     if args.force_y:
         plt.ylim([-0.0005,.004])
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
@@ -281,7 +284,8 @@ def main():
     # Plot amplitude distribution
     fig = plt.figure(figsize=(8,6))
     amp = specfits['amplitude'].value
-    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), linewidth=.1, alpha=.5)
+    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), 
+             linewidth=.1, alpha=.5)
     plt.xlabel(r'Amplitude A')
     plt.ylabel(r'Number of Targets')
     plt.xscale('log')
