@@ -14,6 +14,11 @@ class Spectrum:
         """
         Initializes a spectrum with the provided wavelength, flux, and
         ivar arrays.
+
+        Args:
+            wavelength (numpy.array): wavelength pixel centers.
+            flux (numpy.array): flux values.
+            ivar (numpy.array): flux inverse variance values.
         """
         self.wavelength = wavelength
         self.flux = flux
@@ -24,6 +29,12 @@ class Spectrum:
     def findPixel(self, wavelength):
         """
         Returns the corresponding pixel index of the specified wavelength
+
+        Args:
+            wavelength (float): value
+
+        Returns:
+            pixelIndex (int): pixel index
         """
         if wavelength <= self.wavelength[0]:
             return -1
@@ -41,6 +52,14 @@ class Spectrum:
         """
         Returns the mean flux between the specified wavelengths. Use ivarWeighting=False
         option to turn ignore weights.
+
+        Args:
+            minWavelength (float): minimum wavelength for mean flux calculation range.
+            maxWavelength (float): maximum wavelength for mean flux calculation range.
+            ivarWeighting (bool, optional): Whether or not to weight calculation using inverse variance.
+
+        Returns:
+            meanFlux (float): the mean flux between `minWavelength` and `maxWavelength`.
         """
         minPixel = self.findPixel(minWavelength)+1
         maxPixel = self.findPixel(maxWavelength)
@@ -61,6 +80,13 @@ class Spectrum:
     def getMedianSignalToNoise(self, minWavelength, maxWavelength):
         """
         Returns the median signal to noise ratio between the specified wavelengths.
+
+        Args:
+            minWavelength (float): minimum wavelength for median flux calculation range.
+            maxWavelength (float): maximum wavelength for median flux calculation range.
+
+        Returns:
+            median (float): the median flux between `minWavelength` and `maxWavelength`.
         """
         minPixel = self.findPixel(minWavelength)+1
         maxPixel = self.findPixel(maxWavelength)
@@ -79,6 +105,13 @@ class Spectrum:
 def readCombinedSpectrum(spPlate, fiber):
     """
     Returns the combined spectrum of the specified fiber from the provided spPlate.
+
+    Args:
+        spPlate (astropy.io.fits.HDUList): spPlate file
+        fiber (int,:class:`qusp.target.Target`): boss target's fiberid, or a :class:`qusp.target.Target` object.
+
+    Returns:
+        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of `fiber` of `spPlate`.
     """
     # those pesky fiber numbers start at 1 but the fits table is 0-indexed
     if type(fiber) is qusp.target.Target:

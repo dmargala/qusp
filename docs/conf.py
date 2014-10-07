@@ -30,7 +30,11 @@ sys.path.insert(0, os.path.abspath('..'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
+    'sphinxcontrib.napoleon'
 ]
+
+autoclass_content = 'both'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -95,6 +99,14 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# See http://sphinx-doc.org/ext/intersphinx.html#module-sphinx.ext.intersphinx for 
+# the complete description of the features of intersphinx.
+intersphinx_mapping = {
+    'python': ('http://docs.python.org/2.7', None),
+    'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy', None),
+    'h5py': ('http://docs.h5py.org/en/latest/', None)
+    }
 
 # -- Options for HTML output ----------------------------------------------
 

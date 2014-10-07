@@ -14,6 +14,19 @@ class ContinuumModel(object):
         """
         Initializes a linearized quasar continuum model using the specified
         parameter limits and values.
+
+        Args:
+            obsmin (float): minimum observed frame wavelength bin center of transmission model.
+            obsmax (float): maximum observed frame wavelength bin center of transmission model.
+            restmin (float): minimum rest frame wavelength bin center of continuum model.
+            restmax (float): maximum rest frame wavelength bin center of continuum model.
+            nrestbins (int): number of rest frame bins of continuum model.
+            tiltwave (float): pivot wavelength of rest frame spectral tilt.
+            absmin (float): minimum rest frame wavelength bin center of absorption model.
+            absmax (float): maximum rest frame wavelength bin center of absorption model.
+            absmodelexp (float): exponent of (1+z) factor of absorption model.
+            absscale (float): internal scaling of absorption model coefficients.
+            verbose (bool, optional): whether or not to print verbose output.
         """
         self.verbose = verbose
         # initialize transmission model params
@@ -81,7 +94,18 @@ class ContinuumModel(object):
         Adds an observation to be fit. Returns the number of pixels added. The provided
         target argument must have an attribute named 'z' with the target's redshift.
 
-        weighted fit not yet implemented.
+        Note:
+            Weighted fit not yet implemented.
+
+        Args:
+            target (:class:`qusp.target.Target`): a Target object
+            flux (numpy.array): flux array
+            wave (numpy.array): wavelength array
+            ivar (numpy.array): ivar array
+            unweighted (bool, optional): ignore pixel variances. Defaults to True.
+
+        Returns:
+            npixels (int): number of pixels added to model from this observation
 
         """
         assert unweighted, ('Weighted fit not implemented yet...')
@@ -190,6 +214,12 @@ class ContinuumModel(object):
         """
         Adds a constraint equation for each of the transmission model params between
         the specified observed frame wavelengths.
+
+        Args:
+            yvalue (float): y value of constraint equation.
+            wavemin (float): minimum observed frame wavelength bin center to constrain.
+            wavemax (float): maxmimum observed frame wavelength bin center to constrain.
+            weight (float): weight to apply to constraint equation.
         """
         # transmission model params are first
         offset = 0
@@ -219,6 +249,12 @@ class ContinuumModel(object):
         """
         Adds a constraint equation on the geometric mean of the continuum model in
         between the specified rest frame wavelengths.
+
+        Args:
+            yvalue (float): y value of constraint equation.
+            wavemin (float): minimum rest frame wavelength bin center to constrain.
+            wavemax (float): maxmimum rest frame wavelength bin center to constrain.
+            weight (float): weight to apply to constraint equation.
         """
         # rest model params are after obs model params
         offset = self.obsNParams
@@ -246,6 +282,9 @@ class ContinuumModel(object):
     def addTiltConstraint(self, weight):
         """
         Adds a constraint equation on the mean of the non-fixed spectral tilt params.
+
+        Args:
+            weight (float): weight to apply to constraint equation.
         """
         # calculate tilt block column offset, tilt params are after normalization params
         offset = self.obsNParams + self.restNParams + self.absNParams + self.amplitude.count(None)
@@ -324,6 +363,10 @@ class ContinuumModel(object):
     def getModel(self):
         """
         Returns the assembled model matrix and corresponding y values
+
+        Returns:
+            A tuple of ``(model, yvalues)``, where *model* is a :class:`scipy.sparse.csc_matrix` and
+            *yvalues* is a :class:`numpy.array`.
         """
         if self.model is None:
             self.finalize()
@@ -331,7 +374,11 @@ class ContinuumModel(object):
 
     def getResults(self, soln):
         """
-        Returns a dictionary containing fit results
+        Converts the provided solution to model params. Transforms log params to linear and inserts
+        fixed model params.
+
+        Returns:
+            results (dict): a dictionary of model params
         """
         assert self.model is not None, ('Can\'t request results before model assembly.')
         assert len(soln) == self.nModelParams, ('Size of soln does not match model.')
@@ -371,7 +418,13 @@ class ContinuumModel(object):
 
     def getChiSq(self, soln):
         """
-        Returns chisq of best fit
+        Calculates the chi-squared between the specified solution and the model y values.
+
+        Args:
+            soln (numpy.array): model parameter solution array
+
+        Returns:
+            chisq (float): value
         """
         assert self.model is not None, ('Can\'t request chisq before model assembly.')
         # calculate residuals
@@ -379,9 +432,17 @@ class ContinuumModel(object):
         # return chisq
         return np.dot(residuals,residuals)/len(residuals)
 
-    def getObservationChiSq(self, soln, i):
+    def getObservationChiSq(self, soln, obsIndex):
         """
-        Returns chisq of the specified observation index
+        Returns the chi-squared value of the specified observation index, *obsIndex*, using the 
+        specified soln.
+
+        Args:
+            soln (numpy.array): model parameter solution array
+            obsIndex (int): observation index
+
+        Returns:
+            chisq (float): value
         """
         assert self.model is not None, ('Can\'t request chisq before model assembly.')
         # check soln size
@@ -400,6 +461,15 @@ class ContinuumModel(object):
         Saves soln to the specified filename as an hdf5 file. Parsed results and fit meta data
         are also saved. Use the saveModel arg to indicate whether or not to save the raw
         data of the sparse matrix model.
+
+        Args:
+            filename (str): filename of the hdf5 output to create
+            soln (numpy.array): model parameter solution array
+            args (argparse.Namespace): argparse argument namespace
+            saveModel (bool, optional): whether or not to save the model matrix and y values. Defaults to True.
+
+        Returns:
+            outfile (h5py.File): the output hdf5 file created
         """
         results = self.getResults(soln)
         # open hdf5 output file
@@ -446,7 +516,10 @@ class ContinuumModel(object):
     @staticmethod
     def addArgs(parser):
         """
-        Add arguments to the provided command-line parser that support the fromArgs() method.
+        Add arguments to the provided command-line parser.
+
+        Args:
+            parser (argparse.ArgumentParser): an argument parser
         """
         # transmission model wavelength grid options
         parser.add_argument("--obsmin", type=float, default=3600,
@@ -494,6 +567,12 @@ class ContinuumModel(object):
     def fromArgs(args):
         """
         Returns a dictionary of constructor parameter values based on the parsed args provided.
+
+        Args:
+            args (argparse.Namespace): argparse argument namespace
+
+        Returns:
+            a dictionary of :class:`ContinuumModel` constructor parameter values
         """
         # Look up the named ContinuumModel constructor parameters.
         pnames = (inspect.getargspec(ContinuumModel.__init__)).args[1:]

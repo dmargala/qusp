@@ -6,12 +6,20 @@
 Welcome to qusp's documentation!
 ================================
 
+Introduction
+============
+
+A package for working with **qu**\ asar **sp**\ ectra.
+
+API
+===
+
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
-   modules.rst
+   src/modules.rst
 
 
 Indices and tables
