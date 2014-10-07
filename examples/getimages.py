@@ -4,7 +4,11 @@ import subprocess
 import qusp
 
 def build_image_url(target, width=256, height=256, opt='IOG', scale=.1):
-    # see http://skyserver.sdss3.org/dr10/en/help/docs/api.aspx#cutout
+    """
+    Contructs a image cutout url for this target.
+
+    see http://skyserver.sdss3.org/dr10/en/help/docs/api.aspx#cutout
+    """
     base_url = 'http://skyservice.pha.jhu.edu/DR10/ImgCutout/getjpeg.aspx'
 
     options = {}
@@ -25,7 +29,7 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i","--input", type=str, default=None,
+    parser.add_argument("-i", "--input", type=str, default=None,
                         help="target list")
     parser.add_argument("--ra-col", type=int, default=1,
                         help="ra column")
