@@ -29,3 +29,8 @@ $ make html
 
 $ cd docs
 $ open _build/html/index.html
+
+
+using bootstrap theme:
+
+$ pip install sphinx_bootstrap_theme
