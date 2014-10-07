@@ -1,9 +1,6 @@
 qusp package
 ============
 
-Submodules
-----------
-
 .. toctree::
 
    qusp.model
@@ -12,10 +9,3 @@ Submodules
    qusp.target
    qusp.wavelength
 
-Module contents
----------------
-
-.. automodule:: qusp
-    :members:
-    :undoc-members:
-    :show-inheritance:

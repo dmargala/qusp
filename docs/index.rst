@@ -7,9 +7,9 @@ API
 ---
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
-   src/modules.rst
+   src/qusp.rst
 
 
 Indices and tables
