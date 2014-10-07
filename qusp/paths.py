@@ -1,17 +1,44 @@
 """
-Provides a class to handle paths to boss data directory.
+Provides a class to manage paths to boss data directories.
+
+Examples
+--------
+
+Via standard constructor:
+
+>>> paths = qusp.paths.Paths(boss_root='/Users/daniel/data/boss', boss_version='v5_7_0')
+
+Via environment variables::
+
+    BOSS_ROOT='/Users/daniel/data/boss'
+    BOSS_VERSION='v5_7_0'
+
+>>> paths = qusp.paths.Paths()
+
+Via command line arguments::
+
+    ./example --boss-root /Users/daniel/data/boss --boss-version v5_7_0
+
+where the example program looks something like::
+
+    def main():
+        parser = argparse.ArgumentParser()
+        qusp.Paths.add_args(parser)
+        args = parser.parse_args()
+        paths = qusp.Paths(**qusp.Paths.from_args(args))
+
+------------
+
 """
 import os
 import inspect
 
 class Paths(object):
     """
-    Handles a path to a boss data directory.
+    Manages a path to a boss data directory.
     """
     def __init__(self, boss_root=None, boss_version=None):
         """
-        Initializes a path to a boss data directory.
-
         Args:
             boss_root (str, optional): The root boss directory path.
                 Defaults to None, in which case, the environment variable
@@ -24,7 +51,7 @@ class Paths(object):
 
         Raises:
             RuntimeError if either `boss_root` or `boss_version` are not
-            specifed by parameters or environment variables.
+                specifed by parameters or environment variables.
 
         """
         if boss_root is not None:
