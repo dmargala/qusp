@@ -52,7 +52,7 @@ def main():
         if args.verbose and (0 == ((i+1) % 1000)):
             print '(processing input entry %d)' % (i+1)
         targetstr = '-'.join([str(row[key]) for key in ['PLATE','MJD','FIBERID']])
-        target = qusp.target.Target.fromString(targetstr)
+        target = qusp.target.Target(target=targetstr)
         for field in fields:
             target[field] = row[field]
         targets.append(target)
