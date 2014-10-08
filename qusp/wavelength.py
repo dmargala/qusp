@@ -4,17 +4,17 @@ Provides support for working with BOSS wavelengths
 Examples
 --------
 
-Get a combined spectrum fiducial pixel offset:
+Add sky lines to quasar spectrum plot:
+
+>>> qusp.wavelength.draw_lines(qusp.wavelength.load_wavelengths('sky'))
+
+Get a combined spectrum's fiducial pixel offset:
 
 >>> offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wave[0]))
 
 Construct a fiducial pixel wavelength array:
 
 >>> wave = qusp.wavelength.get_fiducial_wavelength(np.arange(4800))
-
-Add sky lines to quasar spectrum plot:
-
->>> qusp.wavelength.draw_lines(load_wavelengths('sky'))
 
 --------------
 """
