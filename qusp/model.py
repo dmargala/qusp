@@ -1,10 +1,15 @@
 """
 Provides support for modeling a universal quasar continuum.
 
-Test using::
+Test laptop dev using::
 
     time ./examples/fitspec.py --boss-root ~/data/boss -i test.txt -o fitspec-test -n 100 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random
-    ./examples/plotfitspec.py --boss-root ~/data/boss -i fitspec-test.hdf5 -o fitspec-test --force-y --save-model --examples 0 1 2 3 4
+    ./examples/plotfitspec.py --boss-root ~/data/boss -i fitspec-test.hdf5 -o output/fitspec-test --force-y --save-model --examples 0 1 2 3 4
+
+Test on darkmatter using::
+
+    time ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o fitspec-test -n 1000 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random --tiltweight 1 --restnormweight 1 --obsnormweight 1e-1
+    ./examples/plotfitspec.py --boss-root /data/boss -i fitspec-test.hdf5 -o output/fitspec-test --force-y --save-model --examples 150 300 450 600 750
 
 """
 
