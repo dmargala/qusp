@@ -32,7 +32,9 @@ sys.path.insert(0, os.path.abspath('..'))
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
-    'sphinxcontrib.napoleon'
+    'sphinxcontrib.napoleon',
+    'sphinxarg.ext',
+    'sphinx.ext.mathjax'
 ]
 
 autoclass_content = 'both'

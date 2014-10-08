@@ -10,6 +10,7 @@ Contents
    :maxdepth: 4
 
    src/qusp.rst
+   src/examples/programs.rst
 
 
 Indices and tables
