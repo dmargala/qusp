@@ -1,5 +1,32 @@
 """
 Provides support for working with BOSS targets.
+
+Examples
+--------
+
+Construct a target from a string identifier:
+
+>>> target = qusp.target.Target.from_string('plate-mjd-fiber')
+
+Construct a target from a dictionary:
+
+>>> target = qusp.target.Target({'target':'plate-mjd-fiber'})
+
+Read a target list along with **ra**, **dec**, and **z** columns.
+
+>>> targets = qusp.target.load_target_list(<filename>, fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
+
+Save a target list along with **z** and **sn** fields.
+
+>>> qusp.target.save_target_list(<filename>, targets, fields=['z', 'sn'])
+
+Iterate over combined spectra for a list targets::
+
+    for target, spplate in qusp.target.read_target_plates(paths.boss_path, targets):
+        combined = qusp.read_combined_spectrum(spplate, target)
+        ...
+
+-------------
 """
 
 import numpy as np
@@ -19,6 +46,9 @@ class Target(dict):
         Args:
             args: Variable length argument list.
             kwargs: Arbitrary keyword arguments.
+
+        Raises:
+            AssertionError
         """
         super(Target, self).__init__(*args, **kwargs)
         assert 'target' in self, \
@@ -27,6 +57,7 @@ class Target(dict):
         self['plate'] = int(plate)
         self['mjd'] = int(mjd)
         self['fiber'] = int(fiber)
+
     def to_string(self):
         """
         Returns the standard plate-mjd-fiber string represntation of the target.
@@ -35,6 +66,7 @@ class Target(dict):
             str
         """
         return self['target']
+
     @classmethod
     def from_string(cls, target_string):
         """
@@ -56,12 +88,6 @@ def load_target_list(filename, fields=None, verbose=False):
     The first column must be plate-mjd-fiber target identifier.
     Use the fields argument to specify additional columns to
     read. Must specify a (name, type, column index) tuple for each field.
-
-    Examples:
-        Read a target list along with ra, dec, and z columns.
-
-        >>> loadTargetData(<filename>,
-        >>>     fields=[('ra',float,1),('dec',float,2),('z',float,3)])
 
     Args:
         filename (str): The filename to load.
@@ -124,9 +150,7 @@ def read_target_plates(boss_path, targets, sort=True, verbose=False):
             Defaults to False.
 
     Yields:
-        The next tuple ``(target, spplate)``, where *target* is a
-            :class:`Target` and *spplate* is the corresponding FITS file
-            containing its coadded spectrum from the list of `targets`.
+        The next tuple ``(target, spplate)``, where *target* is a :class:`Target` and *spplate* is the corresponding FITS file containing its coadded spectrum from the list of *targets*.
     """
     if sort:
         targets = sorted(

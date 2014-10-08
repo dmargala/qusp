@@ -1,5 +1,28 @@
 """
 Provides support for working with BOSS spectra.
+
+Examples
+--------
+
+Construct a :class:`Spectrum` object from ``wave``, ``flux``, and ``ivar`` arrays:
+
+>>> spectrum = qusp.spectrum.Spectrum(wave, flux, ivar)
+
+Get the mean flux between ``wave_min`` and ``wave_max``:
+
+>>> spectrum.mean_flux(wave_min, wave_max)
+
+Get the median signal to noise between ``wave_min`` and ``wave_max``:
+
+>>> spectrum.median_signal_to_noise(wave_min, wave_max)
+
+Load the combined spectrum of a :class:`qsub.target.Target` object, ``target``::
+
+    filename = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
+    spplate = fits.open(os.path.join(paths.boss_path, str(target['plate']), filename))
+    combined = qusp.read_combined_spectrum(spplate, target)
+
+------------
 """
 import numpy as np
 
@@ -11,9 +34,6 @@ class Spectrum(object):
     """
     def __init__(self, wavelength, flux, ivar):
         """
-        Initializes a spectrum with the provided wavelength, flux, and
-        ivar arrays.
-
         Args:
             wavelength (numpy.array): wavelength pixel centers.
             flux (numpy.array): flux values.
@@ -50,7 +70,7 @@ class Spectrum(object):
     def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
         Returns the mean flux between the specified wavelengths.
-        Use ivar_weighting=False option to turn ignore weights.
+        Use ``ivar_weighting=False`` to turn ignore weights.
 
         Args:
             min_wavelength (float): minimum wavelength for mean flux calculation
@@ -61,7 +81,7 @@ class Spectrum(object):
                 calculation using inverse variance.
 
         Returns:
-            the mean flux between `min_wavelength` and `max_wavelength`.
+            the mean flux between ``min_wavelength`` and ``max_wavelength``.
         """
         min_pixel = self.find_pixel(min_wavelength)+1
         max_pixel = self.find_pixel(max_wavelength)
@@ -92,8 +112,7 @@ class Spectrum(object):
                 calculation range.
 
         Returns:
-            median (float): the median flux between `min_wavelength` and
-                `max_wavelength`.
+            median (float): the median flux between ``min_wavelength`` and ``max_wavelength``.
         """
         min_pixel = self.find_pixel(min_wavelength)+1
         max_pixel = self.find_pixel(max_wavelength)
@@ -121,8 +140,7 @@ def read_combined_spectrum(spplate, fiber):
             :class:`qusp.target.Target` object.
 
     Returns:
-        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of `fiber`
-            of `spplate`.
+        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of ``fiber`` of ``spplate``.
     """
     # those pesky fiber numbers start at 1 but the fits table is 0-indexed
     if type(fiber) is qusp.target.Target:
