@@ -1,5 +1,11 @@
 """
 Provides support for modeling a universal quasar continuum.
+
+Test using::
+
+    time ./examples/fitspec.py --boss-root ~/data/boss -i test.txt -o fitspec-test -n 100 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random
+    ./examples/plotfitspec.py --boss-root ~/data/boss -i fitspec-test.hdf5 -o fitspec-test --force-y --save-model --examples 0 1 2 3 4
+
 """
 
 import inspect
@@ -259,10 +265,11 @@ class ContinuumModel(object):
         offset = 0
         # find range of transmission model params in constraint window
         waves = self.obs_wave_centers
-        wave_index_range = np.arange(np.argmax(waves > wavemin),
-                                     np.argmax(waves > wavemax)+1)
+        wave_index_range = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
         # number of transmission parameters in constraint window
         transmission_nparams = len(wave_index_range)
+        # scale weight
+        weight *= self.model_npixels/transmission_nparams
         # build constraint block
         coefs = weight*np.ones(transmission_nparams)
         rows = np.arange(transmission_nparams)
@@ -277,10 +284,8 @@ class ContinuumModel(object):
         # append constraint block and update number of constraint equations
         self.constraint_blocks.append(block)
         self.model_nconstraints += transmission_nparams
-        # append yvalues and update total number of rows
         yvalues = yvalue*np.ones(transmission_nparams)
         self.modelyvalues.append(yvalues)
-        self.model_npixels += transmission_nparams
 
     def add_rest_constraint(self, yvalue, wavemin, wavemax, weight):
         """
@@ -299,10 +304,11 @@ class ContinuumModel(object):
         offset = self.obs_nparams
         # find range of continuum model params in constraint window
         waves = self.rest_wave_centers
-        wave_index_range = np.arange(np.argmax(waves > wavemin),
-                                     np.argmax(waves > wavemax))
+        wave_index_range = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
         # number of continuum parameters in constraint window
         continuum_nparams = len(wave_index_range)
+        # scale weight
+        weight *= self.model_npixels/continuum_nparams
         # build constraint block
         coefs = weight*np.ones(continuum_nparams)
         rows = np.zeros(continuum_nparams)
@@ -316,9 +322,7 @@ class ContinuumModel(object):
         # append constraint block and update number of constraint equations
         self.constraint_blocks.append(block)
         self.model_nconstraints += 1
-        # append yvalues and update total number of rows
         self.modelyvalues.append([yvalue])
-        self.model_npixels += 1
 
     def add_tilt_constraint(self, weight):
         """
@@ -330,10 +334,11 @@ class ContinuumModel(object):
         """
         # calculate tilt block column offset, tilt params are after
         # normalization params
-        offset = (self.obs_nparams + self.rest_nparams + self.abs_nparams +
-                  self.amplitude.count(None))
+        offset = self.obs_nparams + self.rest_nparams + self.abs_nparams + self.amplitude.count(None)
         # count number of free tilt params
         tilt_nparams = self.tilt.count(None)
+        # scale weight by the total number of pixels and the fraction of targets with free tilt params
+        weight *= self.model_npixels*tilt_nparams/self.ntargets
         # build constraint block
         coefs = weight*np.ones(tilt_nparams)/tilt_nparams
         rows = np.zeros(tilt_nparams)
@@ -346,9 +351,7 @@ class ContinuumModel(object):
         # append constraint block and update number of constraint equations
         self.constraint_blocks.append(block)
         self.model_nconstraints += 1
-        # append yvalues and update total number of rows
         self.modelyvalues.append([0])
-        self.model_npixels += 1
 
     def finalize(self):
         """
@@ -393,7 +396,7 @@ class ContinuumModel(object):
         # comebine observations and constraints
         final_model = scipy.sparse.vstack([obs_block, constraint_block])
 
-        assert final_model.shape[0] == self.model_npixels
+        assert final_model.shape[0] == self.model_npixels + self.model_nconstraints
         assert final_model.shape[1] == self.model_nparams
 
         self.model = final_model.tocsc()
