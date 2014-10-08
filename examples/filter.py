@@ -12,26 +12,18 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        "--verbose", action="store_true",
+    parser.add_argument("--verbose", action="store_true",
         help="print verbose output")
-    parser.add_argument(
-        "-o", "--output", type=str, default=None,
+    parser.add_argument("-o", "--output", type=str, default=None,
         help="optional output FITS file to write")
-    parser.add_argument(
-        "-i", "--input", type=str, default=None,
+    parser.add_argument("-i", "--input", type=str, default=None,
         help="required input FITS file to read")
-    parser.add_argument(
-        "-s", "--select", type=str, default=None,
-        help=("tbdata selection string, ex: "
-              "\"(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)\""))
-    parser.add_argument(
-        "--save", type=str, default=None,
+    parser.add_argument("-s", "--select", type=str, default=None,
+        help="tbdata selection string, ex: \"(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)\"")
+    parser.add_argument("--save", type=str, default=None,
         help="target list text file to save")
-    parser.add_argument(
-        "--annotate", type=str, default=None,
-        help=("colon separated list of columns to annotate target list with"
-              ", ex: \"ra:dec:z\""))
+    parser.add_argument("--annotate", type=str, default=None,
+        help="colon separated list of columns to annotate target list with, ex: 'ra:dec:z'")
     args = parser.parse_args()
 
     assert args.input is not None, 'No input file specified'
