@@ -1,10 +1,10 @@
-Introduction
-============
+Welcome to qusp's documentation!
+================================
 
 A package for working with **qu**\ asar **sp**\ ectra.
 
-API
----
+Contents
+--------
 
 .. toctree::
    :maxdepth: 4
