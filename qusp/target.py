@@ -8,17 +8,21 @@ Construct a target from a string identifier:
 
 >>> target = qusp.target.Target.from_string('plate-mjd-fiber')
 
+
 Construct a target from a dictionary:
 
 >>> target = qusp.target.Target({'target':'plate-mjd-fiber'})
 
-Read a target list along with **ra**, **dec**, and **z** columns.
+
+Read a target list along with **ra**, **dec**, and **z** columns:
 
 >>> targets = qusp.target.load_target_list(<filename>, fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
 
-Save a target list along with **z** and **sn** fields.
+
+Save a target list along with **z** and **sn** fields:
 
 >>> qusp.target.save_target_list(<filename>, targets, fields=['z', 'sn'])
+
 
 Iterate over combined spectra for a list targets::
 
