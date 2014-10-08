@@ -606,7 +606,7 @@ class ContinuumModel(object):
             help="obsframe wavelength to normalize at")
         parser.add_argument("--obsnormmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e1,
+        parser.add_argument("--obsnormweight", type=float, default=1e-1,
             help="norm constraint weight")
         # continuum model wavelength grid options
         parser.add_argument("--restmin", type=float, default=900,
@@ -619,7 +619,7 @@ class ContinuumModel(object):
             help="restframe window normalization minimum")
         parser.add_argument("--restnormmax", type=float, default=1285,
             help="restframe window normalization maximum")
-        parser.add_argument("--restnormweight", type=float, default=1e3,
+        parser.add_argument("--restnormweight", type=float, default=1,
             help="norm constraint weight")
         # absorption model parameter options
         parser.add_argument("--absmin", type=float, default=900,
@@ -633,7 +633,7 @@ class ContinuumModel(object):
         # spectral tilt parameter options
         parser.add_argument("--tiltwave", type=float, default=1280,
             help="spectral tilt pivot wavelength")
-        parser.add_argument("--tiltweight", type=float, default=1e3,
+        parser.add_argument("--tiltweight", type=float, default=1e-2,
             help="spectral tilt constraint weight")
         # fit options
         parser.add_argument(
