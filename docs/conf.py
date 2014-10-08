@@ -33,7 +33,6 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinxcontrib.napoleon',
-    'sphinxarg.ext',
     'sphinx.ext.mathjax'
 ]
 
@@ -109,7 +108,7 @@ intersphinx_mapping = {
     'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
     'numpy': ('http://docs.scipy.org/doc/numpy', None),
     'h5py': ('http://docs.h5py.org/en/latest/', None)
-    }
+}
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -179,7 +178,7 @@ html_theme_options = {
     #
     # Options are nothing with "" (default) or the name of a valid theme
     # such as "amelia" or "cosmo".
-    'bootswatch_theme': "spacelab",
+    'bootswatch_theme': "flatly",
 
     # Choose Bootstrap version.
     # Values: "3" (default) or "2" (in quotes)
