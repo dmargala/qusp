@@ -180,7 +180,9 @@ def plotTargets(specfits, targetIndices, boss_path):
         # draw emission lines
         qusp.wavelength.draw_lines(quasar_lines, 0.89,-0.1, c='orange', alpha=.5)
         qusp.wavelength.draw_lines(
-            qusp.wavelength.load_wavelengths('sky'), 0.01, 0.1, c='magenta', alpha=.5)
+            qusp.wavelength.load_wavelengths('calcium'), 0.01, 0.1, c='blue', alpha=.5)
+        qusp.wavelength.draw_lines(
+            qusp.wavelength.load_wavelengths('sky',ignore_labels=True), 0.01, 0.1, c='magenta', alpha=.3)
         # only keep xaxis label of the bottom/last plot
         if subplotIndex <= ntargets:
             plt.xlabel(r'')
@@ -245,7 +247,7 @@ def main():
     plotContinuum(specfits,c='black')
     drawNormWindow(specfits['continuum'])
     qusp.wavelength.draw_lines(
-        qusp.wavelength.load_wavelengths('ballmer'), 0.89,-0.1, c='orange', alpha=.5)
+        qusp.wavelength.load_wavelengths('quasar'), 0.89,-0.1, c='orange', alpha=.5)
     if args.force_y:
         plt.ylim([0,5])
     plt.grid(axis='y')
@@ -257,7 +259,9 @@ def main():
     qusp.wavelength.draw_lines(
         qusp.wavelength.load_wavelengths('ballmer'), 0.89,-0.1, c='green', alpha=.5)
     qusp.wavelength.draw_lines(
-        qusp.wavelength.load_wavelengths('sky'), 0.01, 0.1, c='magenta', alpha=.5)
+        qusp.wavelength.load_wavelengths('calcium'), 0.01, 0.1, c='blue', alpha=.5)
+    qusp.wavelength.draw_lines(
+        qusp.wavelength.load_wavelengths('sky',ignore_labels=True), 0.01, 0.1, c='magenta', alpha=.3)
     if args.force_y:
         plt.ylim([.9,1.1])
     plt.grid(axis='y')

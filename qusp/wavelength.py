@@ -77,7 +77,7 @@ class LabeledWavelength(Wavelength):
     def __str__(self):
         return str((self, self.label))
 
-def load_wavelengths(filename):
+def load_wavelengths(filename, ignore_labels=False):
     """
     loads wavelength data
 
@@ -92,11 +92,16 @@ def load_wavelengths(filename):
     # Build the path where the filter curves should be.
     wavelegths_path = os.path.join(
         os.path.dirname(my_path), 'data', 'wavelengths')
-    wavelengths = np.genfromtxt(
-        os.path.join(wavelegths_path, '%s.dat' % filename),
-        dtype={'names':('wavelengths', 'labels'), 'formats':(float, 'S10')},
-        usecols=(0, 1))
-    return [LabeledWavelength(*wave) for wave in wavelengths]
+    full_path = os.path.join(wavelegths_path, '%s.dat' % filename)
+    if ignore_labels:
+        wavelengths = np.genfromtxt(full_path, usecols=0)
+        return [Wavelength(wave) for wave in wavelengths]
+    else:
+        wavelengths = np.genfromtxt(
+            full_path,
+            dtype={'names':('wavelengths', 'labels'), 'formats':(float, 'S100')},
+            usecols=(0, 1))
+        return [LabeledWavelength(*wave) for wave in wavelengths]
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
