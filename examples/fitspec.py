@@ -16,6 +16,8 @@ def main():
         help="hdf5 output filename")
     parser.add_argument("--save-model", action="store_true",
         help="specify to save raw data of sparse matrix model")
+    parser.add_argument("--save-chisq", action="store_true",
+        help="specify to save per obs chisq values")
     ## targets to fit
     parser.add_argument("-i", "--input", type=str, default=None,
         help="target list")
@@ -155,7 +157,7 @@ def main():
             chisq/(model.model.shape[1]-model.model_nconstraints))
 
     # Save HDF5 file with results
-    outfile = model.save(args.output+'.hdf5', soln, args, args.save_model)
+    outfile = model.save(args.output+'.hdf5', soln, args, args.save_model, args.save_chisq)
 
     outfile.create_dataset('npixels', data=npixels)
     outfile.create_dataset(

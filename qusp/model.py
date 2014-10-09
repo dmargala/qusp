@@ -11,6 +11,10 @@ Test on darkmatter using::
     time ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o fitspec-test -n 1000 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random --tiltweight 1 --restnormweight 1 --obsnormweight 1e-1
     ./examples/plotfitspec.py --boss-root /data/boss -i fitspec-test.hdf5 -o output/fitspec-test --force-y --save-model --examples 150 300 450 600 750
 
+Profile on darkmatter::
+
+    nohup python -m cProfile -o profile-1e5.out ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o specfits-1e5 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --fix-norm --fix-tilt --obsnormweight 1e-4 --restnormweight 1 &
+
 """
 
 import inspect
@@ -527,7 +531,7 @@ class ContinuumModel(object):
         # return chisq
         return np.dot(residuals, residuals)/len(residuals)
 
-    def save(self, filename, soln, args, save_model=True):
+    def save(self, filename, soln, args, save_model=True, save_chisq=True):
         """
         Saves soln to the specified filename as an hdf5 file. Parsed results
         and fit meta data are also saved. Use the saveModel arg to indicate
@@ -539,6 +543,8 @@ class ContinuumModel(object):
             args (argparse.Namespace): argparse argument namespace
             save_model (bool, optional): whether or not to save the model
                 matrix and y values. Defaults to True.
+            save_chisq (bool, optional): whether or not to save per 
+                observation chisq values. Defaults to True.
 
         Returns:
             outfile (h5py.File): the output hdf5 file created
@@ -583,8 +589,9 @@ class ContinuumModel(object):
         tilt.attrs['tiltwave'] = args.tiltwave
         tilt.attrs['tiltweight'] = args.tiltweight
         # save per-obs chisqs
-        chisqs = [self.get_obs_chisq(soln, i) for i in range(self.ntargets)]
-        outfile.create_dataset('chisq', data=chisqs)
+        if save_chisq:
+            chisqs = [self.get_obs_chisq(soln, i) for i in range(self.ntargets)]
+            outfile.create_dataset('chisq', data=chisqs)
         # return h5py output file
         return outfile
 
