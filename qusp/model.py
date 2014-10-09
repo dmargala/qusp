@@ -364,35 +364,34 @@ class ContinuumModel(object):
         """
         # pass through each observation and do final assembly of
         # target param blocks
+        amplitude_nparams = self.amplitude.count(None)
+        amplitude_counter = 0
+        tilt_nparams = self.tilt.count(None)
+        tilt_counter = 0
         for obs_index in range(self.ntargets):
             npixels = self.obs_blocks[obs_index][0].shape[0]
             # add norm block
-            if self.amplitude.count(None) > 0:
+            # if there are no free amplitude parameters then we wont need any blocks
+            if amplitude_nparams > 0:
                 amp = self.amplitude[obs_index]
                 if amp is None:
-                    amp_indices = self.amplitude[:obs_index].count(None)*(
-                        np.ones(npixels))
-                    amplitude_block = scipy.sparse.coo_matrix(
-                        (self.norm_coefficients[obs_index],
-                        (np.arange(npixels), amp_indices)),
-                        shape=(npixels, self.amplitude.count(None)))
+                    amp_indices = amplitude_counter*np.ones(npixels)
+                    amplitude_counter += 1
+                    amplitude_block = scipy.sparse.coo_matrix((self.norm_coefficients[obs_index],
+                        (np.arange(npixels), amp_indices)), shape=(npixels, amplitude_nparams))
                 else:
-                    amplitude_block = scipy.sparse.coo_matrix(
-                        (npixels, self.amplitude.count(None)))
+                    amplitude_block = scipy.sparse.coo_matrix((npixels, amplitude_nparams))
                 self.obs_blocks[obs_index].append(amplitude_block)
             # add tilt block
-            if self.tilt.count(None) > 0:
+            if tilt_nparams > 0:
                 tilt = self.tilt[obs_index]
                 if tilt is None:
-                    tilt_indices = self.tilt[:obs_index].count(None)*(
-                        np.ones(npixels))
-                    tilt_block = scipy.sparse.coo_matrix(
-                        (self.tilt_coefficients[obs_index],
-                        (np.arange(npixels), tilt_indices)),
-                        shape=(npixels, self.tilt.count(None)))
+                    tilt_indices = tilt_counter*np.ones(npixels)
+                    tilt_counter += 1
+                    tilt_block = scipy.sparse.coo_matrix((self.tilt_coefficients[obs_index],
+                        (np.arange(npixels), tilt_indices)), shape=(npixels, tilt_nparams))
                 else:
-                    tilt_block = scipy.sparse.coo_matrix(
-                        (npixels, self.tilt.count(None)))
+                    tilt_block = scipy.sparse.coo_matrix((npixels, tilt_nparams))
                 self.obs_blocks[obs_index].append(tilt_block)
         # combine blocks from all observations
         obs_block = scipy.sparse.bmat(self.obs_blocks)
@@ -415,8 +414,8 @@ class ContinuumModel(object):
             print 'Number of continuum model params: %d' % self.rest_nparams
             print 'Number of absorption model params: %d' % self.abs_nparams
             print 'Number of targets: %d' % self.ntargets
-            print 'Number of amplitude params: %d' % self.amplitude.count(None)
-            print 'Number of tilt params: %d' % self.tilt.count(None)
+            print 'Number of amplitude params: %d' % amplitude_nparams
+            print 'Number of tilt params: %d' % tilt_nparams
             print ''
             print 'Total number of model params: %d' % self.model_nparams
             print 'Total number of flux measurements: %d (%d constraints)' % (
