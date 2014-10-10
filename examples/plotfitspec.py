@@ -208,6 +208,8 @@ def main():
         help="plot example spectra")
     parser.add_argument("--save-model", action="store_true",
         help="save example model matrix")
+    parser.add_argument("--save-chisq", action="store_true",
+        help="save per obs chisq distribution")
     ##
     parser.add_argument("--force-y", action="store_true",
         help="force y limit ranges to nominal values")
@@ -224,6 +226,7 @@ def main():
     ##### Target sample plots
 
     # redshift distribution
+    print 'Saving redshift distribution...'
     fig = plt.figure(figsize=(8,6))
     redshifts = specfits['redshifts'].value
     plt.hist(redshifts, bins=50, linewidth=.1, alpha=.5)
@@ -233,6 +236,7 @@ def main():
     fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
     
     # S/N distribution
+    print 'Saving signal to noise distribution...'
     fig = plt.figure(figsize=(8,6))
     sn = specfits['sn'].value
     plt.hist(sn, bins=50, linewidth=.1, alpha=.5)
@@ -243,6 +247,7 @@ def main():
 
     ### Visualize Fit Results
     # Draw Continuum Model
+    print 'Saving continuum function...'
     fig = plt.figure(figsize=(20,8))
     plotContinuum(specfits,c='black')
     drawNormWindow(specfits['continuum'])
@@ -254,6 +259,7 @@ def main():
     fig.savefig('%s-continuum.png'%args.output, bbox_inches='tight')
 
     # Draw Transmission Model
+    print 'Saving transmission function...'
     fig = plt.figure(figsize=(20,8))
     plotTransmission(specfits,c='black')
     qusp.wavelength.draw_lines(
@@ -268,6 +274,7 @@ def main():
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
 
     # Plot Absorption Model
+    print 'Saving absorption function...'
     fig = plt.figure(figsize=(8,6))
     plotAbsorption(specfits, c='black')
     qusp.wavelength.draw_lines(
@@ -277,6 +284,7 @@ def main():
     fig.savefig('%s-absorption.png'%args.output, bbox_inches='tight')
 
     # Plot Spectral Tilt Indices
+    print 'Saving spectral tilt index distribution...'
     fig = plt.figure(figsize=(8,6))
     nu = specfits['nu'].value
     plt.hist(nu,bins=50,linewidth=.1, alpha=.5)
@@ -286,6 +294,7 @@ def main():
     fig.savefig('%s-nu.png'%args.output, bbox_inches='tight')
 
     # Plot amplitude distribution
+    print 'Saving amplitude distribution...'
     fig = plt.figure(figsize=(8,6))
     amp = specfits['amplitude'].value
     plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), 
@@ -297,6 +306,7 @@ def main():
     fig.savefig('%s-amplitude.png'%args.output, bbox_inches='tight')
 
     # Compare Amplitudes to Spectral Tilt
+    print 'Saving sn vs amp...'
     fig = plt.figure(figsize=(8,6))
     plt.scatter(nu, amp, c=redshifts, cmap=plt.cm.jet, marker='o', alpha=1, s=15, linewidth=0)
     plt.xlabel(r'Spectral Tilt $\nu$')
@@ -309,13 +319,15 @@ def main():
     fig.savefig('%s-nuVsA.png'%args.output, bbox_inches='tight')
 
     # Plot ChiSq distribution
-    fig = plt.figure(figsize=(8,6))
-    chisq = specfits['chisq'].value
-    plt.hist(chisq, bins=50, linewidth=.1, alpha=.5)
-    plt.xlabel(r'ChiSq')
-    plt.ylabel(r'Number of Targets')
-    plt.grid()
-    fig.savefig('%s-chisq.png'%args.output, bbox_inches='tight')
+    if args.save_chisq:
+        print 'Saving per observation chisq distribution...'
+        fig = plt.figure(figsize=(8,6))
+        chisq = specfits['chisq'].value
+        plt.hist(chisq, bins=50, linewidth=.1, alpha=.5)
+        plt.xlabel(r'ChiSq')
+        plt.ylabel(r'Number of Targets')
+        plt.grid()
+        fig.savefig('%s-chisq.png'%args.output, bbox_inches='tight')
 
     ##### Plot Example Spectra
 
@@ -324,12 +336,14 @@ def main():
         targetIndices = args.examples
 
         ## plot example spectra
+        print 'Saving example spectra...'
         fig = plt.figure(figsize=(15,4*len(targetIndices)))
         plotTargets(specfits, targetIndices, paths.boss_path)
         fig.savefig('%s-examples.png'%args.output, bbox_inches='tight')
 
         ## visualize Model Matrix
         if args.save_model:
+            print 'Saving example model matrix...'
             fig = plt.figure(figsize=(15,1*len(targetIndices)))
             plotModelMatrix(specfits, targetIndices)
             fig.savefig('%s-matrix.png'%args.output, bbox_inches='tight')
