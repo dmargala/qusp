@@ -15,7 +15,7 @@ View stats in interactive session:
     p = pstats.Stats('profile.out')
     p.sort_stats('time').print_stats(10)
 
-Create call a tree dot graph :
+Create a call tree diagram:
 
 .. code-block:: bash
    
@@ -26,3 +26,7 @@ Might need to install ``gprof2dot``:
 .. code-block:: bash
 
     $ pip install gprof2dot
+
+Here is an example call tree diagram:
+
+.. image:: image/profile-all.png
