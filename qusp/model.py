@@ -11,9 +11,23 @@ Test on darkmatter using::
     time ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o fitspec-test -n 1000 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random --tiltweight 1 --restnormweight 1 --obsnormweight 1e-1
     ./examples/plotfitspec.py --boss-root /data/boss -i fitspec-test.hdf5 -o output/fitspec-test --force-y --save-model --examples 150 300 450 600 750
 
+--------------
+
 Profile on darkmatter::
 
-    nohup python -m cProfile -o profile-1e5.out ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o specfits-1e5 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --fix-norm --fix-tilt --obsnormweight 1e-4 --restnormweight 1 &
+    python -m cProfile -o profile-test.out ./examples/fitspec.py --boss-root /data/boss -i sn-sorted.txt -o specfits-test --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --fix-norm --fix-tilt --obsnormweight 1e-2 --restnormweight 1 -n 10000
+
+List top function calls by time::
+
+    import pstats
+    p = pstats.Stats('profile-test.out')
+    p.sort_stats('time').print_stats(10)
+
+Generate call tree::
+
+    gprof2dot -f pstats profile-test.out | dot -Tpng -o profile-test.png
+
+--------------
 
 """
 
