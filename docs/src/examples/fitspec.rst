@@ -1,8 +1,15 @@
 fitspec
 =======
 
-A progam for performing simultaneous least squares fits of BOSS quasar 
-spectra to a universal quasar continuum model with redshift dependent :math:`Ly\alpha` absorption, an observed frame transmission model, and individual quasar parameters.
+A progam for performing simultaneous least squares fits of BOSS quasar spectra to a model that includes:
+
+- universal quasar continuum function
+- redshift dependent :math:`Ly\alpha` absorption model
+- observed frame transmission function
+- individual quasar parameters (amplitude, spectral tilt)
+
+
+----------------------
 
 .. command-output:: python examples/fitspec.py --help
     :cwd: ../../..
