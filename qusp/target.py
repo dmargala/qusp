@@ -1,27 +1,31 @@
 """
 Provides support for working with BOSS targets.
 
+In qusp, a target is identified by a unique plate-mjd-fiber. They are implemented as dictionaries and 
+must have at least 'plate', 'mjd', and 'fiber' keys specified. The Target model is designed to be flexible, 
+in that other attributes can be added to targets as needed.
+
 Examples
 --------
 
-Construct a target from a string identifier:
+Construct a target from a string identifier::
 
->>> target = qusp.target.Target.from_string('plate-mjd-fiber')
-
-
-Construct a target from a dictionary:
-
->>> target = qusp.target.Target({'target':'plate-mjd-fiber'})
+    target = qusp.target.Target.from_string('plate-mjd-fiber')
 
 
-Read a target list along with **ra**, **dec**, and **z** columns:
+Construct a target from a dictionary::
 
->>> targets = qusp.target.load_target_list(<filename>, fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
+    target = qusp.target.Target({'target':'plate-mjd-fiber'})
 
 
-Save a target list along with **z** and **sn** fields:
+Read a target list along with **ra**, **dec**, and **z** columns::
 
->>> qusp.target.save_target_list(<filename>, targets, fields=['z', 'sn'])
+    targets = qusp.target.load_target_list(filename, fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
+
+
+Save a target list along with **z** and **sn** fields::
+
+    qusp.target.save_target_list(filename, targets, fields=['z', 'sn'])
 
 
 Iterate over combined spectra for a list targets::
