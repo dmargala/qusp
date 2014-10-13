@@ -3,7 +3,7 @@ Provides support for modeling a universal quasar continuum.
 
 Test laptop dev using::
 
-    time ./examples/fitspec.py --boss-root ~/data/boss -i test.txt -o fitspec-test -n 100 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --absscale 1 --random
+    time ./examples/fitspec.py --boss-root ~/data/boss -i test.txt -o fitspec-test -n 100 --verbose --sklearn --unweighted --z-col 3 --sn-col 5 --save-model --random
     ./examples/plotfitspec.py --boss-root ~/data/boss -i fitspec-test.hdf5 -o output/fitspec-test --force-y --save-model --examples 0 1 2 3 4
 
 Test on darkmatter using::
@@ -42,81 +42,91 @@ class ContinuumModel(object):
     """
     Represents a linearized quasar continuum model.
     """
-    def __init__(self, obsmin, obsmax, restmin, restmax, nrestbins, tiltwave,
-                 absmin, absmax, absmodelexp, absscale, verbose=False):
+    def __init__(self, transmission_min, transmission_max, continuum_min, continuum_max, continuum_nparams, tiltwave,
+                 absorption_min, absorption_max, absorption_modelexp, absorption_scale, continuum=None, verbose=False):
         """
         Initializes a linearized quasar continuum model using the specified
         parameter limits and values.
 
         Args:
-            obsmin (float): minimum observed frame wavelength bin center of
+            transmission_min (float): minimum observed frame wavelength bin center of
                 transmission model.
-            obsmax (float): maximum observed frame wavelength bin center of
+            transmission_max (float): maximum observed frame wavelength bin center of
                 transmission model.
-            restmin (float): minimum rest frame wavelength bin center of
+            continuum_min (float): minimum rest frame wavelength bin center of
                 continuum model.
-            restmax (float): maximum rest frame wavelength bin center of
+            continuum_max (float): maximum rest frame wavelength bin center of
                 continuum model.
-            nrestbins (int): number of rest frame bins of continuum model.
+            continuum_nparams (int): number of rest frame bins of continuum model.
             tiltwave (float): pivot wavelength of rest frame spectral tilt.
-            absmin (float): minimum rest frame wavelength bin center of
+            absorption_min (float): minimum rest frame wavelength bin center of
                 absorption model.
-            absmax (float): maximum rest frame wavelength bin center of
+            absorption_max (float): maximum rest frame wavelength bin center of
                 absorption model.
-            absmodelexp (float): exponent of (1+z) factor of absorption model.
-            absscale (float): internal scaling of absorption model coefficients.
+            absorption_modelexp (float): exponent of (1+z) factor of absorption model.
+            absorption_scale (float): internal scaling of absorption model coefficients.
             verbose (bool, optional): whether or not to print verbose output.
         """
         self.verbose = verbose
+        self.model_nparams = 0  # the number of model params (excluding per target params)
         # initialize transmission model params
-        assert obsmax > obsmin, ('obsmax must be greater than obsmin')
-        self.obs_wave_min = obsmin
-        self.obs_wave_max = obsmax
-        obs_fid_wave = qusp.wavelength.get_fiducial_wavelength(np.arange(4800))
-        self.obs_wave_min_index = np.argmax(obs_fid_wave > obsmin)
-        self.obs_wave_max_index = np.argmax(obs_fid_wave > obsmax)+1
-        self.obs_wave_centers = qusp.wavelength.get_fiducial_wavelength(
-            np.arange(self.obs_wave_min_index, self.obs_wave_max_index))
-        self.obs_nparams = len(self.obs_wave_centers)
+        assert transmission_max > transmission_min, ('transmission_max must be greater than transmission_min')
+        self.transmission_wave_min = transmission_min
+        self.transmission_wave_max = transmission_max
+        transmission_fid_wave = qusp.wavelength.get_fiducial_wavelength(np.arange(4800))
+        self.transmission_wave_min_index = np.argmax(transmission_fid_wave > transmission_min)
+        self.transmission_wave_max_index = np.argmax(transmission_fid_wave > transmission_max)+1
+        self.transmission_wave_centers = qusp.wavelength.get_fiducial_wavelength(
+            np.arange(self.transmission_wave_min_index, self.transmission_wave_max_index))
+        self.transmission_nparams = len(self.transmission_wave_centers)
         if verbose:
             print ('Observed frame bin centers span [%.2f:%.2f] with %d bins.' %
-                   (self.obs_wave_centers[0], self.obs_wave_centers[-1],
-                    self.obs_nparams))
+                (self.transmission_wave_centers[0], self.transmission_wave_centers[-1], self.transmission_nparams))
+        self.model_nparams += self.transmission_nparams
         # initialize continuum model params
-        assert restmax > restmin, ('restmin must be greater than restmax')
-        self.rest_wave_min = restmin
-        self.rest_wave_max = restmax
-        self.rest_nparams = nrestbins
-        self.rest_wave_delta = float(restmax-restmin)/nrestbins
-        self.rest_wave_centers = 0.5*self.rest_wave_delta + np.linspace(
-            restmin, restmax, nrestbins, endpoint=False)
+        assert (continuum_nparams > 0) or continuum is not None, ('must specify number of continuum params or provide continuum')
+        self.continuum = continuum
+        if continuum:
+            self.continuum_wave_centers = continuum.wavelength
+            self.continuum_wave_delta = continuum.wavelength[1]-continuum.wavelength[0]
+            self.continuum_wave_min = continuum.wavelength[0]-0.5*self.continuum_wave_delta
+            self.continuum_wave_max = continuum.wavelength[-1]+0.5*self.continuum_wave_delta
+            self.continuum_nparams = 0
+        else:
+            assert continuum_max > continuum_min, ('continuum_min must be greater than continuum_max')
+            self.continuum_wave_min = continuum_min
+            self.continuum_wave_max = continuum_max
+            self.continuum_nparams = continuum_nparams
+            self.continuum_wave_delta = float(continuum_max-continuum_min)/continuum_nparams
+            self.continuum_wave_centers = 0.5*self.continuum_wave_delta + np.linspace(
+                continuum_min, continuum_max, continuum_nparams, endpoint=False)
+
         if verbose:
-            print ('Rest frame bin centers span [%.2f:%.2f] with %d bins.' %
-                   (self.rest_wave_centers[0], self.rest_wave_centers[-1],
-                    self.rest_nparams))
+            print ('Continuum model wavelength bin centers span [%.2f:%.2f] with %d free params.' %
+                (self.continuum_wave_centers[0], self.continuum_wave_centers[-1], self.continuum_nparams))
+
+        self.model_nparams += self.continuum_nparams
+
         # initialize absorption model params
-        self.absmodelexp = absmodelexp
-        self.abs_wave_min = max(absmin, restmin)
-        self.abs_wave_max = min(absmax, restmax)
-        self.abs_wave_min_index = np.argmax(
-            self.rest_wave_centers >= self.abs_wave_min)
-        self.abs_wave_max_index = np.argmax(
-            self.rest_wave_centers > self.abs_wave_max)
-        self.abs_wave_centers = self.rest_wave_centers[self.abs_wave_min_index:self.abs_wave_max_index]
-        self.abs_nparams = len(self.abs_wave_centers)
-        self.abs_scale = absscale
+        self.absorption_modelexp = absorption_modelexp
+        self.absorption_wave_min = max(absorption_min, self.continuum_wave_min)
+        self.absorption_wave_max = min(absorption_max, self.continuum_wave_max)
+        self.absorption_wave_min_index = np.argmax(
+            self.continuum_wave_centers >= self.absorption_wave_min)
+        self.absorption_wave_max_index = np.argmax(
+            self.continuum_wave_centers > self.absorption_wave_max)
+        self.absorption_wave_centers = self.continuum_wave_centers[self.absorption_wave_min_index:self.absorption_wave_max_index]
+        self.absorption_nparams = len(self.absorption_wave_centers)
+        self.absorption_scale = absorption_scale
         if verbose:
-            if self.abs_nparams > 0:
+            if self.absorption_nparams > 0:
                 print ('Absorption bin centers span [%.2f:%.2f] with %d bins.' %
-                       (self.abs_wave_centers[0], self.abs_wave_centers[-1],
-                        self.abs_nparams))
+                    (self.absorption_wave_centers[0], self.absorption_wave_centers[-1], self.absorption_nparams))
             else:
                 print 'No absorption params'
+        self.model_nparams += self.absorption_nparams
         # spectral tilt pivot wavelength
         self.tiltwave = tiltwave
-        # the number of model params (excluding per target params)
-        self.model_nparams = (self.obs_nparams + self.rest_nparams +
-                              self.abs_nparams)
         if verbose:
             print 'Fit model initialized with %d model params.\n' % (
                 self.model_nparams)
@@ -167,19 +177,19 @@ class ContinuumModel(object):
         fiducial_pixel_offset = qusp.wavelength.get_fiducial_pixel_index_offset(
             np.log10(wave[0]))
         # map pixels to observed frame wavelength grid
-        obs_fiducial_indices = fiducial_pixel_offset+np.arange(len(wave))
-        obs_fid_wave = qusp.wavelength.get_fiducial_wavelength(
-            obs_fiducial_indices)
+        transmission_fiducial_indices = fiducial_pixel_offset+np.arange(len(wave))
+        transmission_fid_wave = qusp.wavelength.get_fiducial_wavelength(
+            transmission_fiducial_indices)
         # map pixels to rest frame wavelength grid
-        rest_wave = obs_fid_wave/(1+redshift)
-        rest_indices = np.floor(
-            (rest_wave - self.rest_wave_min)/self.rest_wave_delta).astype(int)
+        continuum_wave = transmission_fid_wave/(1+redshift)
+        continuum_indices = np.floor(
+            (continuum_wave - self.continuum_wave_min)/self.continuum_wave_delta).astype(int)
         # trim ranges to valid data
         valid_pixels = np.all((
-            obs_fiducial_indices >= self.obs_wave_min_index,
-            obs_fiducial_indices < self.obs_wave_max_index,
-            rest_indices < self.rest_nparams,
-            rest_indices >= 0,
+            transmission_fiducial_indices >= self.transmission_wave_min_index,
+            transmission_fiducial_indices < self.transmission_wave_max_index,
+            continuum_indices < len(self.continuum_wave_centers),
+            continuum_indices >= 0,
             flux > 0, ivar > 0), axis=0)
         npixels = np.sum(valid_pixels)
         # skip target if no valid pixels
@@ -200,41 +210,49 @@ class ContinuumModel(object):
         ###################
         obs_blocks = []
         # build transmission model param block
-        obs_indices = obs_fiducial_indices[valid_pixels]-self.obs_wave_min_index
-        assert np.amax(obs_indices) < self.obs_nparams, (
+        transmission_indices = transmission_fiducial_indices[valid_pixels]-self.transmission_wave_min_index
+        assert np.amax(transmission_indices) < self.transmission_nparams, (
             'Invalid obsmodel index value')
         transmission_block = scipy.sparse.coo_matrix(
-            (np.ones(npixels), (np.arange(npixels), obs_indices)),
-            shape=(npixels, self.obs_nparams))
+            (np.ones(npixels), (np.arange(npixels), transmission_indices)),
+            shape=(npixels, self.transmission_nparams))
         obs_blocks.append(transmission_block)
         # build continuum model param block
-        rest_indices = rest_indices[valid_pixels]
-        assert np.amax(rest_indices) < self.rest_nparams, (
+        continuum_indices = continuum_indices[valid_pixels]
+        assert np.amax(continuum_indices) < len(self.continuum_wave_centers), (
             'Invalid rest model index value')
-        continuum_block = scipy.sparse.coo_matrix(
-            (np.ones(npixels), (np.arange(npixels), rest_indices)),
-            shape=(npixels, self.rest_nparams))
-        obs_blocks.append(continuum_block)
+        if self.continuum:
+            try:
+                yvalues -= np.log(self.continuum(self.continuum_wave_centers[continuum_indices]))
+            except ValueError, e:
+                print continuum_wave[valid_pixels]
+                print self.continuum_wave_centers[continuum_indices]
+                raise e
+        else:
+            continuum_block = scipy.sparse.coo_matrix(
+                (np.ones(npixels), (np.arange(npixels), continuum_indices)),
+                shape=(npixels, self.continuum_nparams))
+            obs_blocks.append(continuum_block)
         # build absorption model param block
-        abs_wave_min_index = np.argmax(rest_indices == self.abs_wave_min_index)
-        abs_wave_max_index = np.argmax(rest_indices == self.abs_wave_max_index)
+        absorption_wave_min_index = np.argmax(continuum_indices == self.absorption_wave_min_index)
+        absorption_wave_max_index = np.argmax(continuum_indices == self.absorption_wave_max_index)
         # check if any of the this observation has pixels in the relevant
         # absorption range
-        if abs_wave_max_index > abs_wave_min_index:
-            abs_rows = np.arange(npixels)[abs_wave_min_index:abs_wave_max_index]
-            abs_cols = (rest_indices[abs_wave_min_index:abs_wave_max_index] -
-                        self.abs_wave_min_index)
-            assert np.amax(abs_cols) < self.abs_nparams, (
+        if absorption_wave_max_index > absorption_wave_min_index:
+            absorption_rows = np.arange(npixels)[absorption_wave_min_index:absorption_wave_max_index]
+            absorption_cols = (continuum_indices[absorption_wave_min_index:absorption_wave_max_index] -
+                        self.absorption_wave_min_index)
+            assert np.amax(absorption_cols) < self.absorption_nparams, (
                 'Invalid abs param index value')
-            abs_coefficients = -np.ones(len(abs_cols))*(
-                np.power(1+redshift, self.absmodelexp)/self.abs_scale)
+            absorption_coefficients = -np.ones(len(absorption_cols))*(
+                np.power(1+redshift, self.absorption_modelexp)/self.absorption_scale)
             absorption_block = scipy.sparse.coo_matrix(
-                (abs_coefficients, (abs_rows, abs_cols)),
-                shape=(npixels, self.abs_nparams))
+                (absorption_coefficients, (absorption_rows, absorption_cols)),
+                shape=(npixels, self.absorption_nparams))
             obs_blocks.append(absorption_block)
-        elif self.abs_nparams > 0:
+        elif self.absorption_nparams > 0:
             absorption_block = scipy.sparse.coo_matrix(
-                (npixels, self.abs_nparams))
+                (npixels, self.absorption_nparams))
             obs_blocks.append(absorption_block)
         else:
             # no absorption parameters, do nothing
@@ -251,7 +269,7 @@ class ContinuumModel(object):
         self.amplitude.append(amp)
         # process spectral tilt params
         tilt_coefficients = (
-            np.log(self.rest_wave_centers[rest_indices]/self.tiltwave))
+            np.log(self.continuum_wave_centers[continuum_indices]/self.tiltwave))
         try:
             tilt = target['nu']
             yvalues -= tilt*tilt_coefficients
@@ -271,7 +289,7 @@ class ContinuumModel(object):
         # return number of pixels added from this observation
         return npixels
 
-    def add_obs_constraint(self, yvalue, wavemin, wavemax, weight):
+    def add_transmission_constraint(self, yvalue, wavemin, wavemax, weight):
         """
         Adds a constraint equation for each of the transmission model params
         between the specified observed frame wavelengths.
@@ -287,7 +305,7 @@ class ContinuumModel(object):
         # transmission model params are first
         offset = 0
         # find range of transmission model params in constraint window
-        waves = self.obs_wave_centers
+        waves = self.transmission_wave_centers
         wave_index_range = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax)+1)
         # number of transmission parameters in constraint window
         transmission_nparams = len(wave_index_range)
@@ -310,7 +328,7 @@ class ContinuumModel(object):
         yvalues = yvalue*np.ones(transmission_nparams)
         self.modelyvalues.append(yvalues)
 
-    def add_rest_constraint(self, yvalue, wavemin, wavemax, weight):
+    def add_continuum_constraint(self, yvalue, wavemin, wavemax, weight):
         """
         Adds a constraint equation on the geometric mean of the continuum model
         in between the specified rest frame wavelengths.
@@ -323,10 +341,12 @@ class ContinuumModel(object):
                 to constrain.
             weight (float): weight to apply to constraint equation.
         """
+        if self.continuum:
+            return
         # rest model params are after obs model params
-        offset = self.obs_nparams
+        offset = self.transmission_nparams
         # find range of continuum model params in constraint window
-        waves = self.rest_wave_centers
+        waves = self.continuum_wave_centers
         wave_index_range = np.arange(np.argmax(waves > wavemin), np.argmax(waves > wavemax))
         # number of continuum parameters in constraint window
         continuum_nparams = len(wave_index_range)
@@ -357,7 +377,7 @@ class ContinuumModel(object):
         """
         # calculate tilt block column offset, tilt params are after
         # normalization params
-        offset = self.obs_nparams + self.rest_nparams + self.abs_nparams + self.amplitude.count(None)
+        offset = self.transmission_nparams + self.continuum_nparams + self.absorption_nparams + self.amplitude.count(None)
         # count number of free tilt params
         tilt_nparams = self.tilt.count(None)
         # scale weight by the total number of pixels and the fraction of targets with free tilt params
@@ -423,14 +443,16 @@ class ContinuumModel(object):
 
         self.model = final_model.tocsc()
 
+        #print self.model[:self.model_npixels].sum(axis=0)[0,4437:4437+1000]
+
         # concatenate y values
         yvalues = np.concatenate(self.modelyvalues)
         self.modely = yvalues
 
         if self.verbose:
-            print 'Number of transmission model params: %d' % self.obs_nparams
-            print 'Number of continuum model params: %d' % self.rest_nparams
-            print 'Number of absorption model params: %d' % self.abs_nparams
+            print 'Number of transmission model params: %d' % self.transmission_nparams
+            print 'Number of continuum model params: %d' % self.continuum_nparams
+            print 'Number of absorption model params: %d' % self.absorption_nparams
             print 'Number of targets: %d' % self.ntargets
             print 'Number of amplitude params: %d' % amplitude_nparams
             print 'Number of tilt params: %d' % tilt_nparams
@@ -469,15 +491,18 @@ class ContinuumModel(object):
         results = dict()
         offset = 0
         # transmission: transform logT -> T
-        results['transmission'] = np.exp(soln[offset:offset+self.obs_nparams])
-        offset += self.obs_nparams
+        results['transmission'] = np.exp(soln[offset:offset+self.transmission_nparams])
+        offset += self.transmission_nparams
         # continuum: transform logC -> C
-        results['continuum'] = np.exp(soln[offset:offset+self.rest_nparams])
-        offset += self.rest_nparams
+        if self.continuum:
+            results['continuum'] = self.continuum.values
+        else:
+            results['continuum'] = np.exp(soln[offset:offset+self.continuum_nparams])
+        offset += self.continuum_nparams
         # absorption
-        results['absorption'] = soln[offset:offset+self.abs_nparams]*(
-            self.abs_scale)
-        offset += self.abs_nparams
+        results['absorption'] = soln[offset:offset+self.absorption_nparams]*(
+            self.absorption_scale)
+        offset += self.absorption_nparams
         # amplitude: transform logA -> A
         amplitude = list()
         ampindex = 0
@@ -576,26 +601,26 @@ class ContinuumModel(object):
             outfile.create_dataset('model_shape', data=self.model.shape)
             outfile.create_dataset('y', data=self.modely)
         # save wavelength grids
-        outfile.create_dataset('obsWaveCenters', data=self.obs_wave_centers)
-        outfile.create_dataset('restWaveCenters', data=self.rest_wave_centers)
+        outfile.create_dataset('obsWaveCenters', data=self.transmission_wave_centers)
+        outfile.create_dataset('restWaveCenters', data=self.continuum_wave_centers)
         # save transmission model params and relevant info
         transmission = outfile.create_dataset(
             'transmission', data=results['transmission'])
-        transmission.attrs['normmin'] = args.obsnormmin
-        transmission.attrs['normmax'] = args.obsnormmax
-        transmission.attrs['normweight'] = args.obsnormweight
+        transmission.attrs['normmin'] = args.transmission_normmin
+        transmission.attrs['normmax'] = args.transmission_normmax
+        transmission.attrs['normweight'] = args.transmission_normweight
         # save continuum model params and relevant info
         continuum = outfile.create_dataset(
             'continuum', data=results['continuum'])
-        continuum.attrs['normmin'] = args.restnormmin
-        continuum.attrs['normmax'] = args.restnormmax
-        continuum.attrs['normweight'] = args.restnormweight
+        continuum.attrs['normmin'] = args.continuum_normmin
+        continuum.attrs['normmax'] = args.continuum_normmax
+        continuum.attrs['normweight'] = args.continuum_normweight
         # save absorption model params and relevant info
         absorption = outfile.create_dataset(
             'absorption', data=results['absorption'])
-        absorption.attrs['minRestIndex'] = self.abs_wave_min_index
-        absorption.attrs['maxRestIndex'] = self.abs_wave_max_index
-        absorption.attrs['absmodelexp'] = self.absmodelexp
+        absorption.attrs['minRestIndex'] = self.absorption_wave_min_index
+        absorption.attrs['maxRestIndex'] = self.absorption_wave_max_index
+        absorption.attrs['absmodelexp'] = self.absorption_modelexp
         # save amplitude params and relevant info
         outfile.create_dataset('amplitude', data=results['amplitude'])
         # save spectral tilt params and relevant info
@@ -618,37 +643,37 @@ class ContinuumModel(object):
             parser (argparse.ArgumentParser): an argument parser
         """
         # transmission model wavelength grid options
-        parser.add_argument("--obsmin", type=float, default=3600,
+        parser.add_argument("--transmission-min", type=float, default=3600,
             help="transmission model wavelength minimum")
-        parser.add_argument("--obsmax", type=float, default=10000,
+        parser.add_argument("--transmission-max", type=float, default=10000,
             help="transmission model wavelength maximum")
-        parser.add_argument("--obsnormmin", type=float, default=3600,
+        parser.add_argument("--transmission-normmin", type=float, default=3600,
             help="obsframe wavelength to normalize at")
-        parser.add_argument("--obsnormmax", type=float, default=10000,
+        parser.add_argument("--transmission-normmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
-        parser.add_argument("--obsnormweight", type=float, default=1e-1,
+        parser.add_argument("--transmission-normweight", type=float, default=1,
             help="norm constraint weight")
         # continuum model wavelength grid options
-        parser.add_argument("--restmin", type=float, default=900,
+        parser.add_argument("--continuum-min", type=float, default=900,
             help="rest wavelength minimum")
-        parser.add_argument("--restmax", type=float, default=2900,
+        parser.add_argument("--continuum-max", type=float, default=2900,
             help="rest wavelength maximum")
-        parser.add_argument("--nrestbins", type=int, default=1000,
+        parser.add_argument("--continuum-nparams", type=int, default=1000,
             help="number of restframe bins")
-        parser.add_argument("--restnormmin", type=float, default=1275,
+        parser.add_argument("--continuum-normmin", type=float, default=1275,
             help="restframe window normalization minimum")
-        parser.add_argument("--restnormmax", type=float, default=1285,
+        parser.add_argument("--continuum-normmax", type=float, default=1285,
             help="restframe window normalization maximum")
-        parser.add_argument("--restnormweight", type=float, default=1,
+        parser.add_argument("--continuum-normweight", type=float, default=1,
             help="norm constraint weight")
         # absorption model parameter options
-        parser.add_argument("--absmin", type=float, default=900,
+        parser.add_argument("--absorption-min", type=float, default=900,
             help="absorption min wavelength (rest frame)")
-        parser.add_argument("--absmax", type=float, default=1400,
+        parser.add_argument("--absorption-max", type=float, default=1400,
             help="absoprtion max wavelength (rest frame)")
-        parser.add_argument("--absmodelexp", type=float, default=3.92,
+        parser.add_argument("--absorption-modelexp", type=float, default=3.92,
             help="absorption model (1+z) factor exponent")
-        parser.add_argument("--absscale", type=float, default=1,
+        parser.add_argument("--absorption-scale", type=float, default=1,
             help="scale absorption params in fit")
         # spectral tilt parameter options
         parser.add_argument("--tiltwave", type=float, default=1280,

@@ -3,8 +3,10 @@ import argparse
 import random
 
 import numpy as np
+import h5py
 
 import qusp
+import desimodel.simulate
 
 def main():
     # parse command-line arguments
@@ -50,6 +52,8 @@ def main():
         help="fix norm param")
     parser.add_argument("--fix-tilt", action="store_true",
         help="fix tilt param")
+    parser.add_argument("--continuum-file", type=str, default=None,
+        help="continuum to load")
     qusp.Paths.add_args(parser)
     qusp.ContinuumModel.add_args(parser)
     args = parser.parse_args()
@@ -76,8 +80,15 @@ def main():
     else:
         targets = targets[:ntargets]
 
+    continuum = None
+    if args.continuum_file:
+        specfits = h5py.File(args.continuum_file)
+        wave = specfits['restWaveCenters'].value
+        flux = specfits['continuum'].value
+        continuum = desimodel.simulate.SpectralFluxDensity(wave, flux)
+
     # Initialize model
-    model = qusp.ContinuumModel(**qusp.ContinuumModel.from_args(args))
+    model = qusp.ContinuumModel(continuum=continuum,**qusp.ContinuumModel.from_args(args))
 
     # Add observations to model
     model_targets = []
@@ -96,8 +107,8 @@ def main():
         if args.fix_norm:
             if not hasattr(target, 'nu'):
                 # estimate quasar normalization
-                norm = combined.mean_flux(args.restnormmin*(1+target['z']),
-                                          args.restnormmax*(1+target['z']))
+                norm = combined.mean_flux(args.continuum_normmin*(1+target['z']),
+                                          args.continuum_normmax*(1+target['z']))
                 if norm <= 0:
                     continue
                 # restframe amplitude
@@ -115,12 +126,12 @@ def main():
             npixels.append(npixels_added)
 
     # Add constraints
-    if args.restnormmax > args.restnormmin:
-        model.add_rest_constraint(
-            0, args.restnormmin, args.restnormmax, args.restnormweight)
-    if args.obsnormmax > args.obsnormmin:
-        model.add_obs_constraint(
-            0, args.obsnormmin, args.obsnormmax, args.obsnormweight)
+    if args.continuum_normmax > args.continuum_normmin:
+        model.add_continuum_constraint(
+            0, args.continuum_normmin, args.continuum_normmax, args.continuum_normweight)
+    if args.transmission_normmax > args.transmission_normmin:
+        model.add_transmission_constraint(
+            0, args.transmission_normmin, args.transmission_normmax, args.transmission_normweight)
     if args.tiltweight > 0:
         model.add_tilt_constraint(args.tiltweight)
 
