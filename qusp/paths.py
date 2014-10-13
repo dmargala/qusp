@@ -84,7 +84,7 @@ class Paths(object):
             "--boss-root", type=str, default=None,
             help="path to root directory containing BOSS data (ex: /data/boss)")
         parser.add_argument(
-            "--boss-version", type=str, default='v5_7_0',
+            "--boss-version", type=str, default=None,
             help="boss pipeline version tag (ex: v5_7_0)")
 
     @staticmethod
