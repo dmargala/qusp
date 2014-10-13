@@ -8,7 +8,7 @@ A package for working with **qu**\ asar **sp**\ ectra.
 * How to use the example programs included in this package: :ref:`site-docs`
 * Info on how to build this documentation and other miscellany: :ref:`dev-docs`
 
-
+updated
 
 .. _site-docs:
 
