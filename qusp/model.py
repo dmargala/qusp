@@ -43,7 +43,8 @@ class ContinuumModel(object):
     Represents a linearized quasar continuum model.
     """
     def __init__(self, transmission_min, transmission_max, continuum_min, continuum_max, continuum_nparams, tiltwave,
-                 absorption_min, absorption_max, absorption_modelexp, absorption_scale, continuum=None, verbose=False):
+                 absorption_min, absorption_max, absorption_modelexp, absorption_scale, 
+                 fix_transmission=False, continuum=None, verbose=False):
         """
         Initializes a linearized quasar continuum model using the specified
         parameter limits and values.
@@ -68,7 +69,8 @@ class ContinuumModel(object):
             verbose (bool, optional): whether or not to print verbose output.
         """
         self.verbose = verbose
-        self.model_nparams = 0  # the number of model params (excluding per target params)
+        # the number of model params (excluding per target params)
+        self.model_nparams = 0 
         # initialize transmission model params
         assert transmission_max > transmission_min, ('transmission_max must be greater than transmission_min')
         self.transmission_wave_min = transmission_min
@@ -78,11 +80,20 @@ class ContinuumModel(object):
         self.transmission_wave_max_index = np.argmax(transmission_fid_wave > transmission_max)+1
         self.transmission_wave_centers = qusp.wavelength.get_fiducial_wavelength(
             np.arange(self.transmission_wave_min_index, self.transmission_wave_max_index))
-        self.transmission_nparams = len(self.transmission_wave_centers)
+
+        self.fix_transmission = fix_transmission
+        if fix_transmission:
+            self.transmission_nparams = 0
+        else:
+
+            self.transmission_nparams = len(self.transmission_wave_centers)
+
         if verbose:
             print ('Observed frame bin centers span [%.2f:%.2f] with %d bins.' %
                 (self.transmission_wave_centers[0], self.transmission_wave_centers[-1], self.transmission_nparams))
+
         self.model_nparams += self.transmission_nparams
+
         # initialize continuum model params
         assert (continuum_nparams > 0) or continuum is not None, ('must specify number of continuum params or provide continuum')
         self.continuum = continuum
@@ -210,24 +221,22 @@ class ContinuumModel(object):
         ###################
         obs_blocks = []
         # build transmission model param block
-        transmission_indices = transmission_fiducial_indices[valid_pixels]-self.transmission_wave_min_index
-        assert np.amax(transmission_indices) < self.transmission_nparams, (
-            'Invalid obsmodel index value')
-        transmission_block = scipy.sparse.coo_matrix(
-            (np.ones(npixels), (np.arange(npixels), transmission_indices)),
-            shape=(npixels, self.transmission_nparams))
-        obs_blocks.append(transmission_block)
+        if self.fix_transmission:
+            pass
+        else:
+            transmission_indices = transmission_fiducial_indices[valid_pixels]-self.transmission_wave_min_index
+            assert np.amax(transmission_indices) < self.transmission_nparams, (
+                'Invalid obsmodel index value')
+            transmission_block = scipy.sparse.coo_matrix(
+                (np.ones(npixels), (np.arange(npixels), transmission_indices)),
+                shape=(npixels, self.transmission_nparams))
+            obs_blocks.append(transmission_block)
         # build continuum model param block
         continuum_indices = continuum_indices[valid_pixels]
         assert np.amax(continuum_indices) < len(self.continuum_wave_centers), (
             'Invalid rest model index value')
         if self.continuum:
-            try:
-                yvalues -= np.log(self.continuum(self.continuum_wave_centers[continuum_indices]))
-            except ValueError, e:
-                print continuum_wave[valid_pixels]
-                print self.continuum_wave_centers[continuum_indices]
-                raise e
+            yvalues -= np.log(self.continuum(self.continuum_wave_centers[continuum_indices]))
         else:
             continuum_block = scipy.sparse.coo_matrix(
                 (np.ones(npixels), (np.arange(npixels), continuum_indices)),
@@ -302,6 +311,8 @@ class ContinuumModel(object):
                 to constrain.
             weight (float): weight to apply to constraint equation.
         """
+        if self.fix_transmission:
+            return
         # transmission model params are first
         offset = 0
         # find range of transmission model params in constraint window
@@ -491,7 +502,10 @@ class ContinuumModel(object):
         results = dict()
         offset = 0
         # transmission: transform logT -> T
-        results['transmission'] = np.exp(soln[offset:offset+self.transmission_nparams])
+        if self.fix_transmission:
+            results['transmission'] = np.ones(len(self.transmission_wave_centers))
+        else:
+            results['transmission'] = np.exp(soln[offset:offset+self.transmission_nparams])
         offset += self.transmission_nparams
         # continuum: transform logC -> C
         if self.continuum:
@@ -684,6 +698,8 @@ class ContinuumModel(object):
         parser.add_argument(
             "--unweighted", action="store_true",
             help="perform unweighted least squares fit")
+        parser.add_argument("--fix-transmission", action="store_true",
+            help="fix transmission to 1")
 
     @staticmethod
     def from_args(args):
