@@ -213,6 +213,10 @@ def main():
     ##
     parser.add_argument("--force-y", action="store_true",
         help="force y limit ranges to nominal values")
+    parser.add_argument("--transmission-ymax", type=float, default=1.1,
+        help="transmission y max")
+    parser.add_argument("--transmission-ymin", type=float, default=.9,
+        help="transmission y min")
     qusp.paths.Paths.add_args(parser)
     args = parser.parse_args()
 
@@ -269,7 +273,7 @@ def main():
     qusp.wavelength.draw_lines(
         qusp.wavelength.load_wavelengths('sky',ignore_labels=True), 0.01, 0.1, c='magenta', alpha=.3)
     if args.force_y:
-        plt.ylim([.9,1.1])
+        plt.ylim([args.transmission_ymin,args.transmission_ymax])
     plt.grid(axis='y')
     fig.savefig('%s-transmission.png'%args.output, bbox_inches='tight')
 
