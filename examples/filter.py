@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 """
 A program to filter FITS catalogs into target lists
+
+Basic example:
+
+    examples/filter.py -i spAll-v5_7_0.fits --select "(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)" --annotate 'ra:dec:z' --verbose --save quasars.txt
+
+
+Advanced example (not very efficient):
+
+    for plate in $(cat ~/blue-plates.txt); do examples/filter.py -i /share/dm/all/data/boss/spAll-v5_7_0.fits --select "(tbdata['plate'] == $plate) & (tbdata['objtype'] == 'QSO') & (tbdata['zwarning'] == 0) & (tbdata['z'] > .5)" --save systematics/$plate.txt --annotate 'ra:dec:z' --verbose; done
+
 """
 import argparse
 
