@@ -23,6 +23,10 @@ def main():
         help="more verbose output")
     parser.add_argument("--select-plate", type=int, default=None,
         help="select targets from specified plate")
+    parser.add_argument("--normmin", type=float, default=5000,
+        help="min norm wavelength")
+    parser.add_argument("--normmax", type=float, default=5010,
+        help="max norm wavelength")
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
 
@@ -37,7 +41,7 @@ def main():
             if target['plate'] == args.select_plate:
                 plate_targets.append(target)
         targets = plate_targets
-        
+
     # trim target list if requested
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     targets = targets[:ntargets]
@@ -55,11 +59,17 @@ def main():
         # read this target's combined spectrum
         combined = qusp.read_combined_spectrum(spplate, target)
 
+        norm = combined.mean_flux(args.normmin, args.normmax)
+
+        if norm <= 0:
+            print 'yikes norm <= 0'
+            continue
+
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
 
         indices = slice(offset, offset+combined.npixels)
 
-        flux_wsum[indices] += combined.ivar*combined.flux
+        flux_wsum[indices] += combined.ivar*combined.flux/norm
         weight_sum[indices] += combined.ivar
 
     flux_wmean = np.empty_like(flux_wsum)
