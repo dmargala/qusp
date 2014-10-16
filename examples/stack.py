@@ -59,8 +59,10 @@ def main():
         # read this target's combined spectrum
         combined = qusp.read_combined_spectrum(spplate, target)
 
-        norm = combined.mean_flux(args.normmin, args.normmax)
-
+        if args.normmax <= args.normmin:
+            norm = 1
+        else:
+            norm = combined.mean_flux(args.normmin, args.normmax)
         if norm <= 0:
             print 'yikes norm <= 0'
             continue
