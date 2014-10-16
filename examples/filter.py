@@ -16,6 +16,8 @@ import argparse
 
 from astropy.io import fits
 
+import numpy as np
+
 import qusp
 
 def main():
@@ -55,27 +57,21 @@ def main():
             print 'No selection specified (selecting all entries).'
 
     # construct list of fields to annotate target list
-    targets = []
     try:
         fields = args.annotate.split(':')
     except AttributeError:
         fields = []
-    # extract targets and fields from table data
-    for index, row in enumerate(filtered):
-        if args.verbose and (0 == ((index+1) % 1000)):
-            print '(processing input entry %d)' % (index+1)
-        targetstr = '-'.join(
-            [str(row[key]) for key in ['PLATE', 'MJD', 'FIBERID']])
-        target = qusp.target.Target(target=targetstr)
-        for field in fields:
-            target[field] = row[field]
-        targets.append(target)
     # save target list
     if args.save:
+        names = ['plate','mjd','fiberid'] + fields
+        cols = [filtered.field(col) for col in names]
+        formats = ','.join([filtered[col].dtype.name for col in names])
+        trimmed = np.rec.fromarrays(cols, names=names, dtype=formats)
         # save target list as text file
         if args.verbose:
-            print "Saving %d final targets to %s" % (len(targets), args.save)
-        qusp.target.save_target_list(args.save, targets, fields)
+            print "Saving %d final targets to %s" % (len(trimmed), args.save)
+        fmt = '%s-%s-%s ' + ' '.join(['%s' for field in fields])
+        np.savetxt(args.save, trimmed, fmt=fmt)
     # save filtered FITS file
     if args.output:
         if args.verbose:
