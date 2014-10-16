@@ -21,6 +21,8 @@ def main():
         help="output file name")
     parser.add_argument("--verbose", action="store_true",
         help="more verbose output")
+    parser.add_argument("--select-plate", type=int, default=None,
+        help="select targets from specified plate")
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
 
@@ -29,6 +31,13 @@ def main():
     # read target list
     targets = qusp.target.load_target_list(args.input)
 
+    if args.select_plate:
+        plate_targets = []
+        for target in targets:
+            if target['plate'] == args.select_plate:
+                plate_targets.append(target)
+        targets = plate_targets
+        
     # trim target list if requested
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     targets = targets[:ntargets]
@@ -48,7 +57,7 @@ def main():
 
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
 
-        indices = slice(offset,offset+combined.npixels)
+        indices = slice(offset, offset+combined.npixels)
 
         flux_wsum[indices] += combined.ivar*combined.flux
         weight_sum[indices] += combined.ivar
@@ -58,8 +67,11 @@ def main():
     flux_wmean[nonzero_weights] = flux_wsum[nonzero_weights]/weight_sum[nonzero_weights]
 
     if args.output:
+        outfilename = args.output+'.hdf5'
+        if args.verbose:
+            print 'Saving stack to file: %s' % outfilename
         # save target list with sn column
-        outfile = h5py.File(args.output+'.hdf5', 'w')
+        outfile = h5py.File(outfilename, 'w')
 
         outfile.create_dataset('flux_wmean', data=flux_wmean)
         outfile.create_dataset('weight_sum', data=weight_sum)
