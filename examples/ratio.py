@@ -52,21 +52,15 @@ def main():
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
     targets = targets[:ntargets]
 
-    # initialize stack arrays
-    npixels_fiducial = 4800
-    wavelength = qusp.wavelength.get_fiducial_wavelength(np.arange(npixels_fiducial))
-
-    flux_wsum = np.zeros(npixels_fiducial)
-    weight_sum = np.zeros_like(flux_wsum)
+    # open output file
+    outfilename = args.output+'.hdf5'
+    outfile = h5py.File(outfilename, 'w')
 
     # loop over targets
     target_plate_generator = qusp.target.read_target_plates(paths.boss_path, targets, verbose=args.verbose)
     alt_target_plate_generator = qusp.target.read_target_plates(alt_paths.boss_path, targets, verbose=args.verbose)
 
-    outfilename = args.output+'.hdf5'
-    outfile = h5py.File(outfilename, 'w')
-
-    for target, spplate, alt_target, alt_spplate in itertools.izip(target_plate_generator, alt_target_plate_generator):
+    for (target, spplate), (alt_target, alt_spplate) in itertools.izip(target_plate_generator, alt_target_plate_generator):
         assert target.to_string() == alt_target.to_string()
         # read this target's combined spectrum
         combined = qusp.read_combined_spectrum(spplate, target)
@@ -79,7 +73,7 @@ def main():
         grp.create_dataset('ratio', data=ratio)
         grp.create_dataset('wavelength', data=wavelength)
 
-    outfile.create_dataset('targets', data=[target.to_string for target in targets])
+    outfile.create_dataset('targets', data=[target.to_string() for target in targets])
 
 
 if __name__ == '__main__':
