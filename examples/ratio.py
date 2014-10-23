@@ -36,7 +36,7 @@ def main():
 
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
-    alt_paths = qusp.Path(boss_version=args.compare_version)
+    alt_paths = qusp.Paths(boss_version=args.compare_version)
 
     # read target list
     targets = qusp.target.load_target_list(args.input)
