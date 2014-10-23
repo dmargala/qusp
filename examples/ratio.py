@@ -66,6 +66,11 @@ def main():
         combined = qusp.read_combined_spectrum(spplate, target)
         alt_combined = qusp.read_combined_spectrum(alt_spplate, target)
 
+        offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
+        alt_offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(alt_combined.wavelength[0]))
+
+        print offset, alt_offset
+        
         ratio = combined.flux/alt_combined.flux
         wavelength = combined.wavelength
 
