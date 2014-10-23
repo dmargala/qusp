@@ -69,10 +69,16 @@ def main():
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
         alt_offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(alt_combined.wavelength[0]))
 
-        print offset, alt_offset
-        
-        ratio = combined.flux/alt_combined.flux
-        wavelength = combined.wavelength
+        first_pixel = offset - alt_offset
+
+        if first_pixel > 0:
+            last_pixel = min(combined.npixels, alt_combined.npixels-first_pixel)
+            ratio = combined.flux[:last_pixel]/alt_combined.flux[first_pixel:last_pixel]
+            wavelength = combined.wavelength[:last_pixel]
+        else:
+            last_pixel = min(combined.npixels-first_pixel, alt_combined.npixels)
+            ratio = combined.flux[first_pixel:last_pixel]/alt_combined.flux[:last_pixel]
+            wavelength = combined.wavelength[first_pixel:last_pixel]
 
         grp = outfile.create_group(target.to_string())
         grp.create_dataset('ratio', data=ratio)
