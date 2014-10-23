@@ -72,11 +72,11 @@ def main():
         first_pixel = offset - alt_offset
 
         if first_pixel > 0:
-            last_pixel = min(combined.npixels, alt_combined.npixels-first_pixel)
+            last_pixel = min(combined.npixels, alt_combined.npixels-first_pixel)+1
             ratio = combined.flux[:last_pixel]/alt_combined.flux[first_pixel:last_pixel]
             wavelength = combined.wavelength[:last_pixel]
         else:
-            last_pixel = min(combined.npixels-first_pixel, alt_combined.npixels)
+            last_pixel = min(combined.npixels-first_pixel, alt_combined.npixels)+1
             ratio = combined.flux[first_pixel:last_pixel]/alt_combined.flux[:last_pixel]
             wavelength = combined.wavelength[first_pixel:last_pixel]
 
