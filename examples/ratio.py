@@ -77,9 +77,9 @@ def main():
             wavelength = combined.wavelength[:last_pixel]
         else:
             last_pixel = min(combined.npixels+first_pixel, alt_combined.npixels)+1
-            print first_pixel, last_pixel, combined.npixels
-            ratio = alt_combined.flux[:last_pixel]/combined.flux[-first_pixel:last_pixel]
-            wavelength = combined.wavelength[-first_pixel:last_pixel]
+            print first_pixel, last_pixel, combined.npixels, alt_combined.npixels
+            ratio = alt_combined.flux[:last_pixel]/combined.flux[abs(first_pixel):last_pixel]
+            wavelength = combined.wavelength[abs(first_pixel):last_pixel]
 
         grp = outfile.create_group(target.to_string())
         grp.create_dataset('ratio', data=ratio)
