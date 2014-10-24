@@ -72,13 +72,14 @@ def main():
         first_pixel = offset - alt_offset
 
         if first_pixel > 0:
-            last_pixel = min(combined.npixels, alt_combined.npixels-first_pixel)
-            ratio = alt_combined.flux[first_pixel:last_pixel]/combined.flux[:last_pixel]
-            wavelength = combined.wavelength[:last_pixel]
+            npixels = min(combined.npixels, alt_combined.npixels-first_pixel)
+            ratio = alt_combined.flux[first_pixel:first_pixel+npixels]/combined.flux[:npixels]
+            wavelength = combined.wavelength[:npixels]
         else:
-            last_pixel = min(combined.npixels+first_pixel, alt_combined.npixels)
-            ratio = alt_combined.flux[:last_pixel]/combined.flux[abs(first_pixel):last_pixel]
-            wavelength = combined.wavelength[abs(first_pixel):last_pixel]
+            first_pixel = -first_pixel
+            npixels = min(combined.npixels-first_pixel, alt_combined.npixels)
+            ratio = alt_combined.flux[:npixels]/combined.flux[first_pixel:first_pixel+npixels]
+            wavelength = alt_combined.wavelength[:npixels]
 
         grp = outfile.create_group(target.to_string())
         grp.create_dataset('ratio', data=ratio)
