@@ -77,6 +77,7 @@ def main():
             wavelength = combined.wavelength[:last_pixel]
         else:
             last_pixel = min(combined.npixels+first_pixel, alt_combined.npixels)+1
+            print first_pixel, last_pixel, combined.npixels
             ratio = alt_combined.flux[:last_pixel]/combined.flux[-first_pixel:last_pixel]
             wavelength = combined.wavelength[-first_pixel:last_pixel]
 
