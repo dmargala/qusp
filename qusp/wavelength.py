@@ -22,31 +22,8 @@ import math
 import os
 import numpy as np
 
-def get_fiducial_wavelength(pixel_index):
-    """
-    Returns the wavelength at the center of the specified
-    index of the BOSS co-add fiducial wavelength grid.
-    """
-    return 3500.26*(10**(1e-4*pixel_index))
-
-def get_fiducial_wavelength_ratio(lambda1, lambda2=3500.26):
-    """
-    Returns the fiducial wavelength ratio
-    """
-    return 1e4*math.log10(lambda1/lambda2)
-
-def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
-    """
-    Returns the pixel index offset from the start of the
-    BOSS co-add fiducial wavelength grid.
-    """
-    if coeff1 != 1e-4:
-        return 0
-    delta = (math.log10(3500.26)-coeff0)/coeff1
-    offset = int(math.floor(delta+0.5))
-    if math.fabs(delta-offset) > 0.01:
-        return 0
-    return -offset
+import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
 
 class Wavelength(float):
     """
@@ -58,12 +35,20 @@ class Wavelength(float):
         return float.__new__(cls, value)
     def observed(self, redshift):
         """
-        Returns the shifted observed wavelength.
+        Args:
+            redshift (float): source redshift
+
+        Returns:
+            the shifted observed wavelength.
         """
         return self*(1+redshift)
     def rest(self, redshift):
         """
-        Returns the shifted rest wavelength.
+        Args:
+            redshift (float): source redshift
+
+        Returns:
+            the shifted rest wavelength.
         """
         return self/(1+redshift)
 
@@ -79,13 +64,13 @@ class LabeledWavelength(Wavelength):
 
 def load_wavelengths(filename, ignore_labels=False):
     """
-    loads wavelength data
+    Loads a list of wavelengths from the specified file
 
     Args:
         filename (str): wavelength data filename
 
     Returns:
-        wavelengths
+        wavelengths (list)
     """
     # Get the path that this module was loaded from.
     my_path = os.path.dirname(os.path.abspath(__file__))
@@ -103,8 +88,39 @@ def load_wavelengths(filename, ignore_labels=False):
             usecols=(0, 1))
         return [LabeledWavelength(*wave) for wave in wavelengths]
 
-import matplotlib.pyplot as plt
-import matplotlib.transforms as transforms
+def get_fiducial_wavelength(pixel_index, lambda0=3500.26):
+    """
+    Returns the wavelength at the center of the specified
+    index of the BOSS co-add fiducial wavelength grid.
+
+    Args:
+        pixel_index (int): index of the BOSS co-add fiducial wavelength grid.
+
+    Returns:
+        wavelength (float): central wavelength of the specified index on 
+            the fiducial wavelength grid
+    """
+    return lambda0*(10**(1e-4*pixel_index))
+
+def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
+    """
+    Returns the pixel index offset from the start of the
+    BOSS co-add fiducial wavelength grid.
+
+    Args:
+        coeff0 (float): central wavelength (log10) of first pixel
+        coeff1 (float, optional): log10 dispersion per pixel
+
+    Returns:
+        pixel index offset from the start of the fiducial wavelength grid.
+    """
+    if coeff1 != 1e-4:
+        return 0
+    delta = (math.log10(3500.26)-coeff0)/coeff1
+    offset = int(math.floor(delta+0.5))
+    if math.fabs(delta-offset) > 0.01:
+        return 0
+    return -offset
 
 def draw_lines(waves, offset=0, delta=.1, **kwargs):
     """
@@ -126,13 +142,24 @@ def draw_lines(waves, offset=0, delta=.1, **kwargs):
         except AttributeError:
             pass
 
-def main():
+if __name__ == '__main__':
     """
-    tests for wavelengths module
+    Tests for wavelengths module
     """
-    waves = load_wavelengths('sky')
+    wave1216 = Wavelength(1216)
+    assert wave1216.observed(2.5) == 4256, 'observed wavelength error'
+
+    wave5472 = Wavelength(5472)
+    assert wave5472.rest(3.5) == 1216, 'rest wavelength error'
+
+    lambda0 = get_fiducial_wavelength(0)
+    assert lambda0 == 3500.26, 'fiducial wavelength origin error'
+
+    lambda101 = get_fiducial_wavelength(101)
+    offset101 = get_fiducial_pixel_index_offset(math.log10(lambda101))
+    assert offset101 == 101, 'fiducial pixel index offset error'
+
+    waves = load_wavelengths('balmer')
     for wave in waves:
         print wave.label
 
-if __name__ == '__main__':
-    main()
