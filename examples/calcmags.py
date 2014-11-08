@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 
 import qusp
 
-import desimodel.simulate
-
 def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -128,12 +126,12 @@ def main():
         flux = combined.flux
 
         # Synthetic magnitude
-        D = desimodel.simulate.SpectralFluxDensity(wave, flux)
+        D = qusp.SpectralFluxDensity(wave, flux)
         for key,value in D.getABMagnitudes().iteritems():
             mags[key][1].append(value)
 
         # Remove transmission model magnitude
-        DoverT = desimodel.simulate.SpectralFluxDensity(obsWaveCenters,D(obsWaveCenters)/T)
+        DoverT = qusp.SpectralFluxDensity(obsWaveCenters,D(obsWaveCenters)/T)
         for key,value in DoverT.getABMagnitudes().iteritems():
             mags[key][2].append(value)
 
@@ -145,8 +143,8 @@ def main():
         # frest = A*(restWaveCenters/nuwave)**nu*C
         # frest[amin:amax] *= np.exp(-absorption.value*((1+z)**beta))
 
-        # fgal = desimodel.simulate.SpectralFluxDensity(restWaveCenters, frest, extrapolatedValue=0).createRedshifted(z)
-        # fobs = desimodel.simulate.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
+        # fgal = qusp.SpectralFluxDensity(restWaveCenters, frest, extrapolatedValue=0).createRedshifted(z)
+        # fobs = qusp.SpectralFluxDensity(obsWaveCenters, T*fgal(obsWaveCenters))
 
         # for key,value in fobs.getABMagnitudes().iteritems():
         #     mags[key][3].append(value)

@@ -6,7 +6,6 @@ import numpy as np
 import h5py
 
 import qusp
-import desimodel.simulate
 
 def main():
     # parse command-line arguments
@@ -85,7 +84,7 @@ def main():
         specfits = h5py.File(args.continuum_file)
         wave = specfits['restWaveCenters'].value
         flux = specfits['continuum'].value
-        continuum = desimodel.simulate.SpectralFluxDensity(wave, flux)
+        continuum = qusp.spectrum.SpectralFluxDensity(wave, flux)
 
     # Initialize model
     model = qusp.ContinuumModel(continuum=continuum,**qusp.ContinuumModel.from_args(args))
