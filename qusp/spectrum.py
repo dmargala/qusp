@@ -31,14 +31,13 @@ import qusp
 class Spectrum(object):
     """
     Represents a BOSS co-added spectrum.
+
+    Args:
+        wavelength (numpy.ndarray): wavelength pixel centers.
+        flux (numpy.ndarray): flux values.
+        ivar (numpy.ndarray): flux inverse variance values.
     """
     def __init__(self, wavelength, flux, ivar):
-        """
-        Args:
-            wavelength (numpy.array): wavelength pixel centers.
-            flux (numpy.array): flux values.
-            ivar (numpy.array): flux inverse variance values.
-        """
         self.wavelength = wavelength
         self.flux = flux
         self.ivar = ivar

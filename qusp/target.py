@@ -44,20 +44,17 @@ import os
 
 class Target(dict):
     """
-    Represents a BOSS target.
+    Represents a BOSS target. 
+
+    Args:
+        args: Variable length argument list.
+        kwargs: Arbitrary keyword arguments.
+
+    Raises:
+        AssertionError
+
     """
     def __init__(self, *args, **kwargs):
-        """
-        Initializes a Target object. Parses the plate-mjd-fiber identifier
-        and adds separate fields to the dictionary.
-
-        Args:
-            args: Variable length argument list.
-            kwargs: Arbitrary keyword arguments.
-
-        Raises:
-            AssertionError
-        """
         super(Target, self).__init__(*args, **kwargs)
         assert 'target' in self, \
             'Target: must have plate-mjd-fiber identifier key'
