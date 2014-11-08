@@ -90,15 +90,14 @@ def load_wavelengths(filename, ignore_labels=False):
 
 def get_fiducial_wavelength(pixel_index, lambda0=3500.26):
     """
-    Returns the wavelength at the center of the specified
-    index of the BOSS co-add fiducial wavelength grid.
+    Returns the wavelength at the center of the specified index 
+    of the BOSS co-add fiducial wavelength grid.
 
     Args:
         pixel_index (int): index of the BOSS co-add fiducial wavelength grid.
 
     Returns:
-        wavelength (float): central wavelength of the specified index on 
-            the fiducial wavelength grid
+        wavelength (float): central wavelength of the specified index on the fiducial wavelength grid
     """
     return lambda0*(10**(1e-4*pixel_index))
 
