@@ -345,6 +345,22 @@ def loadSDSSFilterCurves(whichColumn=1):
         curves[band] = WavelengthFunction(filterData[0],filterData[whichColumn],extrapolatedValue=0.)
     return curves
 
+class BOSSSpectrum(SpectralFluxDensity):
+    def __init__(self,wavelength,flux,ivar,wavelengthUnits=units.angstrom,fluxUnits=None,
+        extrapolatedValue=None):
+        # Convert flux to a numpy array/view in our fiducial units.
+        if fluxUnits is not None:
+            convert = units.Unit(fluxUnits).to(self.fiducialFluxUnit)
+        else:
+            convert = 1
+        if not isinstance(ivar,np.ndarray) or convert != 1:
+            self.ivar = np.array(ivar)/(convert*convert)
+        else:
+            self.ivar = ivar
+        # Initialize our base SpectralFluxDensity.
+        SpectralFluxDensity.__init__(self,wavelength,flux,wavelengthUnits,fluxUnits=fluxUnits,
+            extrapolatedValue=extrapolatedValue)
+
 
 class Spectrum(object):
     """
