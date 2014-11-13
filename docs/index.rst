@@ -7,7 +7,7 @@ Filter targets from spAll:
 
 .. code-block:: bash
 
-    $ examples/filter.py -i spAll-v5_7_0.fits --select "(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)" --annotate 'ra:dec:z' --verbose --save quasars.txt
+    $ examples/filter.py -i spAll-v5_7_0.fits --select "(['OBJTYPE'] == 'QSO') & (['Z'] > 2.1)" --annotate 'ra:dec:z' --verbose --save quasars.txt
 
 The target module provides support for reading target lists:
 
