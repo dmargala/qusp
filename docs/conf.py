@@ -15,12 +15,19 @@
 import sys
 import os
 
-# import mock
 from mock import Mock as MagicMock
 
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
+        return Mock()
+    def __mul__(self, other):
+        return Mock()
+    def __rmul__(self, other):
+        return Mock()
+    def __pow__(self, other):
+        return Mock()
+    def __div__(self, other):
         return Mock()
 
 MOCK_MODULES = [
@@ -38,8 +45,6 @@ MOCK_MODULES = [
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
-# for mod_name in MOCK_MODULES:
-#   sys.modules[mod_name] = mock.Mock()
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the

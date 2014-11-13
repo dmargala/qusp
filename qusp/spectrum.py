@@ -317,7 +317,7 @@ class SpectralFluxDensity(WavelengthFunction):
         return mags
 
     # Define our fiducial flux units.
-    #fiducialFluxUnit = 1e-17*units.erg/(units.s*units.cm**2*units.angstrom)
+    fiducialFluxUnit = 1e-17*units.erg/(units.s*units.cm**2*units.angstrom)
 
     # Placeholder for SDSS filter curves and counting rates used to calculate AB magnitudes.
     sdssFilterCurves = None
