@@ -1,1 +1,3 @@
 sphinxcontrib-napoleon
+numpy>=1.9
+scipy>=0.14
