@@ -54,10 +54,7 @@ def main():
     weight_sum = np.zeros_like(flux_wsum)
 
     # loop over targets
-    target_plate_generator = qusp.target.read_target_plates(paths.boss_path, targets, verbose=args.verbose)
-    for target, spplate in target_plate_generator:
-        # read this target's combined spectrum
-        combined = qusp.read_combined_spectrum(spplate, target)
+    for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path, verbose=args.verbose):
 
         if args.normmax <= args.normmin:
             norm = 1

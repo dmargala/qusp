@@ -14,13 +14,13 @@ def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i", "--input", type=str, default=None,
-                        help="target list")
+        help="target list")
     parser.add_argument("-n", "--ntargets", type=int, default=0,
-                        help="number of targets to use, 0 for all")
+        help="number of targets to use, 0 for all")
     parser.add_argument("-o", "--output", type=str, default=None,
-                        help="output file name")
+        help="output file name")
     parser.add_argument("--verbose", action="store_true",
-                        help="more verbose output")
+        help="more verbose output")
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
 
@@ -34,14 +34,9 @@ def main():
     targets = targets[:ntargets]
 
     # loop over targets
-    target_plate_generator = qusp.target.read_target_plates(
-        paths.boss_path, targets, verbose=args.verbose)
-    for target, spplate in target_plate_generator:
-        # read this target's combined spectrum
-        combined = qusp.read_combined_spectrum(spplate, target)
+    for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         # calculate median sn
-        mediansn = combined.median_signal_to_noise(
-            combined.wavelength[0], combined.wavelength[-1])
+        mediansn = combined.median_signal_to_noise(combined.wavelength[0], combined.wavelength[-1])
         target['mediansn'] = mediansn
     if args.output:
         # save target list with sn column

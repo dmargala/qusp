@@ -57,14 +57,12 @@ def main():
     outfile = h5py.File(outfilename, 'w')
 
     # loop over targets
-    target_plate_generator = qusp.target.read_target_plates(paths.boss_path, targets, verbose=args.verbose)
-    alt_target_plate_generator = qusp.target.read_target_plates(alt_paths.boss_path, targets, verbose=args.verbose)
+    target_combined_generator = qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path, verbose=args.verbose)
+    alt_target_combined_generator = qusp.target.get_combined_spectra(targets, boss_path=alt_paths.boss_path, verbose=args.verbose)
 
-    for (target, spplate), (alt_target, alt_spplate) in itertools.izip(target_plate_generator, alt_target_plate_generator):
+    for (target, combined), (alt_target, alt_combined) in itertools.izip(target_combined_generator, alt_target_combined_generator):
+        # make sure we're comparing the same target
         assert target.to_string() == alt_target.to_string()
-        # read this target's combined spectrum
-        combined = qusp.read_combined_spectrum(spplate, target)
-        alt_combined = qusp.read_combined_spectrum(alt_spplate, target)
 
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
         alt_offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(alt_combined.wavelength[0]))

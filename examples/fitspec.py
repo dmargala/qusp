@@ -94,10 +94,7 @@ def main():
     npixels = []
     if args.verbose:
         print '... adding observations to fit ...\n'
-    target_plate_generator = qusp.target.read_target_plates(paths.boss_path, targets)
-    for target, spplate in target_plate_generator:
-        # read this target's combined spectrum
-        combined = qusp.read_combined_spectrum(spplate, target)
+    for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         wavelength = combined.wavelength
         ivar = combined.ivar
         flux = combined.flux

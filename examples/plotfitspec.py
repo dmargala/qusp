@@ -165,12 +165,11 @@ def plotTargets(specfits, targetIndices, boss_path):
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
 
     subplotIndex = 1
-    for target, spPlate in qusp.target.read_target_plates(boss_path, mytargets):    
+    for target, combined in qusp.target.get_combined_spectra(mytargets, boss_path=boss_path):    
         plt.subplot(ntargets,1,subplotIndex)
         subplotIndex += 1
         ax = plt.gca()
         # draw observed spectrum
-        combined = qusp.read_combined_spectrum(spPlate, target)
         plotSpectrum(combined, c='blue', lw=.5)
         # draw predication
         plotPrediction(target, c='red', marker='', ls='-', lw=1)
