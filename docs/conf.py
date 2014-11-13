@@ -28,6 +28,7 @@ MOCK_MODULES = [
     'scipy', 
     'scipy.interpolate', 
     'scipy.integrate', 
+    'scipy.sparse',
     'matplotlib', 
     'matplotlib.pyplot', 
     'matplotlib.transforms', 
