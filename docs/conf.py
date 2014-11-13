@@ -33,7 +33,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.todo',
-    'sphinxcontrib.napoleon'
+    #'sphinxcontrib.napoleon'
 ]
 
 autoclass_content = 'both'
