@@ -179,6 +179,7 @@ class SpectralFluxDensity(WavelengthFunction):
         wavelengthUnits (astropy.units.Quantity): wavelength value units
         fluxUnits (astropy.units.Quantity): flux value units
         extrapolatedValue (float,optional)
+
     """
     def __init__(self,wavelength,flux,wavelengthUnits=units.angstrom,fluxUnits=None,
         extrapolatedValue=None):
@@ -318,6 +319,9 @@ class SpectralFluxDensity(WavelengthFunction):
 
     # Define our fiducial flux units.
     fiducialFluxUnit = 1e-17*units.erg/(units.s*units.cm**2*units.angstrom)
+    """
+    1e-17 erg/(s*cm^2*Ang)
+    """
 
     # Placeholder for SDSS filter curves and counting rates used to calculate AB magnitudes.
     sdssFilterCurves = None

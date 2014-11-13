@@ -31,12 +31,12 @@ Save a target list along with **z** and **sn** fields::
 
 Iterate over combined spectra for a list targets::
 
-    for target, spectrum in qusp.target.get_combined_spectra(paths.boss_path, targets):
+    for target, spectrum in qusp.target.get_combined_spectra(targets):
         ...
 
 Iterate over plates for a list of targets::
 
-    for target, spplate in qusp.target.get_target_plates(paths.boss_path, targets):
+    for target, spplate in qusp.target.get_target_plates(targets):
         spectrum = qusp.read_combined_spectrum(spplate, target)
         ...
 
@@ -145,16 +145,17 @@ def save_target_list(filename, targets, fields=None, verbose=False):
         for target in targets:
             outfile.write(' '.join([str(target[key]) for key in keys])+'\n')
 
-def get_target_plates(boss_path, targets, sort=True, verbose=False):
+def get_target_plates(targets, boss_path=None, sort=True, verbose=False):
     """
     A generator that yields (target,spplate) tuples for the provided list of
     targets. With sort=True, the targets will be sorted by plate-mjd-fiber to
     reduce the number of io operations.
 
     Args:
-        boss_path (str): path to boss data directory.
         targets (:class:`Target`): list of :class:`Target` objects
             to iterate through.
+        boss_path (str, optional): path to boss data directory. Default is to 
+            look this up using env var.
         sort (bool, optional): Whether or not to sort the provided targets
             by plate-mjd-fiber. Defaults to True.
         verbose (bool, optional): Whether or not to print verbose output.
@@ -164,6 +165,9 @@ def get_target_plates(boss_path, targets, sort=True, verbose=False):
         The next tuple ``(target, spplate)``, where ``target`` is a :class:`Target` and \
         ``spplate`` is the corresponding FITS file containing its coadded spectrum from the list of *targets*.
     """
+    if boss_path is None:
+        paths = qusp.paths.Paths()
+        boss_path = paths.boss_path
     if sort:
         targets = sorted(
             targets, key=lambda t: (t['plate'], t['mjd'], t['fiber']))
@@ -182,16 +186,17 @@ def get_target_plates(boss_path, targets, sort=True, verbose=False):
             currently_opened_filename = plate_filename
         yield target, spplate
 
-def get_combined_spectra(boss_path, targets, sort=True, verbose=False):
+def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
     """
     A generator that yields (target, spectrum) tuples for the provided list of
     targets. With sort=True, the targets will be sorted by plate-mjd-fiber to
     reduce the number of io operations.
 
     Args:
-        boss_path (str): path to boss data directory.
         targets (:class:`Target`): list of :class:`Target` objects
             to iterate through.
+        boss_path (str, optional): path to boss data directory. Default is to 
+            look this up using env var.
         sort (bool, optional): Whether or not to sort the provided targets
             by plate-mjd-fiber. Defaults to True.
         verbose (bool, optional): Whether or not to print verbose output.
@@ -203,6 +208,7 @@ def get_combined_spectra(boss_path, targets, sort=True, verbose=False):
             target's coadded spectrum.
     """
 
-    for target, spplate in read_target_plates(boss_path, targets, sort=sort, verbose=verbose):
+    for target, spplate in read_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
         combined = qusp.read_combined_spectrum(spplate, target)
         yield target, combined
+
