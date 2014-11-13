@@ -15,8 +15,14 @@
 import sys
 import os
 
-import mock
- 
+# import mock
+from unittest.mock import MagicMock
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+            return Mock()
+
 MOCK_MODULES = [
     'numpy', 
     'scipy', 
@@ -29,8 +35,10 @@ MOCK_MODULES = [
     'astropy', 
     'astropy.io'
 ]
-for mod_name in MOCK_MODULES:
-  sys.modules[mod_name] = mock.Mock()
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+# for mod_name in MOCK_MODULES:
+#   sys.modules[mod_name] = mock.Mock()
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
