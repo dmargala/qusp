@@ -10,6 +10,3 @@ A progam for performing simultaneous least squares fits of BOSS quasar spectra t
 
 
 ----------------------
-
-.. command-output:: python examples/fitspec.py --help
-	:cwd: ../../..
