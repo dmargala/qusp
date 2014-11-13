@@ -4,15 +4,16 @@ A program to filter FITS catalogs into target lists
 
 Basic example:
 
-    examples/filter.py -i spAll-v5_7_0.fits --select "(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)" --annotate 'ra:dec:z' --verbose --save quasars.txt
+    examples/filter.py -i spAll-v5_7_0.fits --select "(['OBJTYPE'] == 'QSO') & (['Z'] > 2.1)" --annotate 'ra:dec:z' --verbose --save quasars.txt
 
 
 Advanced example (not very efficient):
 
-    for plate in $(cat ~/blue-plates.txt); do examples/filter.py -i /share/dm/all/data/boss/spAll-v5_7_0.fits --select "(tbdata['plate'] == $plate) & (tbdata['objtype'] == 'QSO') & (tbdata['zwarning'] == 0) & (tbdata['z'] > .5)" --save systematics/$plate.txt --annotate 'ra:dec:z' --verbose; done
+    for plate in $(cat ~/blue-plates.txt); do examples/filter.py -i /share/dm/all/data/boss/spAll-v5_7_0.fits --select "(['plate'] == $plate) & (['objtype'] == 'QSO') & (['zwarning'] == 0) & (['z'] > .5)" --save systematics/$plate.txt --annotate 'ra:dec:z' --verbose; done
 
 """
 import argparse
+import re
 
 from astropy.io import fits
 
@@ -31,7 +32,7 @@ def main():
     parser.add_argument("-i", "--input", type=str, default=None,
         help="required input FITS file to read")
     parser.add_argument("-s", "--select", type=str, default=None,
-        help="tbdata selection string, ex: \"(tbdata['OBJTYPE'] == 'QSO') & (tbdata['Z'] > 2.1)\"")
+        help="selection string, use brackets to specify catalog fields. ex: \"(['OBJTYPE'] == 'QSO') & (['Z'] > 2.1)\"")
     parser.add_argument("--save", type=str, default=None,
         help="target list text file to save")
     parser.add_argument("--annotate", type=str, default=None,
@@ -46,7 +47,15 @@ def main():
     if args.verbose:
         print 'Read %d entries from %s' % (len(tbdata), args.input)
     if args.select:
-        mask = eval(args.select)
+        # parse selection 
+        p = re.compile(r"""
+            \[              # matches literal open bracket
+            ( [^\]]+ )      # group of one or more characters except for a close bracket
+            \]              # matches literal close bracket
+            """, re.VERBOSE)
+        selection = p.sub(r'tbdata[\1]', args.select)
+        mask = eval(selection)
+        # apply selection
         filtered = tbdata[mask]
         if args.verbose:
             print 'Selecting %d rows matching: %s' % (
