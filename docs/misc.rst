@@ -1,6 +1,12 @@
 Misc
 ====
 
+.. toctree::
+    :maxdepth: 2
+    
+    profiling.rst
+    docs.rst
+
 Code Style Guide
 ----------------
 
@@ -8,7 +14,7 @@ Run pylint to help keep everything nice and pretty.
 
 .. code-block:: bash
 
-	$ pylint qusp/*.py --reports=no
+    $ pylint qusp/*.py --reports=no
 
 The ``pylintrc`` file in the toplevel directory specifies configuration options. For example,
 we ignore ``bad-continuation`` and extend the character limit per line.
@@ -26,18 +32,18 @@ Copy spAll from darkmatter to hpc:
 
 .. code-block:: bash
 
-	$ scp dmargala@darkmatter.ps.uci.edu:/data/boss/spAll-v5_7_0.fits /share/dm/all/data/boss/
+    $ scp dmargala@darkmatter.ps.uci.edu:/data/boss/spAll-v5_7_0.fits /share/dm/all/data/boss/
 
 Create target list from lists of plates:
 
 .. code-block:: bash
 
-	for plate in $(cat ~/blue-plates.txt); \
-	do \
-	examples/filter.py -i /share/dm/all/data/boss/spAll-v5_7_0.fits \
-		--select "(tbdata['plate'] == $plate) & (tbdata['objtype'] == 'QSO') & (tbdata['zwarning'] == 0) & (tbdata['z'] > .5)" \
-		--save systematics/$plate.txt --annotate 'ra:dec:z' --verbose; \
-	done
+    for plate in $(cat ~/blue-plates.txt); \
+    do \
+    examples/filter.py -i /share/dm/all/data/boss/spAll-v5_7_0.fits \
+        --select "(tbdata['plate'] == $plate) & (tbdata['objtype'] == 'QSO') & (tbdata['zwarning'] == 0) & (tbdata['z'] > .5)" \
+        --save systematics/$plate.txt --annotate 'ra:dec:z' --verbose; \
+    done
 
 
-	
+    
