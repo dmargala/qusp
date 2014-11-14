@@ -344,6 +344,14 @@ def load_sdss_filter_curves(which_column=1):
     return curves
 
 class BOSSSpectrum(object):
+    """
+    Represents a BOSS co-added spectrum.
+
+    Args:
+        wavelength (numpy.ndarray): wavelength pixel centers.
+        flux (numpy.ndarray): flux values.
+        ivar (numpy.ndarray): flux inverse variance values.
+    """
     def __init__(self, wavelength, flux, ivar, wavelengths_units=units.angstrom, flux_units=None,
         extrapolated_value=None):
 
@@ -616,7 +624,7 @@ if __name__ == '__main__':
         qusp.wavelength.get_fiducial_wavelength(4000),
         qusp.wavelength.get_fiducial_wavelength(4000-.6)
     ]
-    
+
     for spec in (boss_spec, old_spec):
         print spec.find_pixel(7000)
         print spec.mean_flux(wave[0], wave[-1])
