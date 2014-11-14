@@ -588,10 +588,11 @@ def read_combined_spectrum(spplate, fiber):
     npixels = len(flux)
     wavelength = np.power(10, coeff0 + coeff1*np.arange(0, npixels))
 
-    # Build the spectrum (no masking yet).
-    spectrum = Spectrum(wavelength, flux, ivar)
     # Filter on the AND mask
-    spectrum.ivar[and_mask > 0] = 0
+    ivar[and_mask > 0] = 0
+
+    # Build the spectrum (no masking yet).
+    spectrum = BOSSSpectrum(wavelength, flux, ivar)
 
     return spectrum
 
