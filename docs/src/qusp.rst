@@ -1,5 +1,5 @@
-qusp package
-============
+Package API
+===========
 
 .. toctree::
 

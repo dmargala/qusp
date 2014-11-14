@@ -3,9 +3,6 @@ Welcome to qusp's documentation!
 
 A package for working with **qu**\ asar **sp**\ ectra.
 
-Quick Start
------------
-
 Here is an example recipe for calculating the median signal to noise in the lya forest for quasar targets:
 
 .. code-block:: python
@@ -26,7 +23,6 @@ The target module provides support for reading target lists:
 
     # parse target list with ra, dec, and z attributes, example line:
     #   1234-56789-109 87.6 54.3 2.1
-    #
     targets = qusp.target.load_target_list('quasars.txt', 
         fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
 
@@ -38,6 +34,7 @@ The ``filter.py`` utility makes it east to create target lists from a catalog fi
         --select "(['OBJTYPE'] == 'QSO') & (['Z'] > 2.1)" \
         --annotate 'ra:dec:z' --save quasars.txt --verbose 
 
+
 User Documentation
 ------------------
 
@@ -46,7 +43,7 @@ Package API and how to use the example programs included in this package.
 .. toctree::
     :maxdepth: 2
 
-    user
+    quick
     src/qusp
     src/examples/programs
 
@@ -58,9 +55,7 @@ Info on how to build this documentation and other miscellany
 .. toctree::
     :maxdepth: 2
 
-    profiling
-    docs
-    misc
+    dev
 
 
 Indices and tables

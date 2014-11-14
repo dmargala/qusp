@@ -1,4 +1,4 @@
-example programs
+Example Programs
 ================
 
 .. toctree::

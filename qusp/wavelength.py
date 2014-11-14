@@ -142,9 +142,7 @@ def draw_lines(waves, offset=0, delta=.1, **kwargs):
             pass
 
 if __name__ == '__main__':
-    """
-    Tests for wavelengths module
-    """
+    # Tests for wavelengths module
     wave1216 = Wavelength(1216)
     assert wave1216.observed(2.5) == 4256, 'observed wavelength error'
 
@@ -160,5 +158,5 @@ if __name__ == '__main__':
 
     waves = load_wavelengths('balmer')
     for wave in waves:
-        print wave.label
+        print waves.label
 
