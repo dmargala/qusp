@@ -1,6 +1,17 @@
 Misc
 ====
 
+Code Style Guide
+----------------
+
+Run pylint to help keep everything nice and pretty.
+
+.. code-block:: bash
+
+	$ pylint qusp/*.py --reports=no
+
+The ``pylintrc`` file in the toplevel directory specifies configuration options. For example,
+we ignore ``bad-continuation`` and extend the character limit per line.
 
 Data transfers
 --------------
