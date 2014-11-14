@@ -48,6 +48,8 @@ import numpy as np
 from astropy.io import fits
 import os
 
+import qusp
+
 class Target(dict):
     """
     Represents a BOSS target. 
@@ -91,7 +93,6 @@ class Target(dict):
         """
         return cls({'target':target_string})
 
-
 def load_target_list(filename, fields=None, verbose=False):
     """
     Loads a target data from a text file.
@@ -120,6 +121,37 @@ def load_target_list(filename, fields=None, verbose=False):
         filename, dtype={'names':names, 'formats':formats}, usecols=cols)
 
     return [Target(dict(zip(targets.dtype.names, t))) for t in targets]
+
+def add_args(parser):
+    """
+    Adds arguments to the provided command-line parser.
+
+    Args:
+        parser (argparse.ArgumentParser): an argument parser
+    """
+    parser.add_argument(
+        "--targets", type=str, default=None,
+        help="text file containing target list")
+    parser.add_argument(
+        "--ntargets", type=int, default=0,
+        help="number of targets to use, 0 for all")
+
+def load_targets_from_args(args, fields=None):
+    """
+    Loads a target list from a text file specified using the default target arguments.
+
+    Args:
+        args (argparse.Namespace): argparse argument namespace
+        fields (list, optional): A list of columns to read, see example.
+            Defaults to None.
+
+    Returns:
+        list of :class:`Target` objects.
+    """
+    targets = load_target_list(args.targets, fields=fields, verbose=args.verbose)
+    # trim target list if requested
+    ntargets = args.ntargets if args.ntargets > 0 else len(targets)
+    return targets[:ntargets]
 
 def save_target_list(filename, targets, fields=None, verbose=False):
     """
@@ -208,7 +240,7 @@ def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
             target's coadded spectrum.
     """
 
-    for target, spplate in read_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
-        combined = qusp.read_combined_spectrum(spplate, target)
+    for target, spplate in get_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
+        combined = qusp.spectrum.read_combined_spectrum(spplate, target)
         yield target, combined
 
