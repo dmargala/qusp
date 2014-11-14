@@ -238,8 +238,6 @@ class SpectralFluxDensity(WavelengthFunction):
             RuntimeError: if preserve_wavelengths is True and no extrapolated_value has been set
         """
         scale = (1.+new_z)/(1.+old_z)
-        new_wave = self.wavelength*scale
-        new_flux = self.values/scale
         extrap = self.extrapolated_value
         if extrap is not None:
             extrap /= scale
@@ -251,6 +249,7 @@ class SpectralFluxDensity(WavelengthFunction):
         else:
             new_flux = self.values/scale
             return SpectralFluxDensity(self.wavelength*scale, new_flux, extrapolated_value=extrap)
+
 
     def get_filtered_rates(self, filter_curves, wavelength_step=1.0):
         """
@@ -344,22 +343,111 @@ def load_sdss_filter_curves(which_column=1):
         curves[band] = WavelengthFunction(filter_data[0], filter_data[which_column], extrapolated_value=0.)
     return curves
 
-class BOSSSpectrum(SpectralFluxDensity):
+class BOSSSpectrum(object):
     def __init__(self, wavelength, flux, ivar, wavelengths_units=units.angstrom, flux_units=None,
         extrapolated_value=None):
-        # Convert flux to a numpy array/view in our fiducial units.
-        if flux_units is not None:
-            convert = units.Unit(flux_units).to(self.fiducialFluxUnit)
-        else:
-            convert = 1
-        if not isinstance(ivar, np.ndarray) or convert != 1:
-            self.ivar = np.array(ivar)/(convert*convert)
-        else:
-            self.ivar = ivar
-        # Initialize our base SpectralFluxDensity.
-        SpectralFluxDensity.__init__(self, wavelength, flux, wavelengths_units, flux_units=flux_units,
-            extrapolated_value=extrapolated_value)
 
+        self.flux = SpectralFluxDensity(wavelength, flux, wavelengths_units, flux_units=flux_units,
+            extrapolated_value=extrapolated_value)
+        ivar_units = 1/self.flux.value_units**2
+        self.ivar = WavelengthFunction(wavelength, ivar, wavelengths_units, value_units=ivar_units)
+        self.wavelength = self.flux.wavelength
+        self.npixels = len(wavelength)
+
+    def find_pixel(self, wavelength, clip=False):
+        """
+        Returns the corresponding pixel index of the specified wavelength.
+
+        Args:
+            wavelength (float): value
+            clip (bool): if wavelength is out of range, return -1, or npixels
+
+        Returns:
+            pixelIndex (int): pixel index
+        """
+        offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(self.wavelength[0]))
+        if wavelength < qusp.wavelength.get_fiducial_wavelength(offset-0.5):
+            if clip:
+                return -1
+            else:
+                raise ValueError('BOSSSpectrum.find_pixel: specified wavelength below range')
+        if wavelength >= qusp.wavelength.get_fiducial_wavelength(offset+self.npixels-0.5):
+            if clip:
+                return self.npixels
+            else:
+                raise ValueError('BOSSSpectrum.find_pixel: specified wavelength above range')
+
+        # find first pixel with a central wavelength greater than wavelength
+        candidate = np.argmax(self.wavelength >= wavelength)
+        # compare wavelength with this pixel's lower boundary
+        if wavelength < qusp.wavelength.get_fiducial_wavelength(candidate-0.5):
+            return candidate - 1
+        elif candidate == 0 and wavelength > qusp.wavelength.get_fiducial_wavelength(offset+self.npixels-1):
+            return self.npixels-1
+        else:
+            return candidate
+
+    def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
+        """
+        Returns the mean flux between the specified wavelengths.
+        Use ``ivar_weighting=False`` to turn ignore weights.
+
+        Args:
+            min_wavelength (float): minimum wavelength for mean flux calculation range.
+            max_wavelength (float): maximum wavelength for mean flux calculation range.
+            ivar_weighting (bool, optional): Whether or not to weight
+                calculation using inverse variance.
+
+        Returns:
+            the mean flux between ``min_wavelength`` and ``max_wavelength``.
+        """
+        min_pixel = self.find_pixel(min_wavelength)
+        max_pixel = self.find_pixel(max_wavelength)
+        if min_pixel > max_pixel:
+            raise RuntimeError('BOSSSpectrum.mean_flux: min_pixel > max_pixel')
+        pixels = slice(min_pixel, max_pixel+1)
+        # only use "good" pixels
+        nonzero = np.nonzero(self.ivar.values[pixels])
+        # use weights?
+        if ivar_weighting:
+            weights = self.ivar.values[pixels][nonzero]
+        else:
+            weights = np.ones(len(nonzero))
+        # calculate mean
+        weights_sum = np.sum(weights)
+        if weights_sum <= 0:
+            return 0
+        weighted_flux_sum = np.sum(weights*self.flux.values[pixels][nonzero])
+        return weighted_flux_sum/weights_sum
+
+    def median_signal_to_noise(self, min_wavelength, max_wavelength):
+        """
+        Returns the median signal to noise ratio between the specified
+        wavelengths.
+
+        Args:
+            min_wavelength (float): minimum wavelength for median flux
+                calculation range.
+            max_wavelength (float): maximum wavelength for median flux
+                calculation range.
+
+        Returns:
+            median (float): the median flux between ``min_wavelength`` and ``max_wavelength``.
+        """
+        min_pixel = self.find_pixel(min_wavelength)
+        max_pixel = self.find_pixel(max_wavelength)
+        if min_pixel > max_pixel:
+            raise RuntimeError('BOSSSpectrum.mean_flux: min_pixel > max_pixel')
+        pixels = slice(min_pixel, max_pixel+1)
+        # only use "good" pixels
+        nonzero = np.nonzero(self.ivar.values[pixels])
+        if len(nonzero) == 0:
+            return 0
+        # calculate signal to noise
+        signal_to_noise = np.fabs(
+            self.flux.values[pixels][nonzero])*np.sqrt(self.ivar.values[pixels][nonzero])
+        # return median
+        return np.median(signal_to_noise)
 
 class Spectrum(object):
     """
@@ -486,8 +574,8 @@ def read_combined_spectrum(spplate, fiber):
     flux = spplate[0].data[index]
     ivar = spplate[1].data[index]
     and_mask = spplate[2].data[index]
-    or_mask = spplate[3].data[index]
-    pixel_dispersion = spplate[4].data[index]
+    #or_mask = spplate[3].data[index]
+    #pixel_dispersion = spplate[4].data[index]
     # Calculate the wavelength sequence to use.
     npixels = len(flux)
     wavelength = np.power(10, coeff0 + coeff1*np.arange(0, npixels))
@@ -510,5 +598,35 @@ if __name__ == '__main__':
     print spec2.get_ab_magnitudes()
     spec3 = spec.create_redshifted(1.)
     spec4 = spec.create_redshifted(1., preserve_wavelengths=True)
+
+    # compare Spectrum and BOSSSpectrum
+    wave = qusp.wavelength.get_fiducial_wavelength(np.arange(100, 4000))
+    flux = np.exp(-0.5*(wave-7000.)**2/1000.**2)
+    ivar = np.ones(len(wave))
+    boss_spec = BOSSSpectrum(wave, flux, ivar)
+
+    assert boss_spec.wavelength.base is wave, "Numpy wavelength array should not be copied"
+    assert boss_spec.flux.wavelength.base is wave, "Numpy wavelength array should not be copied"
+    assert boss_spec.ivar.wavelength.base is wave, "Numpy wavelength array should not be copied"
+    old_spec = Spectrum(wave, flux, ivar)
+    print wave[0], wave[-1]
+
+    testwaves = [qusp.wavelength.get_fiducial_wavelength(99),
+        qusp.wavelength.get_fiducial_wavelength(99.9),
+        qusp.wavelength.get_fiducial_wavelength(4000),
+        qusp.wavelength.get_fiducial_wavelength(4000-.6)
+    ]
+    
+    for spec in (boss_spec, old_spec):
+        print spec.find_pixel(7000)
+        print spec.mean_flux(wave[0], wave[-1])
+        print spec.median_signal_to_noise(wave[0], wave[-1])
+        for testwave in testwaves:
+            print testwave,
+            try:
+                print spec.find_pixel(testwave)
+            except ValueError:
+                print spec.find_pixel(testwave, clip=True)
+
 
 
