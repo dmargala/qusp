@@ -53,7 +53,7 @@ Developer Documentation
 Info on how to build this documentation and other miscellany
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 4
 
     dev
 
