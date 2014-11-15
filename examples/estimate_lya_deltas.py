@@ -104,7 +104,7 @@ def main():
             absorber_transmissions, statistic='mean', bins=zbins)[0]
         bin_centers = (zbins[:-1]+zbins[1:])/2
 
-        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-0.5,3,50+1)], cmap='Greens')
+        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-0.5,3,100+1)], cmap='Greens')
         plt.plot(bin_centers, bin_means, '-')
         plt.colorbar()
 
