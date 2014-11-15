@@ -82,12 +82,14 @@ def main():
         absorber_weights = np.concatenate(absorber_weights)
     absorber_transmissions = np.concatenate(absorber_transmissions)
 
-
     if args.verbose:
         print 'Number of absorbers: %d' % absorber_redshifts.shape[0]
         print 'Mean number per target: %.2f' % (absorber_redshifts.shape[0]/len(target_list))
         print 'Mean absorber redshift: %.4f' % np.mean(absorber_redshifts)
         print 'Mean transimission: %.4f' % np.mean(absorber_transmissions)
+
+    ###################
+    ###################
 
     zmax = absorber_redshifts.max() #3.5
     zbinsize = .01
@@ -105,6 +107,31 @@ def main():
     good_indices = np.logical_not(bad_indices)
     mean_transmission_interp = scipy.interpolate.UnivariateSpline(
         zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count))
+
+    ###################
+    ###################
+
+    fig = plt.figure(figsize=(16,6))
+
+    # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
+    # plt.grid()
+
+    trans_max = max(3, mean_transmission.max())
+    trans_min = min(-0.5, mean_transmission.min())
+    trans_bins = np.linspace(trans_min, trans_max, 100+1)
+
+    plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,trans_bins], cmap='Greens')
+    plt.plot(zbin_centers, mean_transmission, 'b.')
+    plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
+
+    plt.xlabel('absorber redshift')
+    plt.ylabel('transmission fraction')
+    plt.colorbar()
+
+    fig.savefig('absorber_transmission.png', bbox_inches='tight')
+
+    ###################
+    ###################
 
     absorber_deltas = []
     # loop over targets
@@ -126,26 +153,17 @@ def main():
         absorber_deltas.append(deltas)
 
     absorber_deltas = np.concatenate(absorber_deltas)
+    if args.verbose:
+        print 'Mean delta: %.6f' % np.mean(absorber_deltas)
 
-    if args.output:
-        fig = plt.figure(figsize=(16,6))
+    ###################
+    ###################
 
-        # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
-        # plt.grid()
-
-        trans_max = max(3,mean_transmission.max())
-        trans_min = min(-.5,mean_transmission.min())
-        trans_bins = np.linspace(trans_min,trans_max,100+1)
-
-        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,trans_bins], cmap='Greens')
-        plt.plot(zbin_centers, mean_transmission, 'b.')
-        plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
-
-        plt.xlabel('absorber redshift')
-        plt.ylabel('')
-        plt.colorbar()
-
-        fig.savefig(args.output, bbox_inches='tight')
+    fig = plt.figure(figsize=(8,6))
+    plt.hist(absorber_deltas, weights=absorber_weights, bins=50, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Absorber Deltas')
+    plt.grid()
+    fig.savefig('absorber_deltas', bbox_inches='tight')
 
 
 if __name__ == '__main__':
