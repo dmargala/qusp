@@ -128,7 +128,7 @@ def main():
     absorber_deltas = np.concatenate(absorber_deltas)
 
     if args.output:
-        fig = plt.figure(figsize=(8,6))
+        fig = plt.figure(figsize=(16,6))
 
         # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
         # plt.grid()
@@ -136,7 +136,6 @@ def main():
         plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-0.5,3,100+1)], cmap='Greens')
         plt.plot(zbin_centers, mean_transmission, 'b.')
         plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
-        plt.xscale('log')
         plt.colorbar()
 
         fig.savefig(args.output, bbox_inches='tight')
