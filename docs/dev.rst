@@ -1,6 +1,8 @@
 Developement
 ============
 
+.. contents::
+
 Documentation
 -------------
 
