@@ -8,6 +8,8 @@ import qusp
 import numpy as np
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use('Agg')
 
 import scipy.stats
 
@@ -98,7 +100,7 @@ def main():
         bin_means = scipy.stats.binned_statistic(absorber_redshifts, 
             absorber_transmissions, statistic='mean', bins=zbins)[0]
         bin_centers = (zbins[:-1]+zbins[1:])/2
-        print bin_centers.shape
+
         plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-2,4,100+1)], cmap='Greens')
         plt.plot(bin_centers, bin_means, '-')
         plt.colorbar()
