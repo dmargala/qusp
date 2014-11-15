@@ -22,9 +22,6 @@ import math
 import os
 import numpy as np
 
-import matplotlib.pyplot as plt
-import matplotlib.transforms as transforms
-
 class Wavelength(float):
     """
     A Wavelength is a float
@@ -125,6 +122,9 @@ def draw_lines(waves, offset=0, delta=.1, **kwargs):
     """
     Draws vertical lines on the current plot.
     """
+
+    import matplotlib.pyplot as plt
+    import matplotlib.transforms as transforms
 
     wavemin, wavemax = plt.gca().get_xlim()
 
