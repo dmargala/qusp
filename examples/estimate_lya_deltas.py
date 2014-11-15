@@ -94,7 +94,9 @@ def main():
         # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
         # plt.grid()
 
-        zbins = np.arange(absorber_redshifts.min(),absorber_redshifts.max()+.01,.01)
+        zmax = 3.5
+        zbinsize = .01
+        zbins = np.arange(absorber_redshifts.min(), zmax+zbinsize, zbinsize)
         # digitized = np.digitize(absorber_redshifts, zbins)
         # bin_means = [daabsorber_transmissions[digitized == i].mean() for i in range(1, len(zbins))]
 
