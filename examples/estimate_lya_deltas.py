@@ -13,6 +13,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 import scipy.stats
+import scipy.interpolate
 
 def main():
     # parse command-line arguments
@@ -88,24 +89,48 @@ def main():
         print 'Mean absorber redshift: %.4f' % np.mean(absorber_redshifts)
         print 'Mean transimission: %.4f' % np.mean(absorber_transmissions)
 
+    zmax = absorber_redshifts.max() #3.5
+    zbinsize = .01
+    zbins = np.arange(absorber_redshifts.min(), zmax+zbinsize, zbinsize)
+    # digitized = np.digitize(absorber_redshifts, zbins)
+    # bin_means = [daabsorber_transmissions[digitized == i].mean() for i in range(1, len(zbins))]
+
+    mean_transmission = scipy.stats.binned_statistic(absorber_redshifts, 
+        absorber_transmissions, statistic='mean', bins=zbins)[0]
+    count = scipy.stats.binned_statistic(absorber_redshifts, 
+        absorber_transmissions, statistic='count', bins=zbins)[0]
+
+    zbin_centers = (zbins[:-1]+zbins[1:])/2
+    bad_indices = np.isnan(mean_transmission)
+    good_indices = np.logical_not(bad_indices)
+    mean_transmission_interp = scipy.interpolate.UnivariateSpline(zbin_centers[good_indices], mean_transmission[good_indices])
+
+    # loop over targets
+    for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
+        continuum = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
+        if continuum <= 0:
+            continue
+        # determine observed frame forest window
+        obs_min = forest_min.observed(target['z'])
+        obs_max = forest_max.observed(target['z'])
+        # find pixels values corresponding to this window
+        pixel_min = combined.find_pixel(obs_min, clip=True)
+        pixel_max = combined.find_pixel(obs_max, clip=True)
+        forest_slice = slice(pixel_min, pixel_max+1)
+
+        absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
+
+        deltas = combined.flux.values[forest_slice]/(continuum*mean_transmission_interp(absorber_z)) - 1
+
     if args.output:
         fig = plt.figure(figsize=(8,6))
 
         # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
         # plt.grid()
 
-        zmax = 3.5
-        zbinsize = .01
-        zbins = np.arange(absorber_redshifts.min(), zmax+zbinsize, zbinsize)
-        # digitized = np.digitize(absorber_redshifts, zbins)
-        # bin_means = [daabsorber_transmissions[digitized == i].mean() for i in range(1, len(zbins))]
-
-        bin_means = scipy.stats.binned_statistic(absorber_redshifts, 
-            absorber_transmissions, statistic='mean', bins=zbins)[0]
-        bin_centers = (zbins[:-1]+zbins[1:])/2
-
         plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-0.5,3,100+1)], cmap='Greens')
-        plt.plot(bin_centers, bin_means, '-')
+        plt.plot(zbin_centers, mean_transmission, 'b.')
+        plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
         plt.colorbar()
 
         fig.savefig(args.output, bbox_inches='tight')
