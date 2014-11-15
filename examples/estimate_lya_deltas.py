@@ -133,9 +133,16 @@ def main():
         # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
         # plt.grid()
 
-        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-0.5,3,100+1)], cmap='Greens')
+        trans_max = max(3,mean_transmission.max())
+        trans_min = min(-.5,mean_transmission.min())
+        trans_bins = np.linspace(trans_min,trans_max,100+1)
+
+        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,trans_bins], cmap='Greens')
         plt.plot(zbin_centers, mean_transmission, 'b.')
         plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
+
+        plt.xlabel('absorber redshift')
+        plt.ylabel('')
         plt.colorbar()
 
         fig.savefig(args.output, bbox_inches='tight')
