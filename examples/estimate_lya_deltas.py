@@ -53,6 +53,8 @@ def main():
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
         continuum = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
+        if continuum <= 0:
+            continue
         # determine observed frame forest window
         obs_min = forest_min.observed(target['z'])
         obs_max = forest_max.observed(target['z'])
