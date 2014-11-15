@@ -25,6 +25,8 @@ def main():
         help="redshift column index")
     parser.add_argument("--output", type=str, default="absorber_redshifts.png",
         help="output file name")
+    parser.add_argument("--weighted", action="store_true",
+        help="use ivar weighting")
     qusp.Paths.add_args(parser)
     qusp.target.add_args(parser)
     args = parser.parse_args()
@@ -32,13 +34,17 @@ def main():
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
     # read target list
-    targets = qusp.target.load_targets_from_args(args, fields = [('z', float, args.z_col)])
+    targets = qusp.target.load_targets_from_args(args, fields=[('z', float, args.z_col)])
+
+    if args.verbose:
+        print 'using %d targets...' % len(targets)
 
     forest_min = qusp.wavelength.Wavelength(args.forest_min)
     forest_max = qusp.wavelength.Wavelength(args.forest_max)
     wave_lya = qusp.wavelength.Wavelength(args.wave_lya)
 
     absorber_redshifts = []
+    absorber_weights = []
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
@@ -58,9 +64,12 @@ def main():
         absorber_z = combined.wavelength[pixel_min:pixel_max+1]/wave_lya - 1
 
         absorber_redshifts += absorber_z.tolist()
+        absorber_weights += (combined.ivar.values[pixel_min:pixel_max+1]).tolist()
 
+    if not args.weighted:
+        absorber_weights = np.ones(len(absorber_redshifts))
     fig = plt.figure(figsize=(8,6))
-    plt.hist(absorber_redshifts, bins=50, linewidth=.1, alpha=.5)
+    plt.hist(absorber_redshifts, weights=absorber_weights, bins=50, linewidth=.1, alpha=.5)
     plt.xlabel(r'Absorber Redshifts')
     plt.grid()
     fig.savefig(args.output, bbox_inches='tight')
