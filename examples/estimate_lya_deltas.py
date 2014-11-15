@@ -85,27 +85,26 @@ def main():
         print 'Mean absorber redshift: %.4f' % np.mean(absorber_redshifts)
         print 'Mean transimission: %.4f' % np.mean(absorber_transmissions)
 
-    fig = plt.figure(figsize=(8,6))
-
-    # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
-    # plt.grid()
-
-    zbins = np.arange(absorber_redshifts.min(),absorber_redshifts.max()+.01,.01)
-    # digitized = np.digitize(absorber_redshifts, zbins)
-    # bin_means = [daabsorber_transmissions[digitized == i].mean() for i in range(1, len(zbins))]
-
-    bin_means = scipy.stats.binned_statistic(absorber_redshifts, 
-        absorber_transmissions, statistic='mean', bins=zbins)[0]
-    bin_centers = (zbins[:-1]+zbins[1:])/2
-    print bin_centers.shape
-    plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-2,4,100+1)], cmap='Greens')
-    plt.plot(bin_centers, bin_means, '-')
-    plt.colorbar()
-
     if args.output:
+        fig = plt.figure(figsize=(8,6))
+
+        # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
+        # plt.grid()
+
+        zbins = np.arange(absorber_redshifts.min(),absorber_redshifts.max()+.01,.01)
+        # digitized = np.digitize(absorber_redshifts, zbins)
+        # bin_means = [daabsorber_transmissions[digitized == i].mean() for i in range(1, len(zbins))]
+
+        bin_means = scipy.stats.binned_statistic(absorber_redshifts, 
+            absorber_transmissions, statistic='mean', bins=zbins)[0]
+        bin_centers = (zbins[:-1]+zbins[1:])/2
+        print bin_centers.shape
+        plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,np.linspace(-2,4,100+1)], cmap='Greens')
+        plt.plot(bin_centers, bin_means, '-')
+        plt.colorbar()
+
         fig.savefig(args.output, bbox_inches='tight')
-    else:
-        plt.show()
+
 
 if __name__ == '__main__':
     main()
