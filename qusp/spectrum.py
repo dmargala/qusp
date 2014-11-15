@@ -376,12 +376,12 @@ class BOSSSpectrum(object):
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(self.wavelength[0]))
         if wavelength < qusp.wavelength.get_fiducial_wavelength(offset-0.5):
             if clip:
-                return -1
+                return 0
             else:
                 raise ValueError('BOSSSpectrum.find_pixel: specified wavelength below range')
         if wavelength >= qusp.wavelength.get_fiducial_wavelength(offset+self.npixels-0.5):
             if clip:
-                return self.npixels
+                return self.npixels-1
             else:
                 raise ValueError('BOSSSpectrum.find_pixel: specified wavelength above range')
 
