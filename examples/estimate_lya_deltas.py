@@ -103,8 +103,10 @@ def main():
     zbin_centers = (zbins[:-1]+zbins[1:])/2
     bad_indices = np.isnan(mean_transmission)
     good_indices = np.logical_not(bad_indices)
-    mean_transmission_interp = scipy.interpolate.UnivariateSpline(zbin_centers[good_indices], mean_transmission[good_indices])
+    mean_transmission_interp = scipy.interpolate.UnivariateSpline(
+        zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count))
 
+    absorber_deltas = []
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
         continuum = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
@@ -121,6 +123,9 @@ def main():
         absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
 
         deltas = combined.flux.values[forest_slice]/(continuum*mean_transmission_interp(absorber_z)) - 1
+        absorber_deltas.append(deltas)
+
+    absorber_deltas = np.concatenate(absorber_deltas)
 
     if args.output:
         fig = plt.figure(figsize=(8,6))
