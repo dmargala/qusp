@@ -116,6 +116,7 @@ def load_target_list(filename, fields=None, verbose=False):
     fields = [('target', 'S15', 0)] + fields
     names, formats, cols = zip(*fields)
     if verbose:
+        print 'Target list: %s' % filename
         print 'Reading fields: %s' % (', '.join(names))
     targets = np.genfromtxt(
         filename, dtype={'names':names, 'formats':formats}, usecols=cols)
@@ -136,7 +137,7 @@ def add_args(parser):
         "--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
 
-def load_targets_from_args(args, fields=None):
+def load_target_list_from_args(args, fields=None):
     """
     Loads a target list from a text file specified using the default target arguments.
 
@@ -148,10 +149,12 @@ def load_targets_from_args(args, fields=None):
     Returns:
         list of :class:`Target` objects.
     """
-    targets = load_target_list(args.targets, fields=fields, verbose=args.verbose)
+    target_list = load_target_list(args.targets, fields=fields, verbose=args.verbose)
     # trim target list if requested
-    ntargets = args.ntargets if args.ntargets > 0 else len(targets)
-    return targets[:ntargets]
+    ntargets = args.ntargets if args.ntargets > 0 else len(target_list)
+    if args.verbose:
+        print 'Using %d targets (out of %d in file)' % (ntargets, len(target_list))
+    return target_list[:ntargets]
 
 def save_target_list(filename, targets, fields=None, verbose=False):
     """
