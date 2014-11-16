@@ -160,7 +160,7 @@ def main():
     ###################
 
     fig = plt.figure(figsize=(8,6))
-    delta_bins = np.linspace(-1,1,100+1)
+    delta_bins = np.linspace(-5,5,100+1)
     plt.hist(absorber_deltas, weights=absorber_weights, bins=delta_bins, linewidth=.1, alpha=.5)
     plt.xlabel(r'Absorber Deltas')
     plt.grid()
