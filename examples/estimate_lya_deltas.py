@@ -31,8 +31,6 @@ def main():
         help="redshift column index")
     parser.add_argument("--output", type=str, default="",
         help="output file name")
-    parser.add_argument("--unweighted", action="store_true",
-        help="don't use ivar weighting")
     qusp.Paths.add_args(parser)
     qusp.target.add_args(parser)
     args = parser.parse_args()
@@ -76,10 +74,7 @@ def main():
         absorber_transmissions.append(absorber_transmission)
 
     absorber_redshifts = np.concatenate(absorber_redshifts)
-    if args.unweighted:
-        absorber_weights = np.ones_like(absorber_redshifts)
-    else:
-        absorber_weights = np.concatenate(absorber_weights)
+    absorber_weights = np.concatenate(absorber_weights)
     absorber_transmissions = np.concatenate(absorber_transmissions)
 
     if args.verbose:
@@ -107,6 +102,15 @@ def main():
     good_indices = np.logical_not(bad_indices)
     mean_transmission_interp = scipy.interpolate.UnivariateSpline(
         zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count))
+
+    ###################
+    ###################
+
+    fig = plt.figure(figsize=(8,6))
+    plt.hist(absorber_redshifts, weights=absorber_weights, bins=100, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Absorber Redshifts')
+    plt.grid()
+    fig.savefig(args.output, bbox_inches='tight')
 
     ###################
     ###################
