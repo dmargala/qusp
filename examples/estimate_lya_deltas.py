@@ -110,7 +110,7 @@ def main():
     plt.hist(absorber_redshifts, weights=absorber_weights, bins=100, linewidth=.1, alpha=.5)
     plt.xlabel(r'Absorber Redshifts')
     plt.grid()
-    fig.savefig(args.output, bbox_inches='tight')
+    fig.savefig('absorber_redshifts.png', bbox_inches='tight')
 
     ###################
     ###################
