@@ -101,7 +101,7 @@ def main():
     bad_indices = np.isnan(mean_transmission)
     good_indices = np.logical_not(bad_indices)
     mean_transmission_interp = scipy.interpolate.UnivariateSpline(
-        zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count))
+        zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count[good_indices]))
 
     ###################
     ###################
@@ -158,14 +158,29 @@ def main():
 
     absorber_deltas = np.concatenate(absorber_deltas)
     if args.verbose:
-        print 'Mean delta: %.6f' % np.mean(absorber_deltas)
+        print 'Delta mean: %.6f' % np.mean(absorber_deltas)
+        print 'Delta var: %.6f' % np.var(absorber_deltas)
 
     ###################
     ###################
 
     fig = plt.figure(figsize=(8,6))
     delta_bins = np.linspace(-5,5,100+1)
-    plt.hist(absorber_deltas, weights=absorber_weights, bins=delta_bins, linewidth=.1, alpha=.5)
+
+    # import sklearn.mixture
+    # model = sklearn.mixture.GMM()
+    # result = model.fit(absorber_deltas)
+
+    # mean_delta = result.means_[0, 0]
+    # var_delta = result.covars_[0, 0]
+
+    # logprob, responsibilities = result.score_samples(delta_bins)
+    # pdf = np.exp(logprob)
+
+    # from scipy.stats import norm
+    # p1 = norm(mean_delta, np.sqrt(var_delta)).pdf(delta_bins)
+
+    plt.hist(absorber_deltas, weights=absorber_weights, normed=True, bins=delta_bins, linewidth=.1, alpha=.5)
     plt.xlabel(r'Absorber Deltas')
     plt.grid()
     fig.savefig('absorber_deltas', bbox_inches='tight')
