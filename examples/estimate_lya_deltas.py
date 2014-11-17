@@ -167,20 +167,22 @@ def main():
     fig = plt.figure(figsize=(8,6))
     delta_bins = np.linspace(-5,5,100+1)
 
-    # import sklearn.mixture
-    # model = sklearn.mixture.GMM()
-    # result = model.fit(absorber_deltas)
+    import sklearn.mixture
+    model = sklearn.mixture.GMM(2)
+    result = model.fit(absorber_deltas)
 
-    # mean_delta = result.means_[0, 0]
-    # var_delta = result.covars_[0, 0]
-
-    # logprob, responsibilities = result.score_samples(delta_bins)
-    # pdf = np.exp(logprob)
+    logprob, responsibilities = result.score_samples(delta_bins)
+    pdf = np.exp(logprob)
+    pdf_individual = responsibilities * pdf[:, np.newaxis]
 
     # from scipy.stats import norm
+    # mean_delta = result.means_[0, 0]
+    # var_delta = result.covars_[0, 0]
     # p1 = norm(mean_delta, np.sqrt(var_delta)).pdf(delta_bins)
 
     plt.hist(absorber_deltas, weights=absorber_weights, normed=True, bins=delta_bins, linewidth=.1, alpha=.5)
+    plt.plot(delta_bins, pdf, '-k')
+    plt.plot(delta_bins, pdf_individual, '--k')
     plt.xlabel(r'Absorber Deltas')
     plt.grid()
     fig.savefig('absorber_deltas', bbox_inches='tight')
