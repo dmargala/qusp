@@ -116,11 +116,11 @@ def plotAbsorption(specfits, **kwargs):
     plt.grid()
 
 def plotSpectrum(spectrum, **kwargs):
-    plt.plot(spectrum.wavelength, spectrum.flux, **kwargs)
+    plt.plot(spectrum.wavelength, spectrum.flux.values, **kwargs)
     plt.xlabel(r'Observed Wavelength $(\AA)$')
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
-    ymax = 1.2*np.percentile(spectrum.flux,99)
-    ymin = min(0,1.2*np.percentile(spectrum.flux,1))
+    ymax = 1.2*np.percentile(spectrum.flux.values,99)
+    ymin = min(0,1.2*np.percentile(spectrum.flux.values,1))
     plt.ylim([ymin,ymax])
       
 def plotTargets(specfits, targetIndices, boss_path):
@@ -266,7 +266,7 @@ def main():
     fig = plt.figure(figsize=(20,8))
     plotTransmission(specfits,c='black')
     qusp.wavelength.draw_lines(
-        qusp.wavelength.load_wavelengths('ballmer'), 0.89,-0.1, c='green', alpha=.5)
+        qusp.wavelength.load_wavelengths('balmer'), 0.89,-0.1, c='green', alpha=.5)
     qusp.wavelength.draw_lines(
         qusp.wavelength.load_wavelengths('calcium'), 0.01, 0.1, c='blue', alpha=.5)
     qusp.wavelength.draw_lines(
