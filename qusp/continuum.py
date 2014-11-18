@@ -64,7 +64,7 @@ class LinearFitContinuum(Continuum):
             ValueError: if target is not found in fit results.
         """
         # make sure we the request target exists
-        if not target['target'] in self.targets:
+        if not target.to_string() in self.targets:
             raise ValueError('Target not found in specified continuum results.')
         target_index = np.argmax(target['target'] == self.targets)
         assert target['z'] == self.redshifts[target_index], 'target redshift does not match the redshift used in fit'
@@ -74,12 +74,12 @@ class LinearFitContinuum(Continuum):
         target['amp'] = self.amp[target_index]
 
         # build the observed continuum from fit results
-        redshifted_waves = self.obs_wave_centers/(1+target['z'])
+        redshifted_waves = combined.wavelength/(1+target['z'])
         rest_continuum = target['amp']*(redshifted_waves/self.tiltwave)**target['nu']*self.cont_interp(redshifted_waves)
-        obs_continuum = rest_continuum/(1+target['z'])*self.trans_interp(self.obs_wave_centers)
+        obs_continuum = rest_continuum/(1+target['z'])*self.trans_interp(combined.wavelength)
 
         # return SpectralFluxDensity representation of the observed continuum
-        return qusp.SpectralFluxDensity(self.obs_wave_centers, obs_continuum)
+        return qusp.SpectralFluxDensity(combined.wavelength, obs_continuum)
 
 class MeanFluxContinuum(Continuum):
     """
