@@ -96,8 +96,8 @@ def main():
         print '... adding observations to fit ...\n'
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         wavelength = combined.wavelength
-        ivar = combined.ivar
-        flux = combined.flux
+        ivar = combined.ivar.values
+        flux = combined.flux.values
 
         # fix quasar spectrum normalization
         if args.fix_norm:

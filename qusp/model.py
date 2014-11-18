@@ -657,11 +657,11 @@ class ContinuumModel(object):
             parser (argparse.ArgumentParser): an argument parser
         """
         # transmission model wavelength grid options
-        parser.add_argument("--transmission-min", type=float, default=3600,
+        parser.add_argument("--transmission-min", type=float, default=3500,
             help="transmission model wavelength minimum")
         parser.add_argument("--transmission-max", type=float, default=10000,
             help="transmission model wavelength maximum")
-        parser.add_argument("--transmission-normmin", type=float, default=3600,
+        parser.add_argument("--transmission-normmin", type=float, default=3500,
             help="obsframe wavelength to normalize at")
         parser.add_argument("--transmission-normmax", type=float, default=10000,
             help="obsframe window size +/- on each side of obsnorm wavelength")
@@ -695,8 +695,7 @@ class ContinuumModel(object):
         parser.add_argument("--tiltweight", type=float, default=1e-2,
             help="spectral tilt constraint weight")
         # fit options
-        parser.add_argument(
-            "--unweighted", action="store_true",
+        parser.add_argument("--unweighted", action="store_true",
             help="perform unweighted least squares fit")
         parser.add_argument("--fix-transmission", action="store_true",
             help="fix transmission to 1")

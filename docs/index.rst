@@ -43,9 +43,9 @@ Package API and how to use the example programs included in this package.
 .. toctree::
     :maxdepth: 2
 
-    quick
+    src/quick
     src/qusp
-    src/examples/programs
+    src/examples
 
 Developer Documentation
 -----------------------
@@ -55,7 +55,7 @@ Info on how to build this documentation and other miscellany
 .. toctree::
     :maxdepth: 4
 
-    dev
+    src/dev
 
 
 Indices and tables

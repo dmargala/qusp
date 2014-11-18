@@ -368,7 +368,7 @@ class BOSSSpectrum(object):
 
         Args:
             wavelength (float): value
-            clip (bool): if wavelength is out of range, return -1, or npixels
+            clip (bool): if wavelength is out of range, return 0, or npixels-1
 
         Returns:
             pixelIndex (int): pixel index
@@ -376,12 +376,12 @@ class BOSSSpectrum(object):
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(self.wavelength[0]))
         if wavelength < qusp.wavelength.get_fiducial_wavelength(offset-0.5):
             if clip:
-                return -1
+                return 0
             else:
                 raise ValueError('BOSSSpectrum.find_pixel: specified wavelength below range')
         if wavelength >= qusp.wavelength.get_fiducial_wavelength(offset+self.npixels-0.5):
             if clip:
-                return self.npixels
+                return self.npixels-1
             else:
                 raise ValueError('BOSSSpectrum.find_pixel: specified wavelength above range')
 
@@ -394,6 +394,33 @@ class BOSSSpectrum(object):
             return self.npixels-1
         else:
             return candidate
+
+    def trim_range(self, wave_min, wave_max, clip=True):
+        """
+        Returns a :class:`BOSSSpectrum` object trimmed to the specified range.
+
+        Args:
+            wave_min (float): wavelength range lower bound
+            wave_max (float): wavelength range upper bound
+
+        Returns:
+            A :class:`BOSSSpectrum`
+
+        Raises:
+            ValueError: if no pixels in specified range
+
+        """
+
+        # find pixels values corresponding to this window
+        pixel_min = self.find_pixel(wave_min, clip=clip)
+        pixel_max = self.find_pixel(wave_max, clip=clip)
+
+        if pixel_max <= pixel_min:
+            raise ValueError('BOSSSpectrum.trim_range: no pixels in range')
+
+        forest_slice = slice(pixel_min, pixel_max+1)
+
+        return BOSSSpectrum(self.wavelength[forest_slice], self.flux.values[forest_slice], self.ivar.values[forest_slice])
 
     def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
@@ -495,6 +522,7 @@ class Spectrum(object):
         else:
             return candidate - 1
 
+
     def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
         Returns the mean flux between the specified wavelengths.
@@ -588,10 +616,11 @@ def read_combined_spectrum(spplate, fiber):
     npixels = len(flux)
     wavelength = np.power(10, coeff0 + coeff1*np.arange(0, npixels))
 
-    # Build the spectrum (no masking yet).
-    spectrum = Spectrum(wavelength, flux, ivar)
     # Filter on the AND mask
-    spectrum.ivar[and_mask > 0] = 0
+    ivar[and_mask > 0] = 0
+
+    # Build the spectrum (no masking yet).
+    spectrum = BOSSSpectrum(wavelength, flux, ivar)
 
     return spectrum
 

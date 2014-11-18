@@ -1,6 +1,8 @@
 Developement
 ============
 
+.. contents::
+
 Documentation
 -------------
 
@@ -75,7 +77,7 @@ Might need to install ``gprof2dot``:
 
 Here is an example call tree diagram:
 
-.. image:: image/profile-all.png
+.. image:: ../image/profile-all.png
 
 
 Code Style Guide
