@@ -368,7 +368,7 @@ class BOSSSpectrum(object):
 
         Args:
             wavelength (float): value
-            clip (bool): if wavelength is out of range, return -1, or npixels
+            clip (bool): if wavelength is out of range, return 0, or npixels-1
 
         Returns:
             pixelIndex (int): pixel index
@@ -394,6 +394,33 @@ class BOSSSpectrum(object):
             return self.npixels-1
         else:
             return candidate
+
+    def trim_range(self, wave_min, wave_max, clip=True):
+        """
+        Returns a :class:`BOSSSpectrum` object trimmed to the specified range.
+
+        Args:
+            wave_min (float): wavelength range lower bound
+            wave_max (float): wavelength range upper bound
+
+        Returns:
+            A :class:`BOSSSpectrum`
+
+        Raises:
+            ValueError: if no pixels in specified range
+
+        """
+
+        # find pixels values corresponding to this window
+        pixel_min = self.find_pixel(wave_min, clip=clip)
+        pixel_max = self.find_pixel(wave_max, clip=clip)
+
+        if pixel_max <= pixel_min:
+            raise ValueError('BOSSSpectrum.trim_range: no pixels in range')
+
+        forest_slice = slice(pixel_min, pixel_max+1)
+
+        return BOSSSpectrum(self.wavelength[forest_slice], self.flux.values[forest_slice], self.ivar.values[forest_slice])
 
     def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
@@ -494,6 +521,7 @@ class Spectrum(object):
             return candidate
         else:
             return candidate - 1
+
 
     def mean_flux(self, min_wavelength, max_wavelength, ivar_weighting=True):
         """
