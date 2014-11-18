@@ -23,20 +23,21 @@ class Continuum(object):
 
 class LinearFitContinuum(object):
     def __init__(self, specfits):
-        self.specfits = specfits
-        self.targets = specfits['targets'].value
-        self.redshifts = specfits['redshifts'].value
-        self.amp = specfits['amplitude'].value
-        self.nu = specfits['nu'].value   
-        self.rest_wave_centers = specfits['restWaveCenters'].value
-        self.obs_wave_centers = specfits['obsWaveCenters'].value
-        self.continuum = specfits['continuum'].value
-        self.transmission = specfits['transmission'].value 
+        import h5py
+        self.specfits = h5py.File(specfits)
+        self.targets = self.specfits['targets'].value
+        self.redshifts = self.specfits['redshifts'].value
+        self.amp = self.specfits['amplitude'].value
+        self.nu = self.specfits['nu'].value   
+        self.rest_wave_centers = self.specfits['restWaveCenters'].value
+        self.obs_wave_centers = self.specfits['obsWaveCenters'].value
+        self.continuum = self.specfits['continuum'].value
+        self.transmission = self.specfits['transmission'].value 
 
-        self.tiltwave = specfits['nu'].attrs['tiltwave']
+        self.tiltwave = self.specfits['nu'].attrs['tiltwave']
 
-        self.T = scipy.interpolate.UnivariateSpline(obsWaveCenters, transmission, s=0)
-        self.C = scipy.interpolate.UnivariateSpline(restWaveCenters, continuum, s=0)
+        self.T = scipy.interpolate.UnivariateSpline(self.obs_wave_centers, self.transmission, s=0)
+        self.C = scipy.interpolate.UnivariateSpline(self.rest_wave_centers, self.continuum, s=0)
 
     def get_continuum(self, target, combined):
         if not target['target'] in self.targets:
@@ -111,7 +112,9 @@ def main():
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
-        
+        if target['z'] < 2.1:
+            continue
+
         # determine observed frame forest window
         obs_min = forest_min.observed(target['z'])
         obs_max = forest_max.observed(target['z'])
@@ -121,15 +124,18 @@ def main():
         forest_slice = slice(pixel_min, pixel_max+1)
 
         try:
-            continuum = continuum_model.get_continuum(target, combined)(combined.wavelength[forest_slice])
-        except ValueError:
+            continuum = continuum_model.get_continuum(target, combined)
+        except ValueError, e:
+            print e
             print 'get_continuum: bad value for %s' % target.to_string()
             continue
+
+        sliced_continuum = continuum(combined.wavelength[forest_slice])
 
         # calculate absorber redshifts and weights
         absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
         absorber_weight = combined.ivar.values[forest_slice]
-        absorber_transmission = combined.flux.values[forest_slice]/continuum
+        absorber_transmission = combined.flux.values[forest_slice]/sliced_continuum
         # save this absorbers for this target
         absorber_redshifts.append(absorber_z)
         absorber_weights.append(absorber_weight)
@@ -202,6 +208,9 @@ def main():
     absorber_deltas = []
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
+        if target['z'] < 2.1:
+            continue
+
         # determine observed frame forest window
         obs_min = forest_min.observed(target['z'])
         obs_max = forest_max.observed(target['z'])
@@ -211,14 +220,17 @@ def main():
         forest_slice = slice(pixel_min, pixel_max+1)
 
         try:
-            continuum = continuum_model.get_continuum(target, combined)(combined.wavelength[forest_slice])
-        except ValueError:
+            continuum = continuum_model.get_continuum(target, combined)
+        except ValueError, e:
+            print e
             print 'get_continuum: bad value for %s' % target.to_string()
             continue
 
+        sliced_continuum = continuum(combined.wavelength[forest_slice])
+
         absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
 
-        deltas = combined.flux.values[forest_slice]/(continuum*mean_transmission_interp(absorber_z)) - 1
+        deltas = combined.flux.values[forest_slice]/(sliced_continuum*mean_transmission_interp(absorber_z)) - 1
         absorber_deltas.append(deltas)
 
     absorber_deltas = np.concatenate(absorber_deltas)
