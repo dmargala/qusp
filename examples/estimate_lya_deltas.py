@@ -3,18 +3,17 @@
 """
 
 import argparse
-import qusp
 
 import numpy as np
-
-import matplotlib as mpl
-mpl.use('Agg')
-
-import matplotlib.pyplot as plt
-
 import scipy.stats
 import scipy.interpolate
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
+import h5py
+
+import qusp
 
 def main():
     # parse command-line arguments
@@ -140,6 +139,17 @@ def main():
     good_indices = np.logical_not(bad_indices)
     mean_transmission_interp = scipy.interpolate.UnivariateSpline(
         zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count[good_indices]))
+
+    #################################
+    # Save mean transmission function
+    #################################
+
+    outfile = h5py.File(args.output+'-meanfrac.hdf5', 'w')
+    outfile.create_dataset('z', data=zbin_centers[good_indices])
+    outfile.create_dataset('meanF', data=mean_transmission[good_indices])
+    outfile.create_dataset('w', data=np.sqrt(count[good_indices]))
+    outfile.create_dataset('targets', data=[target.to_string() for target in targets_used_list])
+    outfile.close()
 
     ####################################################
     # Save mean transmission fraction vs redshift figure
