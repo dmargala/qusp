@@ -44,50 +44,62 @@ def main():
     target_list = qusp.target.load_target_list_from_args(args, 
         fields=[('z', float, args.z_col)])
 
+    # define forest range and lya wavelength
     forest_min = qusp.wavelength.Wavelength(args.forest_min)
     forest_max = qusp.wavelength.Wavelength(args.forest_max)
     wave_lya = qusp.wavelength.Wavelength(args.wave_lya)
+
+    # initialize continuum model
+    if args.continuum:
+        continuum_model = qusp.LinearFitContinuum(args.continuum)
+    else:
+        continuum_model = qusp.MeanFluxContinuum()
+
+    ##################################################
+    # Calculate mean transmission fraction vs redshift
+    ##################################################
 
     absorber_redshifts = []
     absorber_weights = []
     absorber_transmissions = []
 
-    if args.continuum:
-        continuum_model = qusp.LinearFitContinuum(args.continuum)
-    else:
-        continuum_model = qusp.MeanFluxContinuum(1275, 1285)
+    targets_used_list = []
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
-        if target['z'] < 2.1:
-            continue
-
         # determine observed frame forest window
-        obs_min = forest_min.observed(target['z'])
-        obs_max = forest_max.observed(target['z'])
-        # find pixels values corresponding to this window
-        pixel_min = combined.find_pixel(obs_min, clip=True)
-        pixel_max = combined.find_pixel(obs_max, clip=True)
-        forest_slice = slice(pixel_min, pixel_max+1)
+        obs_forest_min = forest_min.observed(target['z'])
+        obs_forest_max = forest_max.observed(target['z'])
 
+        # trim the combined spectrum to the forest window
         try:
-            continuum = continuum_model.get_continuum(target, combined)
+            forest = combined.trim_range(obs_forest_min, obs_forest_max)
         except ValueError, e:
-            print e
-            print 'get_continuum: bad value for %s' % target.to_string()
+            # skip target if it's forest is not observable
+            print e, '(z = %.2f)' % target['z']
             continue
 
-        sliced_continuum = continuum(combined.wavelength[forest_slice])
+        # look up continuum for this target
+        try:
+            continuum = continuum_model.get_continuum(target, forest)
+        except ValueError, e:
+            # skip target if we can't get a continuum for it
+            print e, '(target: %s)' % target.to_string()
+            continue
 
         # calculate absorber redshifts and weights
-        absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
-        absorber_weight = combined.ivar.values[forest_slice]
-        absorber_transmission = combined.flux.values[forest_slice]/sliced_continuum
+        absorber_z = forest.wavelength/wave_lya - 1
+        absorber_weight = forest.ivar.values
+        absorber_transmission = forest.flux.values/continuum.values
+
         # save this absorbers for this target
         absorber_redshifts.append(absorber_z)
         absorber_weights.append(absorber_weight)
         absorber_transmissions.append(absorber_transmission)
 
+        targets_used_list.append(target)
+
+    # flatten lists
     absorber_redshifts = np.concatenate(absorber_redshifts)
     absorber_weights = np.concatenate(absorber_weights)
     absorber_transmissions = np.concatenate(absorber_transmissions)
@@ -98,8 +110,19 @@ def main():
         print 'Mean absorber redshift: %.4f' % np.mean(absorber_redshifts)
         print 'Mean transimission: %.4f' % np.mean(absorber_transmissions)
 
-    ###################
-    ###################
+    ############################################
+    # Save absorber redshift distribution figure
+    ############################################
+
+    fig = plt.figure(figsize=(8,6))
+    plt.hist(absorber_redshifts, weights=absorber_weights, bins=100, linewidth=.1, alpha=.5)
+    plt.xlabel(r'Absorber Redshifts')
+    plt.grid()
+    fig.savefig(args.output+'-redshifts.png', bbox_inches='tight')
+
+    ##################################
+    # Build mean transmission function
+    ##################################
 
     zmax = absorber_redshifts.max() #3.5
     zbinsize = .01
@@ -118,22 +141,11 @@ def main():
     mean_transmission_interp = scipy.interpolate.UnivariateSpline(
         zbin_centers[good_indices], mean_transmission[good_indices], w=np.sqrt(count[good_indices]))
 
-    ###################
-    ###################
-
-    fig = plt.figure(figsize=(8,6))
-    plt.hist(absorber_redshifts, weights=absorber_weights, bins=100, linewidth=.1, alpha=.5)
-    plt.xlabel(r'Absorber Redshifts')
-    plt.grid()
-    fig.savefig(args.output+'-redshifts.png', bbox_inches='tight')
-
-    ###################
-    ###################
+    ####################################################
+    # Save mean transmission fraction vs redshift figure
+    ####################################################
 
     fig = plt.figure(figsize=(16,6))
-
-    # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
-    # plt.grid()
 
     trans_max = 3 #max(3, mean_transmission.max())
     trans_min = -0.5 #min(-0.5, mean_transmission.min())
@@ -150,47 +162,51 @@ def main():
 
     fig.savefig(args.output+'-transmission.png', bbox_inches='tight')
 
-    ###################
-    ###################
+    #######################
+    # Calculate delta field
+    #######################
 
     absorber_deltas = []
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
-        if target['z'] < 2.1:
-            continue
+    for target, combined in qusp.target.get_combined_spectra(targets_used_list, boss_path=paths.boss_path):
 
         # determine observed frame forest window
-        obs_min = forest_min.observed(target['z'])
-        obs_max = forest_max.observed(target['z'])
-        # find pixels values corresponding to this window
-        pixel_min = combined.find_pixel(obs_min, clip=True)
-        pixel_max = combined.find_pixel(obs_max, clip=True)
-        forest_slice = slice(pixel_min, pixel_max+1)
+        obs_forest_min = forest_min.observed(target['z'])
+        obs_forest_max = forest_max.observed(target['z'])
 
+        # trim the combined spectrum to the forest window
         try:
-            continuum = continuum_model.get_continuum(target, combined)
+            forest = combined.trim_range(obs_forest_min, obs_forest_max)
         except ValueError, e:
-            print e
-            print 'get_continuum: bad value for %s' % target.to_string()
+            # skip target if it's forest is not observable
+            print e, '(z = %.2f)' % target['z']
             continue
 
-        sliced_continuum = continuum(combined.wavelength[forest_slice])
+        # look up continuum for this target
+        try:
+            continuum = continuum_model.get_continuum(target, forest)
+        except ValueError, e:
+            # skip target if we can't get a continuum for it
+            print e, '(target: %s)' % target.to_string()
+            continue
 
-        absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
-
-        deltas = combined.flux.values[forest_slice]/(sliced_continuum*mean_transmission_interp(absorber_z)) - 1
+        absorber_z = forest.wavelength/wave_lya - 1
+        deltas = forest.flux.values/(continuum.values*mean_transmission_interp(absorber_z)) - 1
         absorber_deltas.append(deltas)
 
+    # flatten lists
     absorber_deltas = np.concatenate(absorber_deltas)
+
     if args.verbose:
         print 'Delta mean: %.6f' % np.mean(absorber_deltas)
         print 'Delta var: %.6f' % np.var(absorber_deltas)
 
-    ###################
-    ###################
+    ######################################
+    # Save delta field distribution figure
+    ######################################
 
-    fig = plt.figure(figsize=(8,6))
-    delta_bins = np.linspace(-5,5,100+1)
+    fig = plt.figure(figsize=(8, 6))
+    delta_bins = np.linspace(-5, 5, 100+1)
 
     # import sklearn.mixture
     # model = sklearn.mixture.GMM(2)
@@ -205,7 +221,7 @@ def main():
     # var_delta = result.covars_[0, 0]
     # p1 = norm(mean_delta, np.sqrt(var_delta)).pdf(delta_bins)
 
-    plt.hist(absorber_deltas, weights=absorber_weights, normed=True, bins=delta_bins, linewidth=.1, alpha=.5)
+    plt.hist(absorber_deltas, weights=absorber_weights, bins=delta_bins, normed=True, linewidth=.1, alpha=.5)
     # plt.plot(delta_bins, pdf, '-k')
     # plt.plot(delta_bins, pdf_individual, '--k')
     plt.xlabel(r'Absorber Deltas')
