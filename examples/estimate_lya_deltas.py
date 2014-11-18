@@ -15,59 +15,6 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.interpolate
 
-class Continuum(object):
-    def __init__(self):
-        pass
-    def get_continuum(self, target, combined):
-        pass
-
-class LinearFitContinuum(object):
-    def __init__(self, specfits):
-        import h5py
-        self.specfits = h5py.File(specfits)
-        self.targets = self.specfits['targets'].value
-        self.redshifts = self.specfits['redshifts'].value
-        self.amp = self.specfits['amplitude'].value
-        self.nu = self.specfits['nu'].value   
-        self.rest_wave_centers = self.specfits['restWaveCenters'].value
-        self.obs_wave_centers = self.specfits['obsWaveCenters'].value
-        self.continuum = self.specfits['continuum'].value
-        self.transmission = self.specfits['transmission'].value 
-
-        self.tiltwave = self.specfits['nu'].attrs['tiltwave']
-
-        self.T = scipy.interpolate.UnivariateSpline(self.obs_wave_centers, self.transmission, s=0)
-        self.C = scipy.interpolate.UnivariateSpline(self.rest_wave_centers, self.continuum, s=0)
-
-    def get_continuum(self, target, combined):
-        if not target['target'] in self.targets:
-            raise ValueError('Target not found in specified continuum results.')
-        target_index = np.argmax(target['target'] == self.targets)
-
-        assert target['z'] == self.redshifts[target_index]
-        target['nu'] = self.nu[target_index]
-        target['amp'] = self.amp[target_index]
-
-        z = target['z']
-        amp = target['amp']
-        nu = target['nu']
-
-        redshifted_waves = self.obs_wave_centers/(1+z)
-        continuum = amp/(1+z)*(redshifted_waves/self.tiltwave)**nu*self.T(self.obs_wave_centers)*self.C(redshifted_waves)
-
-        return qusp.SpectralFluxDensity(self.obs_wave_centers, continuum)
-
-class ConstantContinuum(object):
-    def __init__(self, norm_min, norm_max):
-        self.norm_min = norm_min
-        self.norm_max = norm_max
-        self.wavelength = qusp.wavelength.get_fiducial_wavelength(np.arange(4800))
-    def get_continuum(self, target, combined):
-        norm = combined.mean_flux(self.norm_min.observed(target['z']), self.norm_max.observed(target['z']))
-        if norm <= 0:
-            raise ValueError('norm <= 0')
-        continuum = norm*np.ones_like(self.wavelength)
-        return qusp.SpectralFluxDensity(self.wavelength, continuum)
 
 def main():
     # parse command-line arguments
@@ -106,9 +53,9 @@ def main():
     absorber_transmissions = []
 
     if args.continuum:
-        continuum_model = LinearFitContinuum(args.continuum)
+        continuum_model = qusp.LinearFitContinuum(args.continuum)
     else:
-        continuum_model = ConstantContinuum(qusp.wavelength.Wavelength(1275), qusp.wavelength.Wavelength(1285))
+        continuum_model = qusp.MeanFluxContinuum()#1275, 1285)
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):

@@ -9,3 +9,5 @@ import wavelength
 from model import ContinuumModel
 
 from paths import Paths
+
+from continuum import MeanFluxContinuum, LinearFitContinuum
