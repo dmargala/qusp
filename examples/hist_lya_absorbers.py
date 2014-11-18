@@ -47,15 +47,20 @@ def main():
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
         # determine observed frame forest window
-        obs_min = forest_min.observed(target['z'])
-        obs_max = forest_max.observed(target['z'])
-        # find pixels values corresponding to this window
-        pixel_min = combined.find_pixel(obs_min, clip=True)
-        pixel_max = combined.find_pixel(obs_max, clip=True)
-        forest_slice = slice(pixel_min, pixel_max+1)
+        obs_forest_min = forest_min.observed(target['z'])
+        obs_forest_max = forest_max.observed(target['z'])
+
+        # trim the combined spectrum to the forest window
+        try:
+            forest = combined.trim_range(obs_forest_min, obs_forest_max)
+        except ValueError, e:
+            # skip target if it's forest is not observable
+            print e, '(z = %.2f)' % target['z']
+            continue
+
         # calculate absorber redshifts and weights
-        absorber_z = combined.wavelength[forest_slice]/wave_lya - 1
-        absorber_weight = combined.ivar.values[forest_slice]
+        absorber_z = forest.wavelength/wave_lya - 1
+        absorber_weight = forest.ivar.values
         # save this absorbers for this target
         absorber_redshifts.append(absorber_z)
         absorber_weights.append(absorber_weight)
