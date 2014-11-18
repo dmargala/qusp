@@ -55,7 +55,7 @@ def main():
     if args.continuum:
         continuum_model = qusp.LinearFitContinuum(args.continuum)
     else:
-        continuum_model = qusp.MeanFluxContinuum()#1275, 1285)
+        continuum_model = qusp.MeanFluxContinuum(1275, 1285)
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
@@ -139,7 +139,8 @@ def main():
     trans_min = -0.5 #min(-0.5, mean_transmission.min())
     trans_bins = np.linspace(trans_min, trans_max, 100+1)
 
-    plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,trans_bins], cmap='Greens')
+    plt.hist2d(absorber_redshifts, absorber_transmissions, 
+        weights=absorber_weights, bins=[zbins, trans_bins], cmap='Greens')
     plt.plot(zbin_centers, mean_transmission, 'b.')
     plt.plot(zbin_centers, mean_transmission_interp(zbin_centers), 'r-')
 

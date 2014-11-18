@@ -3,9 +3,10 @@ Package API
 
 .. toctree::
 
-   qusp.model
-   qusp.paths
-   qusp.spectrum
    qusp.target
+   qusp.spectrum
    qusp.wavelength
+   qusp.continuum
+   qusp.paths
+   qusp.model
 

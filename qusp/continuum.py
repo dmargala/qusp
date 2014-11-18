@@ -21,8 +21,8 @@ class Continuum(object):
         Returns a SpectralFluxDensity object that represent's the specified target's unabsorbed continuum.
 
         Args:
-            target (`qusp.target.Target`): the target
-            combined (`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
+            target (:class:`qusp.target.Target`): the target
+            combined (:class:`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
         """
 
 class LinearFitContinuum(Continuum):
@@ -51,8 +51,8 @@ class LinearFitContinuum(Continuum):
         Returns a SpectralFluxDensity object that represent's the specified target's unabsorbed continuum.
 
         Args:
-            target (`qusp.target.Target`): the target
-            combined (`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
+            target (:class:`qusp.target.Target`): the target
+            combined (:class:`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
 
         Raises:
             ValueError: if target is not found in fit results.
@@ -100,8 +100,8 @@ class MeanFluxContinuum(Continuum):
         Returns a SpectralFluxDensity object that represent's the specified target's unabsorbed continuum.
 
         Args:
-            target (`qusp.target.Target`): the target
-            combined (`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
+            target (:class:`qusp.target.Target`): the target
+            combined (:class:`qusp.spectrum.BOSSSpectrum`): the target's combined spectrum
 
         Raises:
             ValueError: if mean flux <= 0
