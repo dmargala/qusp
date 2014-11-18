@@ -188,8 +188,8 @@ def main():
     # plt.plot(absorber_redshifts, absorber_transmissions, 'o', mec='none', alpha=.05)
     # plt.grid()
 
-    trans_max = max(3, mean_transmission.max())
-    trans_min = min(-0.5, mean_transmission.min())
+    trans_max = 3 #max(3, mean_transmission.max())
+    trans_min = -0.5 #min(-0.5, mean_transmission.min())
     trans_bins = np.linspace(trans_min, trans_max, 100+1)
 
     plt.hist2d(absorber_redshifts, absorber_transmissions, bins=[zbins,trans_bins], cmap='Greens')
