@@ -695,8 +695,7 @@ class ContinuumModel(object):
         parser.add_argument("--tiltweight", type=float, default=1e-2,
             help="spectral tilt constraint weight")
         # fit options
-        parser.add_argument(
-            "--unweighted", action="store_true",
+        parser.add_argument("--unweighted", action="store_true",
             help="perform unweighted least squares fit")
         parser.add_argument("--fix-transmission", action="store_true",
             help="fix transmission to 1")
