@@ -14,6 +14,9 @@ class Continuum(object):
     Abstract base class for quasar continuum objects.
     """
     __metaclass__  = abc.ABCMeta
+
+    def __init__(self):
+        raise NotImplementedError
  
     @abc.abstractmethod
     def get_continuum(self, target, combined):
@@ -27,7 +30,10 @@ class Continuum(object):
 
 class LinearFitContinuum(Continuum):
     """
-    Abstract base class for quasar continuum objects.
+    An interface to linearized continuum fit results file.
+
+    Args:
+        specfits (str): name of linearized continuum fit results file.
     """
     def __init__(self, specfits):
         import h5py
@@ -61,7 +67,7 @@ class LinearFitContinuum(Continuum):
         if not target['target'] in self.targets:
             raise ValueError('Target not found in specified continuum results.')
         target_index = np.argmax(target['target'] == self.targets)
-        assert target['z'] == self.redshifts[target_index]
+        assert target['z'] == self.redshifts[target_index], 'target redshift does not match the redshift used in fit'
 
         # save target's amplitude and spectral tilt
         target['nu'] = self.nu[target_index]

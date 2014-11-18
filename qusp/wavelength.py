@@ -24,7 +24,10 @@ import numpy as np
 
 class Wavelength(float):
     """
-    A Wavelength is a float
+    A Wavelength is a float.
+
+    Args:
+        value (float): wavelength value
     """
     def __init__(self, value):
         float.__init__(value)
