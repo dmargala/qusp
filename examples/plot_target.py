@@ -98,9 +98,10 @@ def main():
     badpixels = np.where(combined.ivar.values == 0)
 
     y_err = 1/np.sqrt(combined.ivar.values)
-    y_err_lower = combined.flux.values - y_err
-    y_err_upper = combined.flux.values + y_err
-    plt.fill_between(combined.wavelength, y_err_lower, y_err_upper, facecolor='gray', alpha=.5, lw=0)
+    #y_err_lower = combined.flux.values - y_err
+    #y_err_upper = combined.flux.values + y_err
+    #plt.fill_between(combined.wavelength, y_err_lower, y_err_upper, facecolor='gray', alpha=.5, lw=0)
+    plt.errorbar(combined.wavelength, combined.flux.values, y_err, color='blue', marker='+', ls='None', lw=.2, mew=0)
 
     #plt.fill_between(forest.wavelength, ymin, forest.flux.values, facecolor='gray', alpha=1, lw=0)
     plt.plot(forest.wavelength, forest.flux.values, color='red', marker='+', markersize=3, lw=0)
@@ -112,7 +113,9 @@ def main():
     redshifted_quasar_lines = []
     for line in quasar_lines:
         redshifted_quasar_lines.append(qusp.wavelength.LabeledWavelength(line*(1+target['z']), line.label))
-    qusp.wavelength.draw_lines(redshifted_quasar_lines, 0.895,-0.05,  ls='--', c='black')
+    qusp.wavelength.draw_lines(redshifted_quasar_lines, 0.895, -0.05, ls='--', color='black')
+    qusp.wavelength.draw_lines(qusp.wavelength.load_wavelengths('sky', ignore_labels=True), 
+        0.01, 0.1, color='magenta', alpha=.3)
 
     plt.title(target.to_string()+' (z = %.3f)' % target['z'])
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
