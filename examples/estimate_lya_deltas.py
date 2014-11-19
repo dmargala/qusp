@@ -63,6 +63,8 @@ def main():
     absorber_transmissions = []
 
     targets_used_list = []
+    continua = []
+    forests = []
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
@@ -97,6 +99,8 @@ def main():
         absorber_transmissions.append(absorber_transmission)
 
         targets_used_list.append(target)
+        continua.append(continuum)
+        forests.append(forest)
 
     # flatten lists
     absorber_redshifts = np.concatenate(absorber_redshifts)
@@ -178,29 +182,11 @@ def main():
 
     absorber_deltas = []
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(targets_used_list, boss_path=paths.boss_path):
-
-        # determine observed frame forest window
-        obs_forest_min = forest_min.observed(target['z'])
-        obs_forest_max = forest_max.observed(target['z'])
-
-        # trim the combined spectrum to the forest window
-        try:
-            forest = combined.trim_range(obs_forest_min, obs_forest_max)
-        except ValueError, e:
-            # skip target if it's forest is not observable
-            print e, '(z = %.2f)' % target['z']
-            continue
-
-        # look up continuum for this target
-        try:
-            continuum = continuum_model.get_continuum(target, forest)
-        except ValueError, e:
-            # skip target if we can't get a continuum for it
-            print e, '(target: %s)' % target.to_string()
-            continue
-
+    for i, target in enumerate(targets_used_list):
+        forest = forests[i] 
+        continuum = continua[i]
         absorber_z = forest.wavelength/wave_lya - 1
+        # estimate delta
         deltas = forest.flux.values/(continuum.values*mean_transmission_interp(absorber_z)) - 1
         absorber_deltas.append(deltas)
 
