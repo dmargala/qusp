@@ -93,6 +93,22 @@ class Target(dict):
         """
         return cls({'target':target_string})
 
+    @classmethod
+    def from_plate_mjd_fiber(cls, plate, mjd, fiber):
+        """
+        Returns a Target object constructed from plate, mjd, fiber.
+
+        Args:
+            plate (int): target's plate id
+            mjd (int): mjd observation
+            fiber (int): target's fiber id
+
+        Returns:
+            :class:`Target` object
+        """
+        target_string = '-'.join([str(field) for field in [plate, mjd, fiber]])
+        return cls.from_string(target_string)
+
 def load_target_list(filename, fields=None, verbose=False):
     """
     Loads a target data from a text file.
@@ -246,4 +262,22 @@ def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
     for target, spplate in get_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
         combined = qusp.spectrum.read_combined_spectrum(spplate, target)
         yield target, combined
+
+def get_combined_spectrum(target, paths=None):
+    """
+    Returns the coadded spectrum of the specified target.
+
+    Args:
+        target (:class:`Target`): a target 
+        paths (:class:`qusp.paths.Paths`, optional): paths object that knows 
+            where the location of the boss data dir.
+
+    Returns:
+        Coadded spectrum of the specified target.
+    """
+    if paths is None:
+        paths = qusp.paths.Paths()
+    plate_filename = paths.get_spplate_filename(target)
+    spplate = fits.open(plate_filename)
+    return qusp.spectrum.read_combined_spectrum(spplate, target)
 
