@@ -61,7 +61,7 @@ def main():
         continuum_model = qusp.MeanFluxContinuum(forest_min, forest_max)
 
     # read target
-    if args.targets and args.target_index:
+    if args.targets and args.target_index is not None:
         target_list = qusp.target.load_target_list_from_args(args,
             fields=[('z', float, args.z_col)])
         target = target_list[args.target_index]
