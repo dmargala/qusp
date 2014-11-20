@@ -102,7 +102,7 @@ def main():
         ax.set_ylim3d(-max_scale*zmax, max_scale*zmax)
         ax.set_zlim3d(-max_scale*zmax, max_scale*zmax)
 
-        ax.view_init(args.elevation, args.azimuthal)
+        ax.view_init(args.elevation, args.azimuth)
 
         fig.savefig(args.output, bbox_inches='tight')
 
