@@ -83,17 +83,17 @@ def main():
 
         fig = plt.figure(figsize=(14,8))
         ax = fig.add_subplot(111, projection='3d')
-        ax.set_aspect('equal')
+        #ax.set_aspect('equal')
 
         ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
 
-        ax.scatter(ab_x, ab_y, zs=-max_scale*zmax, zdir='z', marker='.', s=.1)
+        ax.scatter(ab_x, ab_y, zs=0, zdir='z', marker='.', s=.1)
         ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
         ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
 
         def plot_shell(r):
             u = np.linspace(0, 2 * np.pi, 100)
-            v = np.linspace(0, np.pi, 100)
+            v = np.linspace(0, np.pi/2, 100)
 
             x = r * np.outer(np.cos(u), np.sin(v))
             y = r * np.outer(np.sin(u), np.sin(v))
@@ -102,16 +102,16 @@ def main():
 
             x = r * np.cos(u)
             y = r * np.sin(u)
-            ax.plot(x, y, zs=-max_scale*zmax, zdir='z', color='r', alpha=.2)
-            ax.plot(x, y, zs=-max_scale*zmax, zdir='x', color='r', alpha=.2)
-            ax.plot(x, y, zs=+max_scale*zmax, zdir='y', color='r', alpha=.2)
+            ax.plot(x, y, zs=0, zdir='z', color='r', alpha=.2)
+            ax.plot(x[:50], y[:50], zs=-max_scale*zmax, zdir='x', color='r', alpha=.2)
+            ax.plot(x[:50], y[:50], zs=+max_scale*zmax, zdir='y', color='r', alpha=.2)
 
         for r in np.arange(1, zmax+1, 1):
             plot_shell(r)
 
         ax.set_xlim3d(-max_scale*zmax, max_scale*zmax)
         ax.set_ylim3d(-max_scale*zmax, max_scale*zmax)
-        ax.set_zlim3d(-max_scale*zmax, max_scale*zmax)
+        ax.set_zlim3d(0, max_scale*zmax)
 
         ax.view_init(args.elev, args.azim)
 
