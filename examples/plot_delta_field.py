@@ -22,6 +22,8 @@ def main():
         help="fitspec results file")
     parser.add_argument("-o","--output", type=str, default=None,
         help="output filename base")
+    parser.add_argument("--max-rows", type=int, default=0,
+        help="max number of entries to plot")
     args = parser.parse_args()
 
     infile = h5py.File(args.input)
@@ -35,7 +37,9 @@ def main():
     for (target_string, h5group) in infile['delta_field'].iteritems():
         counter += 1
         if (counter % 10000) == 0:
-            print ' processing target # %d ...' % (counter+1)
+            print ' processing target # %d ...' % (counter)
+        if args.max_rows and counter > args.max_rows:
+            break
         ra = np.radians(h5group.attrs['ra'])
         dec = np.radians(h5group.attrs['dec'])
         z = h5group.attrs['z'] 
@@ -69,8 +73,8 @@ def main():
         ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
 
         ax.scatter(ab_x, ab_y, zs=-max_scale*zmax, zdir='z', marker='.', s=.1)
-        ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
-        ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
+        #ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
+        #ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
 
         def plot_shell(r):
             u = np.linspace(0, 2 * np.pi, 100)
@@ -94,7 +98,7 @@ def main():
         ax.set_ylim3d(-max_scale*zmax, max_scale*zmax)
         ax.set_zlim3d(-max_scale*zmax, max_scale*zmax)
 
-        #ax.view_init(0, 0)
+        ax.view_init(0, 45)
 
         fig.savefig(args.output, bbox_inches='tight')
 
