@@ -63,23 +63,23 @@ def main():
     dec = np.concatenate(dec_list)[::args.stride]
     redshift = np.concatenate(redshift_list)[::args.stride]
 
+    zmax = 7
+    max_scale = 1.2
+
     if args.output:
 
         fig = plt.figure(figsize=(14,8))
+        ax = plt.subplot(111, polar=True)
 
-        z_cosra = redshift * np.cos(ra)
-        z_sinra = redshift * np.sin(ra)
+        ax.plot(ra, redshift, marker='.', markersize=1, lw=0)
 
-        plt.scatter(z_cosra, z_sinra, marker='.', s=.1)
-
+        ax.set_rmax(max_scale*zmax)
+        ax.grid(True)
         fig.savefig(args.output+'flat.png')
 
-        ab_x = z_cosra * np.sin(dec)
-        ab_y = z_sinra * np.sin(dec)
+        ab_x = redshift * np.cos(ra) * np.sin(dec)
+        ab_y = redshift * np.sin(ra) * np.sin(dec)
         ab_z = redshift * np.cos(dec)
-
-        zmax = 7
-        max_scale = 1.2
 
         fig = plt.figure(figsize=(14,8))
         ax = fig.add_subplot(111, projection='3d')
