@@ -28,6 +28,8 @@ def main():
         help="elevation angle")
     parser.add_argument("--azim", type=float, default=None,
         help="azimuthal angle")
+    parser.add_argument("--strige", type=int, default=1,
+        help="stride")
     args = parser.parse_args()
 
     infile = h5py.File(args.input)
@@ -57,9 +59,9 @@ def main():
         dec_list.append(dec*np.ones_like(redshift))
 
     # flatten lists
-    ra = np.concatenate(ra_list)
-    dec = np.concatenate(dec_list)
-    redshift = np.concatenate(redshift_list)
+    ra = np.concatenate(ra_list)[::args.stride]
+    dec = np.concatenate(dec_list)[::args.stride]
+    redshift = np.concatenate(redshift_list)[::args.stride]
 
     ab_x = redshift * np.cos(ra) * np.sin(dec)
     ab_y = redshift * np.sin(ra) * np.sin(dec)
