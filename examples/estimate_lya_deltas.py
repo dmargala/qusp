@@ -156,9 +156,9 @@ def main():
     outfile = h5py.File(args.output+'-delta-field.hdf5', 'w')
 
     meanfrac_outfile = outfile.create_group('mean_transmission_fraction')
-    meanfrac_outfile.create_dataset('z', data=zbin_centers[good_indices])
-    meanfrac_outfile.create_dataset('f', data=mean_transmission[good_indices])
-    meanfrac_outfile.create_dataset('w', data=np.sqrt(count[good_indices]))
+    meanfrac_outfile.create_dataset('z', data=zbin_centers[good_indices], compression='gzip')
+    meanfrac_outfile.create_dataset('f', data=mean_transmission[good_indices], compression='gzip')
+    meanfrac_outfile.create_dataset('w', data=np.sqrt(count[good_indices]), compression='gzip')
 
     ####################################################
     # Save mean transmission fraction vs redshift figure
@@ -203,9 +203,9 @@ def main():
         outfile_delta_target.attrs['ra'] = target['ra']
         outfile_delta_target.attrs['dec'] = target['dec']
         outfile_delta_target.attrs['z'] = target['z']
-        outfile_delta_target.create_dataset('absorber_z', data=absorber_z)
-        outfile_delta_target.create_dataset('absorber_delta', data=deltas)
-        outfile_delta_target.create_dataset('absorber_ivar', data=deltas_ivar)
+        outfile_delta_target.create_dataset('absorber_z', data=absorber_z, compression='gzip')
+        outfile_delta_target.create_dataset('absorber_delta', data=deltas, compression='gzip')
+        outfile_delta_target.create_dataset('absorber_ivar', data=deltas_ivar, compression='gzip')
 
     # flatten lists
     absorber_deltas = np.concatenate(absorber_deltas)
