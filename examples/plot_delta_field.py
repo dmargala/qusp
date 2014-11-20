@@ -33,7 +33,8 @@ def main():
     counter = 0
 
     for (target_string, h5group) in infile['delta_field'].iteritems():
-        if (counter+1 % 10000) == 0:
+        counter += 1
+        if (counter % 10000) == 0:
             print ' processing target # %d ...' % (counter+1)
         ra = np.radians(h5group.attrs['ra'])
         dec = np.radians(h5group.attrs['dec'])
@@ -46,8 +47,6 @@ def main():
         redshift_list.append(redshift)
         ra_list.append(ra*np.ones_like(redshift))
         dec_list.append(dec*np.ones_like(redshift))
-
-        counter += 1
 
     # flatten lists
     ra = np.concatenate(ra_list)
