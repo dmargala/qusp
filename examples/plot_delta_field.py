@@ -30,7 +30,11 @@ def main():
     dec_list = []
     redshift_list = []
 
+    counter = 0
+
     for (target_string, h5group) in infile['delta_field'].iteritems():
+        if (counter+1 % 10000) == 0:
+            print ' processing target # %d ...' % (counter+1)
         ra = np.radians(h5group.attrs['ra'])
         dec = np.radians(h5group.attrs['dec'])
         z = h5group.attrs['z'] 
@@ -43,16 +47,14 @@ def main():
         ra_list.append(ra*np.ones_like(redshift))
         dec_list.append(dec*np.ones_like(redshift))
 
-        print target_string, ra, dec, redshift
-
     # flatten lists
     ra = np.concatenate(ra_list)
     dec = np.concatenate(dec_list)
     redshift = np.concatenate(redshift_list)
 
-    x = redshift * np.cos(ra) * np.sin(dec)
-    y = redshift * np.sin(ra) * np.sin(dec)
-    z = redshift * np.cos(dec)
+    ab_x = redshift * np.cos(ra) * np.sin(dec)
+    ab_y = redshift * np.sin(ra) * np.sin(dec)
+    ab_z = redshift * np.cos(dec)
 
     zmax = 7
     max_scale = 1.2
@@ -63,11 +65,11 @@ def main():
         ax = fig.add_subplot(111, projection='3d')
         ax.set_aspect('equal')
 
-        ax.scatter(x, y, z, marker='.', s=.1)
+        ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
 
-        ax.scatter(x, y, -max_scale*zmax, zdir='z', marker='.', s=.1)
-        ax.scatter(y, z, -max_scale*zmax, zdir='x', marker='.', s=.1)
-        ax.scatter(x, z, +max_scale*zmax, zdir='y', marker='.', s=.1)
+        ax.scatter(ab_x, ab_y, zs=-max_scale*zmax, zdir='z', marker='.', s=.1)
+        ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
+        ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
 
         def plot_shell(r):
             u = np.linspace(0, 2 * np.pi, 100)
@@ -79,7 +81,7 @@ def main():
             ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='r', alpha=.05, edgecolor='None')
 
             x = r * np.cos(u)
-            y = r* np.sin(u)
+            y = r * np.sin(u)
             ax.plot(x, y, zs=-max_scale*zmax, zdir='z', color='r', alpha=.2)
             ax.plot(x, y, zs=-max_scale*zmax, zdir='x', color='r', alpha=.2)
             ax.plot(x, y, zs=+max_scale*zmax, zdir='y', color='r', alpha=.2)
