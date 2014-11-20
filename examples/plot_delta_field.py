@@ -28,7 +28,7 @@ def main():
         help="elevation angle")
     parser.add_argument("--azim", type=float, default=None,
         help="azimuthal angle")
-    parser.add_argument("--strige", type=int, default=1,
+    parser.add_argument("--stride", type=int, default=1,
         help="stride")
     args = parser.parse_args()
 
