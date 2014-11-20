@@ -47,6 +47,8 @@ def main():
         ra_list.append(ra*np.ones_like(redshift))
         dec_list.append(dec*np.ones_like(redshift))
 
+        counter += 1
+
     # flatten lists
     ra = np.concatenate(ra_list)
     dec = np.concatenate(dec_list)
