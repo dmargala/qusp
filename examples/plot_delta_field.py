@@ -24,6 +24,10 @@ def main():
         help="output filename base")
     parser.add_argument("--max-rows", type=int, default=0,
         help="max number of entries to plot")
+    parser.add_argument("--elevation", type=float, default=30,
+        help="elevation angle")
+    parser.add_argument("--azimuth", type=float, default=0,
+        help="azimuthal angle")
     args = parser.parse_args()
 
     infile = h5py.File(args.input)
@@ -98,7 +102,7 @@ def main():
         ax.set_ylim3d(-max_scale*zmax, max_scale*zmax)
         ax.set_zlim3d(-max_scale*zmax, max_scale*zmax)
 
-        ax.view_init(0, 45)
+        ax.view_init(args.elevation, args.azimuthal)
 
         fig.savefig(args.output, bbox_inches='tight')
 
