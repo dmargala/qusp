@@ -77,8 +77,8 @@ def main():
         ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
 
         ax.scatter(ab_x, ab_y, zs=-max_scale*zmax, zdir='z', marker='.', s=.1)
-        #ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
-        #ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
+        ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
+        ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
 
         def plot_shell(r):
             u = np.linspace(0, 2 * np.pi, 100)
