@@ -70,7 +70,7 @@ def main():
         z_cosra = redshift * np.cos(ra)
         z_sinra = redshift * np.sin(ra)
 
-        ax.scatter(z_cosra, z_sinra, marker='.', s=.1)
+        plt.scatter(z_cosra, z_sinra, marker='.', s=.1)
 
         fig.savefig(args.output+'flat.png')
 
