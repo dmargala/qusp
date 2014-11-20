@@ -67,7 +67,12 @@ def main():
     forests = []
 
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(target_list, boss_path=paths.boss_path):
+    for target, spplate in qusp.target.get_target_plates(target_list, boss_path=paths.boss_path):
+        combined = qusp.spectrum.read_combined_spectrum(spplate, target)
+
+        target['ra'] = spplate[5].data['ra'][target['fiber']-1]
+        target['dec'] = spplate[5].data['dec'][target['fiber']-1]
+
         # determine observed frame forest window
         obs_forest_min = forest_min.observed(target['z'])
         obs_forest_max = forest_max.observed(target['z'])
@@ -148,12 +153,12 @@ def main():
     # Save mean transmission function
     #################################
 
-    outfile = h5py.File(args.output+'-meanfrac.hdf5', 'w')
-    outfile.create_dataset('z', data=zbin_centers[good_indices])
-    outfile.create_dataset('meanF', data=mean_transmission[good_indices])
-    outfile.create_dataset('w', data=np.sqrt(count[good_indices]))
-    outfile.create_dataset('targets', data=[target.to_string() for target in targets_used_list])
-    outfile.close()
+    outfile = h5py.File(args.output+'-delta-field.hdf5', 'w')
+
+    meanfrac_outfile = outfile.create_group('mean_transmission_fraction')
+    meanfrac_outfile.create_dataset('z', data=zbin_centers[good_indices])
+    meanfrac_outfile.create_dataset('f', data=mean_transmission[good_indices])
+    meanfrac_outfile.create_dataset('w', data=np.sqrt(count[good_indices]))
 
     ####################################################
     # Save mean transmission fraction vs redshift figure
@@ -181,6 +186,8 @@ def main():
     #######################
 
     absorber_deltas = []
+
+    outfile_delta = outfile.create_group('delta_field')
     # loop over targets
     for i, target in enumerate(targets_used_list):
         forest = forests[i] 
@@ -188,7 +195,17 @@ def main():
         absorber_z = forest.wavelength/wave_lya - 1
         # estimate delta
         deltas = forest.flux.values/(continuum.values*mean_transmission_interp(absorber_z)) - 1
+        deltas_ivar = forest.ivar.values/(continuum.values*mean_transmission_interp(absorber_z))
         absorber_deltas.append(deltas)
+
+        # save delta field along this line of sight
+        outfile_delta_target = outfile_delta.create_group(target.to_string())
+        outfile_delta_target.attrs['ra'] = target['ra']
+        outfile_delta_target.attrs['dec'] = target['dec']
+        outfile_delta_target.attrs['z'] = target['z']
+        outfile_delta_target.create_dataset('absorber_z', data=absorber_z)
+        outfile_delta_target.create_dataset('absorber_delta', data=deltas)
+        outfile_delta_target.create_dataset('absorber_ivar', data=deltas_ivar)
 
     # flatten lists
     absorber_deltas = np.concatenate(absorber_deltas)
