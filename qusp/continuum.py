@@ -64,10 +64,10 @@ class LinearFitContinuum(Continuum):
             ValueError: if target is not found in fit results.
         """
         # make sure we the request target exists
-        if not target.to_string() in self.targets:
-            raise ValueError('Target not found in specified continuum results.')
+        # if not target.to_string() in self.targets:
+        #     raise ValueError('Target not found in specified continuum results.')
         target_index = np.argmax(target['target'] == self.targets)
-        assert target['z'] == self.redshifts[target_index], 'target redshift does not match the redshift used in fit'
+        #assert target['z'] == self.redshifts[target_index], 'target redshift does not match the redshift used in fit'
 
         # save target's amplitude and spectral tilt
         target['nu'] = self.nu[target_index]
