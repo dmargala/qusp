@@ -74,6 +74,7 @@ def main():
         ax.plot(ra, redshift, marker='.', markersize=1, lw=0)
 
         ax.set_rmax(max_scale*zmax)
+        az.set_rlabel_position(90)
         ax.grid(True)
         fig.savefig(args.output+'flat.png')
 
