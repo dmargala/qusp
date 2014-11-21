@@ -93,7 +93,7 @@ def main():
         #######################
 
         fig = plt.figure(figsize=(14,8))
-        ax = plt.subplot(111, projection='hammer')
+        ax = plt.subplot(111, projection='aitoff')
 
 
         l = np.linspace(0, 360, 100, endpoint=False)
