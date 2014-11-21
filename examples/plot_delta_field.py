@@ -110,12 +110,12 @@ def main():
         #tick_labels = np.remainder(tick_labels+360+org,360)
         ax.set_xticklabels(tick_labels)
 
-        aitoff_ra = np.remainder(ra+90+360-0,360)
+        aitoff_ra = np.remainder(np.degrees(ra)+90+360-0,360)
         ind = aitoff_ra > 180
         aitoff_ra[ind] -= 360
         aitoff_ra = -aitoff_ra
 
-        ax.plot(aitoff_ra, dec, marker='.', markersize=1, lw=0)
+        ax.plot(np.degrees(aitoff_ra), dec, marker='.', markersize=1, lw=0)
         ax.grid(True)
         fig.savefig(args.output+'aitoff.png')
 
