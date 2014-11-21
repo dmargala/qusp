@@ -126,9 +126,9 @@ def main():
         ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
 
         # 2d projections
-        ax.scatter(ab_x, ab_y, zs=-0.17*max_scale*zmax, zdir='z', marker='.', s=.1)
-        ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
-        ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
+        #ax.scatter(ab_x, ab_y, zs=-0.17*max_scale*zmax, zdir='z', marker='.', s=.1)
+        #ax.scatter(ab_y, ab_z, zs=-max_scale*zmax, zdir='x', marker='.', s=.1)
+        #ax.scatter(ab_x, ab_z, zs=+max_scale*zmax, zdir='y', marker='.', s=.1)
 
         # draw shells
         def plot_shell(r):
@@ -140,13 +140,14 @@ def main():
             z = r * np.outer(np.ones(np.size(u)), np.cos(v))
             ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='r', alpha=.05, edgecolor='None')
             # 2d
-            x = r * np.cos(u)
-            y = r * np.sin(u)
+            #x = r * np.cos(u)
+            #y = r * np.sin(u)
 
-            ind = (y > -0.17*max_scale*zmax)
-            ax.plot(x, y, zs=-0.17*max_scale*zmax, zdir='z', color='r', alpha=.4, marker='.', lw=0, ms=1)
-            ax.plot(x[ind], y[ind], zs=-max_scale*zmax, zdir='x', color='r', alpha=.4, marker='.', lw=0, ms=1)
-            ax.plot(x[ind], y[ind], zs=+max_scale*zmax, zdir='y', color='r', alpha=.4, marker='.', lw=0, ms=1)
+            #ind = (y > -0.17*max_scale*zmax)
+            #ax.plot(x, y, zs=-0.17*max_scale*zmax, zdir='z', color='r', alpha=.4, marker='.', lw=0, ms=1)
+            #ax.plot(x[ind], y[ind], zs=-max_scale*zmax, zdir='x', color='r', alpha=.4, marker='.', lw=0, ms=1)
+            #ax.plot(x[ind], y[ind], zs=+max_scale*zmax, zdir='y', color='r', alpha=.4, marker='.', lw=0, ms=1)
+
         for r in np.arange(1, zmax+1, 1):
             plot_shell(r)
 
