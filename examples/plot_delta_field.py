@@ -115,7 +115,7 @@ def main():
         aitoff_ra[ind] -= 360
         aitoff_ra = -aitoff_ra
 
-        ax.plot(np.degrees(aitoff_ra), dec, marker='.', markersize=1, lw=0)
+        ax.plot(np.radians(aitoff_ra), dec, marker='.', markersize=1, lw=0)
         ax.grid(True)
         fig.savefig(args.output+'aitoff.png')
 
