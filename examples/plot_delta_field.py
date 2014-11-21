@@ -69,9 +69,6 @@ def main():
     zmax = 7
     max_scale = 1.2
 
-    print ra.min(), ra.max()
-    print dec.min(), dec.max()
-
     if args.output:
 
         ######################
@@ -95,27 +92,21 @@ def main():
         fig = plt.figure(figsize=(14,8))
         ax = plt.subplot(111, projection='aitoff')
 
+        # matplotlib expects azimuthal angle to be in range [-pi,+pi]
+        ra_shifted = ra
+        ra_shifted[ra > np.pi] -= 2. * np.pi
+        ax.plot(ra_shifted, dec, marker='.', markersize=1, lw=0)
 
-        l = np.linspace(0, 360, 100, endpoint=False)
-        galactic_plane = SkyCoord(l=l*u.degree, b=np.zeros_like(l)*u.degree, frame='galactic').icrs
+        # plot galactic plane
+        galactic_l = np.linspace(0, 2*np.pi, 100)
+        galactic_plane = SkyCoord(l=galactic_l*u.radian, b=np.zeros_like(galactic_l)*u.radian, frame='galactic').icrs
+        galactic_ra_rad = galactic_plane.ra.radian
+        galactic_ra_rad[galactic_ra_rad > np.pi] -= 2. * np.pi
+        ax.plot(galactic_ra_rad, galactic_plane.dec.radian, lw=0, marker='.')
 
-        aitoff_ra = np.remainder(galactic_plane.ra.degree+90+360-0,360)
-        ind = aitoff_ra > 180
-        aitoff_ra[ind] -= 360
-        aitoff_ra = -aitoff_ra
-
-        ax.plot(np.radians(aitoff_ra), galactic_plane.dec.radian, lw=0, marker='.')
-
+        # make pretty
         tick_labels = np.array([210, 240, 270, 300, 330, 0, 30, 60, 90, 120, 150])
-        #tick_labels = np.remainder(tick_labels+360+org,360)
         ax.set_xticklabels(tick_labels)
-
-        aitoff_ra = np.remainder(np.degrees(ra)+90+360-0,360)
-        ind = aitoff_ra > 180
-        aitoff_ra[ind] -= 360
-        aitoff_ra = -aitoff_ra
-
-        ax.plot(np.radians(aitoff_ra), dec, marker='.', markersize=1, lw=0)
         ax.grid(True)
         fig.savefig(args.output+'aitoff.png')
 
