@@ -67,7 +67,7 @@ def main():
     redshift = np.concatenate(redshift_list)[::args.stride]
 
     zmax = 7
-    max_scale = 1.2
+    max_scale = 1
 
     if args.output:
 
@@ -117,13 +117,13 @@ def main():
 
         fig = plt.figure(figsize=(14,8))
         ax = fig.add_subplot(111, projection='3d')
-        #ax.set_aspect('equal')
+        ax.set_aspect('equal')
 
         # plot points in 3d
         ab_x = redshift * np.cos(ra) * np.sin(np.pi/2-dec)
         ab_y = redshift * np.sin(ra) * np.sin(np.pi/2-dec)
         ab_z = redshift * np.cos(np.pi/2-dec)
-        ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1)
+        ax.scatter(ab_x, ab_y, ab_z, marker='.', s=.1, alpha=.2)
 
         # 2d projections
         #ax.scatter(ab_x, ab_y, zs=-0.17*max_scale*zmax, zdir='z', marker='.', s=.1)
@@ -134,11 +134,12 @@ def main():
         def plot_shell(r):
             # 3d 
             u = np.linspace(0, 2 * np.pi, 100)
-            v = np.linspace(0, np.pi/2, 100)
+            v = np.linspace(0, np.pi, 100)
             x = r * np.outer(np.cos(u), np.sin(v))
             y = r * np.outer(np.sin(u), np.sin(v))
             z = r * np.outer(np.ones(np.size(u)), np.cos(v))
-            ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='r', alpha=.05, edgecolor='None')
+            ax.plot_surface(x, y, z,
+                rstride=4, cstride=4, color='r', alpha=.05, edgecolor='None')
             # 2d
             #x = r * np.cos(u)
             #y = r * np.sin(u)
@@ -153,7 +154,7 @@ def main():
 
         ax.set_xlim3d(-max_scale*zmax, max_scale*zmax)
         ax.set_ylim3d(-max_scale*zmax, max_scale*zmax)
-        ax.set_zlim3d(-0.17*max_scale*zmax, max_scale*zmax)
+        ax.set_zlim3d(-max_scale*zmax, max_scale*zmax)
         # set viewing angle
         ax.view_init(args.elev, args.azim)
         fig.savefig(args.output+'3d.png', bbox_inches='tight')
