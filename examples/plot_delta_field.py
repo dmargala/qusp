@@ -93,19 +93,20 @@ def main():
         ax = plt.subplot(111, projection='aitoff')
 
         # matplotlib expects azimuthal angle to be in range [-pi,+pi]
-        ra_shifted = ra
-        ra_shifted[ra > np.pi] -= 2. * np.pi
+        offset = 90
+        ra_shifted = np.fmod(ra + np.radians(offset), 2*np.pi)
+        ra_shifted[ra_shifted > np.pi] -= 2. * np.pi
         ax.plot(ra_shifted, dec, marker='.', markersize=1, lw=0)
 
         # plot galactic plane
         galactic_l = np.linspace(0, 2*np.pi, 100)
         galactic_plane = SkyCoord(l=galactic_l*u.radian, b=np.zeros_like(galactic_l)*u.radian, frame='galactic').icrs
-        galactic_ra_rad = galactic_plane.ra.radian
-        galactic_ra_rad[galactic_ra_rad > np.pi] -= 2. * np.pi
-        ax.plot(galactic_ra_rad, galactic_plane.dec.radian, lw=0, marker='.')
+        galactic_ra_shifted = np.fmod(galactic_plane.ra.radian + np.radians(offset), 2*np.pi)
+        galactic_ra_shifted[galactic_ra_shifted > np.pi] -= 2. * np.pi
+        ax.plot(galactic_ra_shifted, galactic_plane.dec.radian, lw=0, marker='.')
 
         # make pretty
-        tick_labels = np.array([210, 240, 270, 300, 330, 0, 30, 60, 90, 120, 150])
+        tick_labels = np.array([120, 150, 180, 210, 240, 270, 300, 330, 0, 30, 60, 90])
         ax.set_xticklabels(tick_labels)
         ax.grid(True)
         fig.savefig(args.output+'aitoff.png')
