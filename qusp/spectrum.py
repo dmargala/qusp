@@ -362,6 +362,12 @@ class BOSSSpectrum(object):
         self.wavelength = self.flux.wavelength
         self.npixels = len(wavelength)
 
+    def create_corrected(self, correction):
+        sampled_correction = correction(self.wavelength)
+        corrected_flux = self.flux.values*sampled_correction
+        corrected_ivar = 1/sampled_correction**2
+        return BOSSSpectrum(self.wavelength, corrected_flux, corrected_ivar)
+
     def find_pixel(self, wavelength, clip=False):
         """
         Returns the corresponding pixel index of the specified wavelength.

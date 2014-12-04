@@ -5,6 +5,9 @@ import numpy as np
 
 import argparse
 import qusp
+import glob
+
+import scipy.interpolate
 
 def main():
     # parse command-line arguments
@@ -12,9 +15,38 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file base name")
+    parser.add_argument("--tpcorr", type=str, default=None,
+        help="throughput correction filename")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
+
+    if args.tpcorr:
+        tpcorr_map = {}
+        tpcorr_filenames = glob.glob(args.tpcorr)
+
+        for tpcorr_filename in tpcorr_filenames:
+            plate,mjd = tpcorr_filename.split('.')[0].split('-')[1:]
+
+            # The input data is text file where each line coresponds to 
+            # a target's throughput correction vector
+            data = np.loadtxt(tpcorr_filename)
+            nentries, ntokens = data.shape
+
+            # the first 3 columns are fiberid, xfocal, and yfocal positions of the target
+            nidtokens = 3
+            # the rest are the tabulated throughput correction values
+            npoints = ntokens - nidtokens
+
+            # the throughput correction vectors span the range 3500A to 10500A
+            xvalues = np.linspace(3500, 10500, npoints, endpoint=True)
+
+            for row in data:
+                fiberid = row[0]
+                target = '-'.join([plate,mjd,fiberid])
+                tpcorr_values = row[nidtokens+1:]
+                tpcorr_map[target] = scipy.interpolate.interp1d(xvalues, tpcorr_values,
+                    kind='linear', copy=False)
 
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
@@ -26,7 +58,11 @@ def main():
     # loop over targets
     mags = []
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
-        ab_mags = combined.flux.get_ab_magnitudes()
+        if args.tpcorr:
+            corrected = combined.create_corrected(tpcorr_map[target.to_string()])
+            ab_mags = corrected.flux.get_ab_magnitudes()
+        else:
+            ab_mags = combined.flux.get_ab_magnitudes()
         save_mags = []
         for band in 'gri':
             if ab_mags[band] is None:
