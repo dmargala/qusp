@@ -36,15 +36,11 @@ def main():
     data2 = np.loadtxt(args.input2)
 
     bands = 'gri'
-    xdata = []
-    ydata = []
 
-    for i in range(len(bands)):
-        x = data1[:,i]
-        y = data2[:,i]
-        mask = (x != 0) & (y != 0)
-        xdata.append(x[mask])
-        ydata.append(y[mask])
+    mask = np.logical_not(np.any(data1 == 0, axis=1)) & np.logical_not(np.any(data2 == 0, axis=1))
+
+    xdata = data1[mask]
+    ydata = data2[mask]
 
     if args.verbose:
         print 'Creating summary plot...'
