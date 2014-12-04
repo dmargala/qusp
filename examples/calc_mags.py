@@ -67,7 +67,7 @@ def main():
             ab_mags = corrected.flux.get_ab_magnitudes()
         else:
             if args.tpcorr:
-                print 'No tpcorr for target: ' % target.to_string()
+                print 'No tpcorr for target: %s' % target.to_string()
             ab_mags = combined.flux.get_ab_magnitudes()
         save_mags = []
         for band in 'gri':
