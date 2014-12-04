@@ -37,6 +37,8 @@ def main():
         help="target list text file to save")
     parser.add_argument("--annotate", type=str, default=None,
         help="colon separated list of columns to annotate target list with, ex: 'ra:dec:z'")
+    parser.add_argument("--plates", type=str, default=None,
+        help="optional list of plates to prefilter on")
     args = parser.parse_args()
 
     assert args.input is not None, 'No input file specified'
@@ -46,6 +48,13 @@ def main():
     tbdata = hdulist[1].data
     if args.verbose:
         print 'Read %d entries from %s' % (len(tbdata), args.input)
+    if args.plates:
+        plates = np.loadtxt(args.plates)
+        masks = []
+        for plate in plates:
+            masks.append(tbdata['PLATE'] == plate)
+        platemask = np.any(masks, axis=0)
+        tbdata = tbdata[platemask]
     if args.select:
         # parse selection 
         p = re.compile(r"""
