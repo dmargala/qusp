@@ -28,7 +28,7 @@ def main():
         for tpcorr_filename in tpcorr_filenames:
             plate,mjd = tpcorr_filename.split('.')[0].split('-')[1:]
 
-            print plate, mjd, 
+            # print plate, mjd, 
 
             # The input data is text file where each line coresponds to 
             # a target's throughput correction vector
@@ -44,13 +44,13 @@ def main():
             xvalues = np.linspace(3500, 10500, npoints, endpoint=True)
 
             for row in data:
-                fiberid = str(row[0])
-                print fiberid,
+                fiberid = str(int(row[0]))
+                # print fiberid,
                 target = '-'.join([plate,mjd,fiberid])
                 tpcorr_values = row[nidtokens:]
                 tpcorr_map[target] = scipy.interpolate.interp1d(xvalues, tpcorr_values,
                     kind='linear', copy=False)
-            print '\n',
+            # print '\n',
 
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
