@@ -60,7 +60,7 @@ def main():
         x = xdata[:,i]
         y = ydata[:,i]
         xydiff = x-y
-        print np.mean(xydiff), np.sqrt(np.var(xydiff))
+        print '%.4f %.4f' % (np.mean(xydiff), np.sqrt(np.var(xydiff)))
         lower = min(np.min(x), np.min(y))
         upper = max(np.max(x), np.max(y))
         diff = upper - lower
