@@ -62,10 +62,12 @@ def main():
     # loop over targets
     mags = []
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
-        if args.tpcorr:
+        if target.to_string() in tpcorr_map.keys():
             corrected = combined.create_corrected(tpcorr_map[target.to_string()])
             ab_mags = corrected.flux.get_ab_magnitudes()
         else:
+            if args.tpcorr:
+                print 'No tpcorr for target: ' % target.to_string()
             ab_mags = combined.flux.get_ab_magnitudes()
         save_mags = []
         for band in 'gri':
