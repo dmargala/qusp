@@ -21,7 +21,7 @@ def main():
         fields=[(band, float, i+1) for i,band in enumerate('ugriz')])
 
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(targets, paths=paths):
+    for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         ab_mags = combined.flux.get_ab_magnitudes()
         print ' '.join(['%.4f' % ab_mags[band] for band in 'gri'])
 
