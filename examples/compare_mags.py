@@ -57,8 +57,8 @@ def main():
     for i in range(len(axs)):
         axs[i].set_aspect('equal')
         plt.sca(axs[i])
-        x = xdata[i]
-        y = ydata[i]
+        x = xdata[:,i]
+        y = ydata[:,i]
         lower = min(np.min(x), np.min(y))
         upper = max(np.max(x), np.max(y))
         diff = upper - lower
@@ -78,7 +78,7 @@ def main():
 
     fig = plt.figure(figsize=(6,6))
 
-    plt.plot(xdata[0]-xdata[2], ydata[0]-ydata[2], '+')
+    plt.plot(xdata[:,0]-xdata[:,2], ydata[:,0]-ydata[:,2], '+')
     plt.grid(True)
     plt.title('g-i')
 
