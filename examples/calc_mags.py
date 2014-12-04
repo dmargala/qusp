@@ -27,7 +27,14 @@ def main():
     mags = []
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         ab_mags = combined.flux.get_ab_magnitudes()
-        mags.append([ab_mags[band] for band in 'gri'])
+        save_mags = []
+        for band in 'gri':
+            if ab_mags[band] is None:
+                print target, band
+                save_mags.append(0)
+            else:
+                save_mags.append(ab_mags[band])
+        mags.append(save_mags)
     np.savetxt(args.output, mags)
 
 if __name__ == '__main__':
