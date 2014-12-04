@@ -35,6 +35,17 @@ def main():
     data1 = np.loadtxt(args.input1)
     data2 = np.loadtxt(args.input2)
 
+    bands = 'gri'
+    xdata = []
+    ydata = []
+
+    for i in range(len(bands)):
+        x = data1[:,i]
+        y = data2[:,i]
+        mask = (x != 0) & (y != 0)
+        xdata.append(x[mask])
+        ydata.append(y[mask])
+
     if args.verbose:
         print 'Creating summary plot...'
 
@@ -47,16 +58,11 @@ def main():
 
     axs = [ax1, ax2, ax3]
 
-    titles = 'gri'
-
     for i in range(len(axs)):
         axs[i].set_aspect('equal')
         plt.sca(axs[i])
-        x = data1[:,i]
-        y = data2[:,i]
-        mask = (x != 0) & (y != 0)
-        x = x[mask]
-        y = y[mask]
+        x = xdata[i]
+        y = ydata[i]
         lower = min(np.min(x), np.min(y))
         upper = max(np.max(x), np.max(y))
         diff = upper - lower
@@ -67,12 +73,23 @@ def main():
         plt.ylim(lim)
         plt.xlim(lim)
         plt.grid(True)
-        plt.title(titles[i])
+        plt.title(bands[i])
 
         plt.xlabel(args.input1)
         plt.ylabel(args.input2)
 
-    fig.savefig(args.output, bbox_inches='tight')
+    fig.savefig(args.output+'-gri.png', bbox_inches='tight')
+
+    fig = plt.figure(figsize=(6,6))
+
+    plt.plot(xdata[0]-xdata[2], ydata[0]-ydata[2], '+')
+    plt.grid(True)
+    plt.title('g-i')
+
+    plt.xlabel(args.input1)
+    plt.ylabel(args.input2)
+
+    fig.savefig(args.output+'-gminusi.png', bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
