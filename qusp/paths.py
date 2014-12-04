@@ -72,6 +72,19 @@ class Paths(object):
         self.boss_path = os.path.join(self.boss_root, self.boss_version)
         assert os.path.isdir(self.boss_path), 'boss data dir does not exist'
 
+    def get_spplate_filename(self, target):
+        """
+        Returns full path to the specified target's spPlate fits file.
+
+        Args:
+            target (:class:`qusp.target.Target`)
+
+        Returns:
+            spplate_filename (str)
+        """
+        plate_filename = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
+        return os.path.join(self.boss_path, str(target['plate']), plate_filename)
+
     @staticmethod
     def add_args(parser):
         """

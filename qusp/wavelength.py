@@ -140,7 +140,7 @@ def draw_lines(waves, offset=0, delta=.1, **kwargs):
         plt.axvline(wave, **kwargs)
         try:
             plt.text(wave, offset+(index%2)*delta, wave.label,
-                     transform=transform, horizontalalignment='left')
+                transform=transform, horizontalalignment='left')
         except AttributeError:
             pass
 
