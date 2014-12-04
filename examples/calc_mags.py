@@ -44,7 +44,7 @@ def main():
             for row in data:
                 fiberid = str(row[0])
                 target = '-'.join([plate,mjd,fiberid])
-                tpcorr_values = row[nidtokens+1:]
+                tpcorr_values = row[nidtokens:]
                 tpcorr_map[target] = scipy.interpolate.interp1d(xvalues, tpcorr_values,
                     kind='linear', copy=False)
 
