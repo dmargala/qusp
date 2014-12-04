@@ -363,9 +363,9 @@ class BOSSSpectrum(object):
         self.npixels = len(wavelength)
 
     def create_corrected(self, correction):
-        sampled_correction = correction(self.wavelength)
+        sampled_correction = 1/correction(self.wavelength)
         corrected_flux = self.flux.values*sampled_correction
-        corrected_ivar = 1/sampled_correction**2
+        corrected_ivar = self.ivar.values*1/sampled_correction**2
         return BOSSSpectrum(self.wavelength, corrected_flux, corrected_ivar)
 
     def find_pixel(self, wavelength, clip=False):
