@@ -73,13 +73,26 @@ def main():
     # save target list
     if args.save:
         names = ['plate','mjd','fiberid'] + fields
-        cols = [filtered.field(col) for col in names]
-        formats = ','.join([filtered[col].dtype.name for col in names])
-        trimmed = np.rec.fromarrays(cols, names=names, dtype=formats)
+        cols = []
+        outnames = []
+        fmtnames = []
+        for col in names:
+            coldata = filtered.field(col)
+            if coldata.ndim == 1:
+                fmtnames.append(col)
+                outnames.append(col)
+                cols.append(coldata)
+            elif coldata.ndim == 2:
+                for icol in range(coldata.shape[1]):
+                    fmtnames.append(col)
+                    outnames.append(col+str(icol))
+                    cols.append(coldata[:,icol])
+        formats = ','.join([filtered[col].dtype.name for col in fmtnames])
+        trimmed = np.rec.fromarrays(cols, names=outnames, dtype=formats)
         # save target list as text file
         if args.verbose:
             print "Saving %d final targets to %s" % (len(trimmed), args.save)
-        fmt = '%s-%s-%s ' + ' '.join(['%s' for field in fields])
+        fmt = '%s-%s-%s ' + ' '.join(['%s' for field in range(len(outnames)-3)])
         np.savetxt(args.save, trimmed, fmt=fmt)
     # save filtered FITS file
     if args.output:

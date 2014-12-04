@@ -165,11 +165,10 @@ def load_target_list_from_args(args, fields=None):
     Returns:
         list of :class:`Target` objects.
     """
-    target_list = load_target_list(args.targets, fields=fields, verbose=args.verbose)
+    target_list = load_target_list(args.targets, fields=fields)
     # trim target list if requested
     ntargets = args.ntargets if args.ntargets > 0 else len(target_list)
-    if args.verbose:
-        print 'Using %d targets (out of %d in file)' % (ntargets, len(target_list))
+    print 'Using %d targets (out of %d in file)' % (ntargets, len(target_list))
     return target_list[:ntargets]
 
 def save_target_list(filename, targets, fields=None, verbose=False):
