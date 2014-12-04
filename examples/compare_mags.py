@@ -59,6 +59,8 @@ def main():
         plt.sca(axs[i])
         x = xdata[:,i]
         y = ydata[:,i]
+        xydiff = x-y
+        print np.mean(xydiff), np.sqrt(np.var(xydiff))
         lower = min(np.min(x), np.min(y))
         upper = max(np.max(x), np.max(y))
         diff = upper - lower
