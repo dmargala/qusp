@@ -42,7 +42,7 @@ def main():
             xvalues = np.linspace(3500, 10500, npoints, endpoint=True)
 
             for row in data:
-                fiberid = row[0]
+                fiberid = str(row[0])
                 target = '-'.join([plate,mjd,fiberid])
                 tpcorr_values = row[nidtokens+1:]
                 tpcorr_map[target] = scipy.interpolate.interp1d(xvalues, tpcorr_values,
