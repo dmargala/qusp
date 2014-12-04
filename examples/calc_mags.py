@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
 """
+import numpy as np
 
 import argparse
 import qusp
@@ -9,6 +10,8 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-o", "--output", type=str, default=None,
+        help="output file base name")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
@@ -21,9 +24,11 @@ def main():
         fields=[(band, float, i+1) for i,band in enumerate('ugriz')])
 
     # loop over targets
+    mags = []
     for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
         ab_mags = combined.flux.get_ab_magnitudes()
-        print ' '.join(['%.4f' % ab_mags[band] for band in 'gri'])
+        mags.append([ab_mags[band] for band in 'gri'])
+    np.savetxt(args.output, mags)
 
 if __name__ == '__main__':
     main()
