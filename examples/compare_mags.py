@@ -67,8 +67,7 @@ def main():
         scale = 0.05
         pad = scale*diff
         lim = [lower-pad, upper+pad]
-        plt.plot(x, y, '+')
-        plt.ylim(lim)
+        plt.plot(x, xydiff, '+')
         plt.xlim(lim)
         plt.grid(True)
         plt.title(bands[i])
