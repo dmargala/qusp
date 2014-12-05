@@ -78,6 +78,30 @@ def main():
 
     fig.savefig(args.output+'-gri.png', bbox_inches='tight')
 
+    # save results summary plot
+    fig = plt.figure(figsize=(12,4))
+
+    ax1 = plt.subplot2grid((1,3), (0,0))
+    ax2 = plt.subplot2grid((1,3), (0,1))
+    ax3 = plt.subplot2grid((1,3), (0,2))
+
+    axs = [ax1, ax2, ax3]
+
+    for i in range(len(axs)):
+        # axs[i].set_aspect('equal')
+        plt.sca(axs[i])
+        x = xdata[:,i]
+        y = ydata[:,i]
+        xydiff = x-y
+        plt.hist(xydiff, bins=50)
+        plt.grid(True)
+        plt.title(bands[i])
+
+        plt.xlabel(args.input1)
+        plt.ylabel(args.input2)
+
+    fig.savefig(args.output+'-hist.png', bbox_inches='tight')
+
     fig = plt.figure(figsize=(6,6))
 
     plt.plot(xdata[:,0]-xdata[:,2], ydata[:,0]-ydata[:,2], '+')
