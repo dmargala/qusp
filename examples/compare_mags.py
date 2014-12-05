@@ -23,95 +23,103 @@ def main():
         help="print verbose output")
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file base name")
-    parser.add_argument("-i1", "--input1", type=str, default=None,
+    parser.add_argument("-x", "--x-input", type=str, default=None,
         help="required input file")
-    parser.add_argument("-i2", "--input2", type=str, default=None,
+    parser.add_argument("-y", "--y-input", type=str, default=None,
         help="required input file")
+    parser.add_argument("--correct-x", action="store_true",
+        help="correct SDSS mag to AB mag")
     args = parser.parse_args()
 
-    if args.verbose:
-        print 'Reading files: %s, %s' % (args.input1, args.input2)
-
-    data1 = np.loadtxt(args.input1)
-    data2 = np.loadtxt(args.input2)
-
+    # these are the bands we're using
     bands = 'gri'
 
-    mask = np.logical_not(np.any(data1 == 0, axis=1)) & np.logical_not(np.any(data2 == 0, axis=1))
+    # trim filename to a useful label for plots later on
+    xname = args.x_input.split('/')[-1].split('.')[0]
+    yname = args.y_input.split('/')[-1].split('.')[0]
+    print '%s vs %s' % (xname, yname)
+    print
 
-    xdata = data1[mask]
-    ydata = data2[mask]
+    # import data and filter missing entries
+    xdata_raw = np.loadtxt(args.x_input)
+    ydata_raw = np.loadtxt(args.y_input)
 
-    if args.verbose:
-        print 'Creating summary plot...'
+    # filter missing data
+    mask = np.logical_not(np.any(xdata_raw == 0, axis=1)) & np.logical_not(np.any(ydata_raw == 0, axis=1))
+    xdata = xdata_raw[mask]
+    ydata = ydata_raw[mask]
 
-    # save results summary plot
+    # if requested, convert sdss mags to ab mags on xdata
+    if args.correct_x:
+        xdata += [0.012, 0.010, 0.028]
+
+    # mag scatter
     fig = plt.figure(figsize=(12,4))
-
     ax1 = plt.subplot2grid((1,3), (0,0))
     ax2 = plt.subplot2grid((1,3), (0,1))
     ax3 = plt.subplot2grid((1,3), (0,2))
-
     axs = [ax1, ax2, ax3]
-
     for i in range(len(axs)):
-        axs[i].set_aspect('equal')
+        #axs[i].set_aspect('equal')
         plt.sca(axs[i])
         x = xdata[:,i]
         y = ydata[:,i]
-        xydiff = x-y
-        print '%.4f %.4f' % (np.mean(xydiff), np.sqrt(np.var(xydiff)))
-        lower = min(np.min(x), np.min(y))
-        upper = max(np.max(x), np.max(y))
-        diff = upper - lower
-        scale = 0.05
-        pad = scale*diff
-        lim = [lower-pad, upper+pad]
-        plt.plot(x, xydiff, '+')
-        plt.xlim(lim)
+        plt.plot(x, x-y, '+')
+        # lower = min(np.min(x), np.min(y))
+        # upper = max(np.max(x), np.max(y))
+        # diff = upper - lower
+        # scale = 0.05
+        # pad = scale*diff
+        # lim = [lower-pad, upper+pad]
+        # plt.ylim(lim)
+        # plt.xlim(lim)
+        plt.ylim([-1,1])
         plt.grid(True)
-        plt.title(bands[i])
-
-        plt.xlabel(args.input1)
-        plt.ylabel(args.input2)
-
+        plt.title(xname+' vs. '+yname)
+        plt.xlabel(bands[i])
+        plt.ylabel(r'$\Delta$%s'%bands[i])
     fig.savefig(args.output+'-gri.png', bbox_inches='tight')
 
-    # save results summary plot
+    # delta mag histograms
     fig = plt.figure(figsize=(12,4))
-
     ax1 = plt.subplot2grid((1,3), (0,0))
     ax2 = plt.subplot2grid((1,3), (0,1))
     ax3 = plt.subplot2grid((1,3), (0,2))
-
     axs = [ax1, ax2, ax3]
-
+    print 'delta mag (band: mean +/- rms):'
     for i in range(len(axs)):
-        # axs[i].set_aspect('equal')
         plt.sca(axs[i])
         x = xdata[:,i]
         y = ydata[:,i]
         xydiff = x-y
-        plt.hist(xydiff, bins=50)
+        print '  %s: %.4f +/- %.4f' % (bands[i], np.mean(xydiff), np.sqrt(np.var(xydiff)))
+        plt.hist(xydiff, bins=50, lw=0, alpha=.5)
         plt.grid(True)
-        plt.title(r'$\Delta$%s'%bands[i])
-
+        plt.xlabel(r'$\Delta$%s'%bands[i])
         plt.xlim([-1,1])
-
-        plt.xlabel(args.input1+'\nvs.\n'+args.input2)
-
+        plt.title(xname+' vs. '+yname)
     fig.savefig(args.output+'-hist.png', bbox_inches='tight')
 
-    fig = plt.figure(figsize=(6,6))
-
-    plt.plot(xdata[:,0]-xdata[:,2], ydata[:,0]-ydata[:,2], '+')
-    plt.grid(True)
-    plt.title('g-i')
-
-    plt.xlabel(args.input1)
-    plt.ylabel(args.input2)
-
-    fig.savefig(args.output+'-gminusi.png', bbox_inches='tight')
+    # color
+    fig = plt.figure(figsize=(12,4))
+    ax1 = plt.subplot2grid((1,3), (0,0))
+    ax2 = plt.subplot2grid((1,3), (0,1))
+    ax3 = plt.subplot2grid((1,3), (0,2))
+    axs = [ax1, ax2, ax3]
+    print 'delta color (color: mean +/- rms):'
+    xaxiscol = 1
+    for iax,(i,j) in enumerate([(0,1),(0,2),(1,2)]):
+        plt.sca(axs[iax])
+        xcolor = xdata[:,i]-xdata[:,j]
+        ycolor = ydata[:,i]-ydata[:,j]
+        xydiff = xcolor-ycolor
+        print '  %s-%s: %.4f +/- %.4f' % (bands[i],bands[j], np.mean(xydiff), np.sqrt(np.var(xydiff)))
+        plt.plot(xdata[:,xaxiscol], xydiff, '+')
+        plt.grid(True)
+        plt.xlabel('%s'%(bands[xaxiscol]))
+        plt.ylabel(r'$\Delta(%s-%s)$'%(bands[i],bands[j]))
+        plt.title(xname+' vs. '+yname)
+    fig.savefig(args.output+'-colors.png', bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
