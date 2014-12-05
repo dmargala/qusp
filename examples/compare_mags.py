@@ -95,10 +95,9 @@ def main():
         xydiff = x-y
         plt.hist(xydiff, bins=50)
         plt.grid(True)
-        plt.title(bands[i])
+        plt.title(r'$\Delta$%s'%bands[i])
 
-        plt.xlabel(args.input1)
-        plt.ylabel(args.input2)
+        plt.xlabel(args.input1+'\nvs.\n'+args.input2)
 
     fig.savefig(args.output+'-hist.png', bbox_inches='tight')
 
