@@ -97,6 +97,8 @@ def main():
         plt.grid(True)
         plt.title(r'$\Delta$%s'%bands[i])
 
+        plt.xlim([-1,1])
+
         plt.xlabel(args.input1+'\nvs.\n'+args.input2)
 
     fig.savefig(args.output+'-hist.png', bbox_inches='tight')
