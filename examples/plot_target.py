@@ -60,6 +60,12 @@ def main():
     # load target's spectrum
     combined = qusp.target.get_combined_spectrum(target, paths)
 
+    fig = plt.figure(figsize=(14, 6))
+
+    badpixels = np.where(combined.ivar.values == 0)
+
+    plt.plot(combined.wavelength, combined.flux.values, color='black', lw=.5)#, marker='+', markersize=3, lw=0)
+
     if args.tpcorr:
         import h5py
         import scipy.interpolate
@@ -68,13 +74,7 @@ def main():
         tpcorr_value = tpcorr['/'.join(target.to_string().split('-'))].value
         correction = scipy.interpolate.interp1d(tpcorr_wave, tpcorr_value, kind='linear', copy=False)
         corrected = combined.create_corrected(correction)
-
-    fig = plt.figure(figsize=(14, 6))
-
-    badpixels = np.where(combined.ivar.values == 0)
-
-    plt.plot(combined.wavelength, combined.flux.values, color='black', lw=.5)#, marker='+', markersize=3, lw=0)
-    plt.plot(corrected.wavelength, corrected.flux.values, color='blue', lw=.5)#, marker='+', markersize=3, lw=0)
+        plt.plot(corrected.wavelength, corrected.flux.values, color='blue', lw=.5)#, marker='+', markersize=3, lw=0)
 
     #y_err = 1/np.sqrt(combined.ivar.values)
     #y_err_lower = combined.flux.values - y_err
