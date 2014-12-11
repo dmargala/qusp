@@ -32,6 +32,8 @@ def main():
         help="wavelength max")
     parser.add_argument("--outdir", type=str, default=None,
         help="output filename")
+    parser.add_argument("--tpcorr", type=str, default=None,
+        help="throughput correction filename")
     parser.add_argument("--target-index", type=int, default=None)
     qusp.paths.Paths.add_args(parser)
     qusp.target.add_args(parser)
@@ -58,26 +60,32 @@ def main():
     # load target's spectrum
     combined = qusp.target.get_combined_spectrum(target, paths)
 
-    # determine observed spectrum window
-    forest = combined.trim_range(wave_min, wave_max)
-
-    ymin = 0
-    ymax = 42
+    if args.tpcorr:
+        import h5py
+        import scipy.interpolate
+        tpcorr = h5py.File(args.tpcorr)
+        tpcorr_wave = tpcorr['wave'].value
+        tpcorr_value = tpcorr['/'.join(target.to_string().split('-'))].value
+        correction = scipy.interpolate.interp1d(tpcorr_wave, tpcorr_value, kind='linear', copy=False)
+        corrected = combined.create_corrected(correction)
 
     fig = plt.figure(figsize=(14, 6))
 
     badpixels = np.where(combined.ivar.values == 0)
 
-    plt.plot(combined.wavelength, combined.flux.values, color='blue', lw=.5)#, marker='+', markersize=3, lw=0)
+    plt.plot(combined.wavelength, combined.flux.values, color='black', lw=.5)#, marker='+', markersize=3, lw=0)
+    plt.plot(corrected.wavelength, corrected.flux.values, color='blue', lw=.5)#, marker='+', markersize=3, lw=0)
 
-    y_err = 1/np.sqrt(combined.ivar.values)
+    #y_err = 1/np.sqrt(combined.ivar.values)
     #y_err_lower = combined.flux.values - y_err
     #y_err_upper = combined.flux.values + y_err
     #plt.fill_between(combined.wavelength, y_err_lower, y_err_upper, facecolor='gray', alpha=.5, lw=0)
     #plt.errorbar(combined.wavelength, combined.flux.values, y_err, color='blue', marker='+', ls='None', lw=.2, mew=0)
 
     plt.xlim([wave_min, wave_max])
-    plt.ylim([ymin, ymax])
+    # ymin = 0
+    # ymax = 42
+    #plt.ylim([ymin, ymax])
 
     # quasar_lines = qusp.wavelength.load_wavelengths('quasar')
     # redshifted_quasar_lines = []
