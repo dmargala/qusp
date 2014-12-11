@@ -49,7 +49,7 @@ def main():
         tpcorr = h5py.File(args.tpcorr)
         tpcorr_wave = tpcorr['wave'].value
 
-    fig = plt.figure(figsize=(14, 6))
+    fig = plt.figure(figsize=(6, 6))
 
     for target in target_list:
         # load target's spectrum
