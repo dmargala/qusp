@@ -83,9 +83,9 @@ def main():
     #plt.errorbar(combined.wavelength, combined.flux.values, y_err, color='blue', marker='+', ls='None', lw=.2, mew=0)
 
     plt.xlim([wave_min, wave_max])
-    # ymin = 0
-    # ymax = 42
-    #plt.ylim([ymin, ymax])
+    ymin = 0
+    ymax = 60
+    plt.ylim([ymin, ymax])
 
     # quasar_lines = qusp.wavelength.load_wavelengths('quasar')
     # redshifted_quasar_lines = []
