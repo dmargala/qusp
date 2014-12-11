@@ -22,7 +22,7 @@ def main():
         help="wavelength min")
     parser.add_argument("--wave-max", type=float, default=10500,
         help="wavelength max")
-    parser.add_argument("--outdir", type=str, default=None,
+    parser.add_argument("--output", type=str, default=None,
         help="output filename")
     parser.add_argument("--tpcorr", type=str, default=None,
         help="throughput correction filename")
@@ -75,9 +75,9 @@ def main():
 
     plt.grid()
 
-    filename = args.targets[:-3]+'png'
-    if args.outdir:
-        filename = os.path.join(args.output, filename)
+    filename = args.output
+    if filename is None:
+        filename = args.targets[:-3]+'png'
     fig.savefig(filename, bbox_inches='tight')
 
 if __name__ == '__main__':
