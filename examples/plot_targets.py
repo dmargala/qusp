@@ -55,21 +55,23 @@ def main():
         # load target's spectrum
         combined = qusp.target.get_combined_spectrum(target, paths)
 
+        label=target.to_string()
+
         if args.tpcorr:
             tpcorr_value = tpcorr['/'.join(target.to_string().split('-'))].value
             correction = scipy.interpolate.interp1d(tpcorr_wave, tpcorr_value, kind='linear', copy=False)
             corrected = combined.create_corrected(correction)
-            plt.plot(corrected.wavelength, corrected.flux.values, lw=.5)
+            plt.plot(corrected.wavelength, corrected.flux.values, lw=.5, label=label)
         else:
-            plt.plot(combined.wavelength, combined.flux.values, lw=.5)
+            plt.plot(combined.wavelength, combined.flux.values, lw=.5, label=label)
 
+    plt.legend()
 
     plt.xlim([wave_min, wave_max])
     ymin = 0
     ymax = 60
     plt.ylim([ymin, ymax])
 
-    plt.title(target.to_string())
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
     plt.xlabel(r'Observed Wavlength $(\AA)$')
 
