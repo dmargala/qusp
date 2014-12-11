@@ -11,8 +11,7 @@ import h5py
 
 import qusp
 
-import scipy.signal
-
+from scipy.signal import savgol_filter
 
 def main():
     # parse command-line arguments
@@ -59,7 +58,6 @@ def main():
         # load target's spectrum
         combined = qusp.target.get_combined_spectrum(target, paths)
 
-
         if args.tpcorr:
             tpcorr_value = tpcorr['/'.join(target.to_string().split('-'))].value
             correction = scipy.interpolate.interp1d(tpcorr_wave, tpcorr_value, kind='linear', copy=False)
@@ -70,9 +68,7 @@ def main():
             x = combined.wavelength
             y = combined.flux.values
 
-        plt.plot(
-            scipy.signal.savgol_filter(x, args.nsmooth, 2), 
-            scipy.signal.savgol_filter(y, args.nsmooth, 2), 
+        plt.plot(savgol_filter(x, args.nsmooth, 2), savgol_filter(y, args.nsmooth, 2), 
             lw=.5, label=target.to_string())
 
     plt.legend()
