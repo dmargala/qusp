@@ -21,8 +21,8 @@ def main():
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
 
+    tpcorr_map = {}
     if args.tpcorr:
-        tpcorr_map = {}
         tpcorr_filenames = glob.glob(args.tpcorr)
 
         for tpcorr_filename in tpcorr_filenames:
