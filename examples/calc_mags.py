@@ -36,7 +36,12 @@ def main():
     mags = []
     for target in targets:
         if args.tpcorr:
-            combined = qusp.target.get_corrected_spectrum(target, tpcorr, paths=paths)
+            try:
+                combined = qusp.target.get_corrected_spectrum(target, tpcorr, paths=paths)
+            except KeyError:
+                print 'Error reading correction for: %s' % target.to_string()
+                mags.append([0,0,0])
+                continue
         else:
             combined = qusp.target.get_combined_spectrum(target, paths=paths)
         ab_mags = combined.flux.get_ab_magnitudes()
