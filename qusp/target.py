@@ -280,3 +280,23 @@ def get_combined_spectrum(target, paths=None):
     spplate = fits.open(plate_filename)
     return qusp.spectrum.read_combined_spectrum(spplate, target)
 
+def get_corrected_spectrum(target, tpcorr, paths=None):
+    """
+    Returns the coadded spectrum of the specified target.
+
+    Args:
+        target (:class:`Target`): a target 
+        tpcorr (hdf5 File object): hdf5 file with throughput corrections
+        paths (:class:`qusp.paths.Paths`, optional): paths object that knows 
+            where the location of the boss data dir.
+
+    Returns:
+        Coadded spectrum of the specified target.
+    """
+    from scipy.interpolate import interp1d
+    combined = get_corrected_spectrum(target, paths)
+    wave = tpcorr['wave'].value
+    value = tpcorr['%s/%s/%s' % (target['plate'], target['mjd'], target['fiber'])].value
+    correction = interp1d(wave, value, kind='linear', copy=False)
+    return combined.create_corrected(correction)
+
