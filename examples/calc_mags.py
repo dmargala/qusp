@@ -36,9 +36,9 @@ def main():
     mags = []
     for target in targets:
         if args.tpcorr:
-            combined = qusp.target.get_corrected_spectrum(target, tpcorr, boss_path=paths.boss_path)
+            combined = qusp.target.get_corrected_spectrum(target, tpcorr, paths=paths)
         else:
-            combined = qusp.target.get_combined_spectrum(target, boss_path=paths.boss_path)
+            combined = qusp.target.get_combined_spectrum(target, paths=paths)
         ab_mags = combined.flux.get_ab_magnitudes()
         save_mags = []
         for band in 'gri':
