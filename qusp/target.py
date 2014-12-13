@@ -294,9 +294,8 @@ def get_corrected_spectrum(target, tpcorr, paths=None):
         Coadded spectrum of the specified target.
     """
     from scipy.interpolate import interp1d
-    combined = get_corrected_spectrum(target, paths)
+    combined = get_combined_spectrum(target, paths)
     wave = tpcorr['wave'].value
     value = tpcorr['%s/%s/%s' % (target['plate'], target['mjd'], target['fiber'])].value
     correction = interp1d(wave, value, kind='linear', copy=False)
     return combined.create_corrected(correction)
-
