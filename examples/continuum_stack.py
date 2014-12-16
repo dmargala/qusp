@@ -57,6 +57,9 @@ def main():
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths):
 
+        if norm_min.observed(target['z']) < combined.wavelength[0]:
+            continue
+
         norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
 
         if norm <= 0:
