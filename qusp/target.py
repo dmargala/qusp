@@ -236,7 +236,7 @@ def get_target_plates(targets, boss_path=None, sort=True, verbose=False):
             currently_opened_filename = plate_filename
         yield target, spplate
 
-def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
+def get_combined_spectra(targets, paths=None, sort=True, verbose=False, tpcorr=None):
     """
     A generator that yields (target, spectrum) tuples for the provided list of
     targets. With sort=True, the targets will be sorted by plate-mjd-fiber to
@@ -258,9 +258,11 @@ def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
             target's coadded spectrum.
     """
 
-    for target, spplate in get_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
-        combined = qusp.spectrum.read_combined_spectrum(spplate, target)
-        yield target, combined
+    for target, spplate in get_target_plates(targets, boss_path=paths.boss_path, sort=sort, verbose=verbose):
+        if tpcorr is not None:
+            yield target, get_corrected_spectrum(target, tpcorr, paths)
+        else:
+            yield target, qusp.spectrum.read_combined_spectrum(spplate, target)
 
 def get_combined_spectrum(target, paths=None):
     """
