@@ -59,6 +59,9 @@ def main():
     print qusp.wavelength.get_fiducial_wavelength(min_fid_index), qusp.wavelength.get_fiducial_wavelength(max_fid_index-1)
     print fid_npixels
 
+    norm_min_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_min))).astype(int)-min_fid_index
+    norm_max_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_max))).astype(int)-min_fid_index
+
     redshifted_fluxes = np.ma.empty((len(target_list), fid_npixels))
     redshifted_fluxes[:] = np.ma.masked
 
@@ -73,10 +76,19 @@ def main():
 
         valid_pixels = (continuum_indices < fid_npixels) & (continuum_indices >= 0)
 
-        if norm_min.observed(target['z']) < combined.wavelength[0]:
-            print 'norm region not in range'
+        # if norm_min.observed(target['z']) < combined.wavelength[0]:
+        #     print 'norm region not in range', target.to_string(), target['z'] 
+        #     continue
+        # norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
+
+        norm_pixels = (continuum_indices < norm_max_index) & (continuum_indices >=  norm_min_index)
+
+        normfluxes = np.ma.masked_array(combined.flux.values[norm_pixels], mask=(combined.ivar.values[norm_pixels] == 0))
+        norm = np.ma.average(normfluxes, weights=combined.ivar.values[norm_pixels])
+
+        if np.sum(normfluxes.mask) == np.sum(norm_pixels):
+            print 'no unmasked pixels in norm region', target.to_string(), target['z'] 
             continue
-        norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
 
         if norm <= 0:
             print 'norm less than 0', target.to_string(), target['z'] 
