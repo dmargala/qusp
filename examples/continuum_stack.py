@@ -25,6 +25,8 @@ def main():
         help="throughput correction filename")
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file name")
+    pasrer.add_argument("unweighted", action="store_true",
+        help="unweighted stack")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
@@ -48,7 +50,7 @@ def main():
     # initialize stack arrays
     ntargets = 0
 
-    continuum_wave_min = 975
+    continuum_wave_min = 875
     continuum_wave_max = 3000
     continuum_npixels = 1000
     continuum_wave_delta = float(continuum_wave_max-continuum_wave_min)/(continuum_npixels)
@@ -91,7 +93,10 @@ def main():
 
         continuum_indices = continuum_indices[valid_pixels]
         flux = combined.flux.values[valid_pixels]/norm
-        ivar = combined.ivar.values[valid_pixels]
+        if args.unweighted:
+            ivar = np.ones(npixels)
+        else:
+            ivar = combined.ivar.values[valid_pixels]
 
         for i,pixel in enumerate(continuum_indices):
             weight_sum[pixel] += ivar[i]
