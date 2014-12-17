@@ -46,20 +46,42 @@ def main():
     norm_max = qusp.wavelength.Wavelength(args.norm_max)
 
     # initialize stack arrays
-    npixels_fiducial = 4800
-    wavelength = qusp.wavelength.get_fiducial_wavelength(np.arange(npixels_fiducial))
+    ntargets = 0
 
-    flux_wsum = np.zeros(npixels_fiducial)
+    continuum_wave_min = 975
+    continuum_wave_max = 3000
+    continuum_npixels = 1000
+    continuum_wave_delta = float(continuum_wave_max-continuum_wave_min)/(continuum_npixels)
+
+    continuum_wave_centers=0.5*continuum_wave_delta + np.linspace(
+        continuum_wave_min, continuum_wave_max, continuum_npixels, endpoint=False)
+    continuum_wave_bins = np.linspace(continuum_wave_min, continuum_wave_max, continuum_npixels+1, endpoint=True)
+
+    flux_wsum = np.zeros(continuum_npixels)
     weight_sum = np.zeros_like(flux_wsum)
 
-    ntargets = 0
+    print ('Continuum model wavelength bin centers span [%.2f:%.2f] with %d bins.' %
+        (continuum_wave_centers[0], continuum_wave_centers[-1], continuum_npixels))
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths):
 
-        if norm_min.observed(target['z']) < combined.wavelength[0]:
+        continuum_wave = combined.wavelength/(1+target['z'])
+        continuum_indices = np.floor((continuum_wave-continuum_wave_min)/continuum_wave_delta).astype(int)
+        ivar = combined.ivar.values
+
+        valid_pixels = (continuum_indices < len(continuum_wave_centers)) & (continuum_indices >= 0)
+
+        npixels = np.sum(valid_pixels)
+
+        if npixels <= 0:
+            if args.verbose:
+                print 'No good pixels for target %s (z=%.2f)' % (
+                    target['target'], target['z'])
             continue
 
+        if norm_min.observed(target['z']) < combined.wavelength[0]:
+            continue
         norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
 
         if norm <= 0:
@@ -67,12 +89,18 @@ def main():
 
         ntargets += 1
 
-        offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
+        continuum_indices = continuum_indices[valid_pixels]
+        flux = combined.flux.values[valid_pixels]/norm
+        ivar = combined.ivar.values[valid_pixels]
 
-        indices = slice(offset, offset+combined.npixels)
+        for i,pixel in enumerate(continuum_indices):
+            weight_sum[pixel] += ivar[i]
+            flux_wsum[pixel] += ivar[i]*flux[i]
 
-        flux_wsum[indices] += combined.ivar.values*combined.flux.values/norm
-        weight_sum[indices] += combined.ivar.values
+        # offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
+        # indices = slice(offset, offset+combined.npixels)
+        # flux_wsum[indices] += combined.ivar.values[valid_pixels]*combined.flux.values[valid_pixels]/norm
+        # weight_sum[indices] += combined.ivar.values[valid_pixels]
 
     flux_wmean = np.empty_like(flux_wsum)
     nonzero_weights = np.nonzero(weight_sum)
@@ -87,7 +115,7 @@ def main():
 
         outfile.create_dataset('flux_wmean', data=flux_wmean)
         outfile.create_dataset('weight_sum', data=weight_sum)
-        outfile.create_dataset('wavelength', data=wavelength)
+        outfile.create_dataset('wavelength', data=continuum_wave_centers)
         outfile.attrs['ntargets'] = ntargets
 
 
