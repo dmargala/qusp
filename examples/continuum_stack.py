@@ -66,7 +66,7 @@ def main():
     redshifted_fluxes[:] = np.ma.masked
 
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths):
+    for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths, verbose=args.verbose):
 
         continuum_wave = combined.wavelength/(1+target['z'])
 
