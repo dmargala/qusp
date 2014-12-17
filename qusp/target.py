@@ -260,7 +260,13 @@ def get_combined_spectra(targets, paths=None, sort=True, verbose=False, tpcorr=N
 
     for target, spplate in get_target_plates(targets, boss_path=paths.boss_path, sort=sort, verbose=verbose):
         if tpcorr is not None:
-            yield target, get_corrected_spectrum(target, tpcorr, paths)
+            try:
+                corrected = get_corrected_spectrum(target, tpcorr, paths)
+                yield target, corrected
+            except KeyError:
+                if verbose:
+                    print 'get_combined_spectra: Error reading correction for %s' % target.to_string()
+                continue
         else:
             yield target, qusp.spectrum.read_combined_spectrum(spplate, target)
 
