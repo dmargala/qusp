@@ -25,7 +25,7 @@ def main():
         help="throughput correction filename")
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file name")
-    pasrer.add_argument("unweighted", action="store_true",
+    parser.add_argument("unweighted", action="store_true",
         help="unweighted stack")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
