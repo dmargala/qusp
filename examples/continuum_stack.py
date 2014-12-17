@@ -50,66 +50,47 @@ def main():
     # initialize stack arrays
     ntargets = 0
 
-    continuum_wave_min = 875
-    continuum_wave_max = 3000
-    continuum_npixels = 1000
-    continuum_wave_delta = float(continuum_wave_max-continuum_wave_min)/(continuum_npixels)
+    min_fid_index = -6150
+    max_fid_index = -670
+    fid_npixels = max_fid_index - min_fid_index
 
-    continuum_wave_centers=0.5*continuum_wave_delta + np.linspace(
-        continuum_wave_min, continuum_wave_max, continuum_npixels, endpoint=False)
-    continuum_wave_bins = np.linspace(continuum_wave_min, continuum_wave_max, continuum_npixels+1, endpoint=True)
+    continuum_wave_centers = qusp.wavelength.get_fiducial_wavelength(np.arange(min_fid_index, max_fid_index))
 
-    flux_wsum = np.zeros(continuum_npixels)
-    weight_sum = np.zeros_like(flux_wsum)
+    print qusp.wavelength.get_fiducial_wavelength(min_fid_index), qusp.wavelength.get_fiducial_wavelength(max_fid_index-1)
+    print fid_npixels
 
-    print ('Continuum model wavelength bin centers span [%.2f:%.2f] with %d bins.' %
-        (continuum_wave_centers[0], continuum_wave_centers[-1], continuum_npixels))
+    redshifted_fluxes = np.ma.empty((len(target_list), fid_npixels))
+    redshifted_fluxes[:] = np.ma.masked
 
     # loop over targets
     for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths):
 
         continuum_wave = combined.wavelength/(1+target['z'])
-        continuum_indices = np.floor((continuum_wave-continuum_wave_min)/continuum_wave_delta).astype(int)
-        ivar = combined.ivar.values
 
-        valid_pixels = (continuum_indices < len(continuum_wave_centers)) & (continuum_indices >= 0)
+        fid_offsets = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(continuum_wave))
+        fid_offset_indices = np.round(fid_offsets).astype(int)
+        continuum_indices = fid_offset_indices - min_fid_index
 
-        npixels = np.sum(valid_pixels)
-
-        if npixels <= 0:
-            if args.verbose:
-                print 'No good pixels for target %s (z=%.2f)' % (
-                    target['target'], target['z'])
-            continue
+        valid_pixels = (continuum_indices < fid_npixels) & (continuum_indices >= 0)
 
         if norm_min.observed(target['z']) < combined.wavelength[0]:
+            print 'norm region not in range'
             continue
         norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
 
         if norm <= 0:
+            print 'norm less than 0', target.to_string(), target['z'] 
             continue
+
+        redshifted_fluxes[ntargets, continuum_indices[valid_pixels]] = combined.flux.values[valid_pixels]/norm
 
         ntargets += 1
 
-        continuum_indices = continuum_indices[valid_pixels]
-        flux = combined.flux.values[valid_pixels]/norm
-        if args.unweighted:
-            ivar = np.ones(npixels)
-        else:
-            ivar = combined.ivar.values[valid_pixels]
 
-        for i,pixel in enumerate(continuum_indices):
-            weight_sum[pixel] += ivar[i]
-            flux_wsum[pixel] += ivar[i]*flux[i]
+    print redshifted_fluxes.shape
 
-        # offset = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(combined.wavelength[0]))
-        # indices = slice(offset, offset+combined.npixels)
-        # flux_wsum[indices] += combined.ivar.values[valid_pixels]*combined.flux.values[valid_pixels]/norm
-        # weight_sum[indices] += combined.ivar.values[valid_pixels]
-
-    flux_wmean = np.empty_like(flux_wsum)
-    nonzero_weights = np.nonzero(weight_sum)
-    flux_wmean[nonzero_weights] = flux_wsum[nonzero_weights]/weight_sum[nonzero_weights]
+    median_flux = np.ma.median(redshifted_fluxes, axis=0)
+    mean_flux = np.ma.mean(redshifted_fluxes, axis=0)
 
     if args.output:
         outfilename = args.output+'.hdf5'
@@ -118,8 +99,8 @@ def main():
         # save target list with sn column
         outfile = h5py.File(outfilename, 'w')
 
-        outfile.create_dataset('flux_wmean', data=flux_wmean)
-        outfile.create_dataset('weight_sum', data=weight_sum)
+        outfile.create_dataset('median_flux', data=median_flux)
+        outfile.create_dataset('mean_flux', data=mean_flux)
         outfile.create_dataset('wavelength', data=continuum_wave_centers)
         outfile.attrs['ntargets'] = ntargets
 
