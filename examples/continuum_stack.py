@@ -27,6 +27,8 @@ def main():
         help="output file name")
     parser.add_argument("--use-lite", action="store_true",
         help="use lite spectra files")
+    parser.add_argument("--keep", type=str, default=None,
+        help="only keep these targets")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
@@ -40,6 +42,22 @@ def main():
     else:
         target_list = qusp.target.load_target_list_from_args(args, 
             fields=[('z', float, args.z_col)])
+
+    if args.keep:
+        keep_list = set(np.loadtxt(args.keep, dtype='S15').tolist())
+        print len(keep_list)
+        keep_target_list = []
+        for target in target_list:
+            if args.use_lite:
+                tstring = '%d-%d-%d' %(target['boss_plate'], target['boss_mjd'], target['boss_fiber'])
+            else:
+                tstring = target.to_string()
+            if tstring in keep_list:
+                keep_target_list.append(target)
+        target_list = keep_target_list
+
+    print len(target_list)
+
 
     if args.tpcorr:
         import scipy.interpolate
