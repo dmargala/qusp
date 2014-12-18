@@ -29,6 +29,8 @@ def main():
         help="use lite spectra files")
     parser.add_argument("--keep", type=str, default=None,
         help="only keep these targets")
+    parser.add_argument("--observed", action="store_true",
+        help="stack in observed frame")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
@@ -72,8 +74,12 @@ def main():
     # initialize stack arrays
     ntargets = 0
 
-    min_fid_index = -6150
-    max_fid_index = -670
+    if args.observed:
+        min_fid_index = 0
+        max_fid_index = 4800
+    else:
+        min_fid_index = -6150
+        max_fid_index = -670
     fid_npixels = max_fid_index - min_fid_index
 
     continuum_wave_centers = qusp.wavelength.get_fiducial_wavelength(np.arange(min_fid_index, max_fid_index))
@@ -104,7 +110,10 @@ def main():
     # loop over targets
     for target, combined in spectrum_gen:
 
-        continuum_wave = combined.wavelength/(1+target['z'])
+        if args.observed:
+            continuum_wave = combined.wavelength
+        else:
+            continuum_wave = combined.wavelength/(1+target['z'])
 
         fid_offsets = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(continuum_wave))
         fid_offset_indices = np.round(fid_offsets).astype(int)
@@ -116,6 +125,10 @@ def main():
         #     print 'norm region not in range', target.to_string(), target['z'] 
         #     continue
         # norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
+
+        if args.observed:
+            norm_min_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_min.observed(target['z'])))).astype(int)-min_fid_index
+            norm_max_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_max.observed(target['z'])))).astype(int)-min_fid_index
 
         norm_pixels = (continuum_indices < norm_max_index) & (continuum_indices >=  norm_min_index)
 
