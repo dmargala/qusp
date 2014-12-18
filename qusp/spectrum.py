@@ -630,6 +630,36 @@ def read_combined_spectrum(spplate, fiber):
 
     return spectrum
 
+def read_lite_spectrum(spec):
+    """
+    Returns the combined spectrum of the specified fiber from the provided
+    spPlate.
+
+    Args:
+        fiber (:class:`qusp.target.Target`): boss target's fiberid, or a
+            :class:`qusp.target.Target` object.
+
+    Returns:
+        spectrum (:class:`Spectrum`): a :class:`Spectrum` object of ``fiber`` of ``spplate``.
+    """
+
+    flux = spec[1].data.field('flux')
+    ivar = spec[1].data.field('ivar')
+    and_mask = spec[1].data.field('and_mask')
+    #or_mask = spplate[3].data[index]
+    #pixel_dispersion = spplate[4].data[index]
+    # Calculate the wavelength sequence to use.
+    npixels = len(flux)
+    wavelength = np.power(10, spec[1].data.field('loglam'))
+
+    # Filter on the AND mask
+    ivar[and_mask > 0] = 0
+
+    # Build the spectrum (no masking yet).
+    spectrum = BOSSSpectrum(wavelength, flux, ivar)
+
+    return spectrum
+
 if __name__ == '__main__':
     # Run some tests on classes defined here.
     wave = np.arange(4000., 10000., 10.)

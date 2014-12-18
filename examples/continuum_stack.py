@@ -25,8 +25,8 @@ def main():
         help="throughput correction filename")
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file name")
-    parser.add_argument("--unweighted", action="store_true",
-        help="unweighted stack")
+    parser.add_argument("--use-lite", action="store_true",
+        help="use lite spectra files")
     qusp.target.add_args(parser)
     qusp.Paths.add_args(parser)
     args = parser.parse_args()
@@ -34,8 +34,12 @@ def main():
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
     # read target list
-    target_list = qusp.target.load_target_list_from_args(args, 
-        fields=[('z', float, args.z_col)])
+    if args.use_lite:
+        target_list = qusp.target.load_target_list_from_args(args, 
+            fields=[('z', float, args.z_col), ('boss_plate', int, 2), ('boss_mjd', int, 3), ('boss_fiber', int, 4)])
+    else:
+        target_list = qusp.target.load_target_list_from_args(args, 
+            fields=[('z', float, args.z_col)])
 
     if args.tpcorr:
         import scipy.interpolate
@@ -65,8 +69,22 @@ def main():
     redshifted_fluxes = np.ma.empty((len(target_list), fid_npixels))
     redshifted_fluxes[:] = np.ma.masked
 
+    def get_lite_spectra(target_list):
+        for target in target_list:
+            try:
+                yield target, qusp.target.get_lite_spectrum(target, paths=paths)
+            except IOError:
+                continue
+
+    if args.use_lite:
+        spectrum_gen = get_lite_spectra(target_list)
+    else:
+        spectrum_gen = qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths, verbose=args.verbose)
+
+    targets_used = []
+
     # loop over targets
-    for target, combined in qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths, verbose=args.verbose):
+    for target, combined in spectrum_gen:
 
         continuum_wave = combined.wavelength/(1+target['z'])
 
@@ -97,9 +115,17 @@ def main():
         redshifted_fluxes[ntargets, continuum_indices[valid_pixels]] = combined.flux.values[valid_pixels]/norm
 
         ntargets += 1
-
+        if args.use_lite:
+            targets_used.append('%d-%d-%d' %(target['boss_plate'], target['boss_mjd'], target['boss_fiber']))
+        else:
+            targets_used.append(target.to_string())
 
     print redshifted_fluxes.shape
+    print ntargets
+
+    with open(args.output+'.txt', 'w') as outfile:
+        for target in sorted(targets_used):
+            outfile.write('%s\n'%target)
 
     median_flux = np.ma.median(redshifted_fluxes, axis=0)
     mean_flux = np.ma.mean(redshifted_fluxes, axis=0)

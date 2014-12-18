@@ -288,6 +288,13 @@ def get_combined_spectrum(target, paths=None):
     spplate = fits.open(plate_filename)
     return qusp.spectrum.read_combined_spectrum(spplate, target)
 
+def get_lite_spectrum(target, paths=None):
+    if paths is None:
+        paths = qusp.paths.Paths()
+    spec_filename = paths.get_spec_filename(target, lite=True)
+    spec = fits.open(spec_filename)
+    return qusp.spectrum.read_lite_spectrum(spec)
+
 def get_corrected_spectrum(target, tpcorr, paths=None):
     """
     Returns the coadded spectrum of the specified target.
