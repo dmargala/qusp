@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 
 import matplotlib as mpl
-# mpl.use('Agg')
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 import h5py
@@ -71,12 +71,10 @@ def main():
 
     plt.grid()
 
-    plt.show()
-
-    # filename = args.output
-    # if filename is None:
-    #     filename = args.targets[:-3]+'png'
-    # fig.savefig(filename, bbox_inches='tight')
+    filename = args.output
+    if filename is None:
+        filename = args.targets[:-3]+'png'
+    fig.savefig(filename, bbox_inches='tight')
 
 if __name__ == '__main__':
     main()
