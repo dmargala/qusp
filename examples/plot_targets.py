@@ -29,6 +29,8 @@ def main():
         help="throughput correction filename")
     parser.add_argument("--nsmooth", type=int, default=5,
         help="savgol filter length in pixels")
+    parser.add_argument("--ymax", type=float, default=None,
+        help="ymax value")
     qusp.paths.Paths.add_args(parser)
     qusp.target.add_args(parser)
     args = parser.parse_args()
@@ -74,9 +76,10 @@ def main():
     plt.legend()
 
     plt.xlim([wave_min, wave_max])
-    ymin = 0
-    ymax = 60
-    plt.ylim([ymin, ymax])
+    if args.ymax:
+        ymin = 0
+        ymax = args.ymax
+        plt.ylim([ymin, ymax])
 
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
     plt.xlabel(r'Observed Wavlength $(\AA)$')
