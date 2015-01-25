@@ -58,13 +58,12 @@ def main():
         plt.plot(savgol_filter(x, args.nsmooth, 2), savgol_filter(y, args.nsmooth, 2), 
             lw=.5, label=target.to_string())
 
-
     plt.legend()
 
     plt.xlim([wave_min, wave_max])
-    # ymin = 0
-    # ymax = 60
-    # plt.ylim([ymin, ymax])
+    ymin = 0
+    ymax = 15
+    plt.ylim([ymin, ymax])
 
     plt.ylabel(r'Flux $(10^{-17} erg/cm^2/s/\AA)$')
     plt.xlabel(r'Observed Wavlength $(\AA)$')
