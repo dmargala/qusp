@@ -85,7 +85,6 @@ class ContinuumModel(object):
         if fix_transmission:
             self.transmission_nparams = 0
         else:
-
             self.transmission_nparams = len(self.transmission_wave_centers)
 
         if verbose:

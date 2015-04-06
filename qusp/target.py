@@ -165,11 +165,10 @@ def load_target_list_from_args(args, fields=None):
     Returns:
         list of :class:`Target` objects.
     """
-    target_list = load_target_list(args.targets, fields=fields, verbose=args.verbose)
+    target_list = load_target_list(args.targets, fields=fields)
     # trim target list if requested
     ntargets = args.ntargets if args.ntargets > 0 else len(target_list)
-    if args.verbose:
-        print 'Using %d targets (out of %d in file)' % (ntargets, len(target_list))
+    print 'Using %d targets (out of %d in file)' % (ntargets, len(target_list))
     return target_list[:ntargets]
 
 def save_target_list(filename, targets, fields=None, verbose=False):
@@ -237,7 +236,7 @@ def get_target_plates(targets, boss_path=None, sort=True, verbose=False):
             currently_opened_filename = plate_filename
         yield target, spplate
 
-def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
+def get_combined_spectra(targets, paths=None, sort=True, verbose=False, tpcorr=None):
     """
     A generator that yields (target, spectrum) tuples for the provided list of
     targets. With sort=True, the targets will be sorted by plate-mjd-fiber to
@@ -259,9 +258,17 @@ def get_combined_spectra(targets, boss_path=None, sort=True, verbose=False):
             target's coadded spectrum.
     """
 
-    for target, spplate in get_target_plates(targets, boss_path=boss_path, sort=sort, verbose=verbose):
-        combined = qusp.spectrum.read_combined_spectrum(spplate, target)
-        yield target, combined
+    for target, spplate in get_target_plates(targets, boss_path=paths.boss_path, sort=sort, verbose=verbose):
+        if tpcorr is not None:
+            try:
+                corrected = get_corrected_spectrum(target, tpcorr, paths)
+                yield target, corrected
+            except KeyError:
+                if verbose:
+                    print 'get_combined_spectra: Error reading correction for %s' % target.to_string()
+                continue
+        else:
+            yield target, qusp.spectrum.read_combined_spectrum(spplate, target)
 
 def get_combined_spectrum(target, paths=None):
     """
@@ -281,3 +288,29 @@ def get_combined_spectrum(target, paths=None):
     spplate = fits.open(plate_filename)
     return qusp.spectrum.read_combined_spectrum(spplate, target)
 
+def get_lite_spectrum(target, paths=None):
+    if paths is None:
+        paths = qusp.paths.Paths()
+    spec_filename = paths.get_spec_filename(target, lite=True)
+    spec = fits.open(spec_filename)
+    return qusp.spectrum.read_lite_spectrum(spec)
+
+def get_corrected_spectrum(target, tpcorr, paths=None):
+    """
+    Returns the coadded spectrum of the specified target.
+
+    Args:
+        target (:class:`Target`): a target 
+        tpcorr (hdf5 File object): hdf5 file with throughput corrections
+        paths (:class:`qusp.paths.Paths`, optional): paths object that knows 
+            where the location of the boss data dir.
+
+    Returns:
+        Coadded spectrum of the specified target.
+    """
+    from scipy.interpolate import interp1d
+    combined = get_combined_spectrum(target, paths)
+    wave = tpcorr['wave'].value
+    value = tpcorr['%s/%s/%s' % (target['plate'], target['mjd'], target['fiber'])].value
+    correction = interp1d(wave, value, kind='linear', copy=False)
+    return combined.create_corrected(correction)

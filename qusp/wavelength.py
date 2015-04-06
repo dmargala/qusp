@@ -115,10 +115,10 @@ def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
     """
     if coeff1 != 1e-4:
         return 0
-    delta = (math.log10(3500.26)-coeff0)/coeff1
-    offset = int(math.floor(delta+0.5))
-    if math.fabs(delta-offset) > 0.01:
-        return 0
+    delta = (np.log10(3500.26)-coeff0)/coeff1
+    offset = np.floor(delta+0.5).astype(int)
+    if np.any(np.fabs(delta-offset) > 0.01):
+        return -delta
     return -offset
 
 def draw_lines(waves, offset=0, delta=.1, **kwargs):

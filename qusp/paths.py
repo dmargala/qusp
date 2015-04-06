@@ -85,6 +85,12 @@ class Paths(object):
         plate_filename = 'spPlate-%s-%s.fits' % (target['plate'], target['mjd'])
         return os.path.join(self.boss_path, str(target['plate']), plate_filename)
 
+    def get_spec_filename(self, target, lite=False):
+        spec_filename = os.path.join(('%04d' % target['plate']), 'spec-%04d-%5d-%04d.fits' % (target['plate'], target['mjd'], target['fiber']))
+        if lite:
+            spec_filename = os.path.join('lite', spec_filename)
+        return os.path.join(self.boss_path, 'spectra', spec_filename)
+
     @staticmethod
     def add_args(parser):
         """

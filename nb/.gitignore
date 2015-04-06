@@ -1,0 +1,4 @@
+# iPython notebook temporary files
+.ipynb_checkpoints/
+*.png
+*.pdf
