@@ -38,12 +38,7 @@ def main():
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
     # read target list
-    if args.use_lite:
-        target_list = qusp.target.load_target_list_from_args(args, 
-            fields=[('z', float, args.z_col), ('boss_plate', int, 2), ('boss_mjd', int, 3), ('boss_fiber', int, 4)])
-    else:
-        target_list = qusp.target.load_target_list_from_args(args, 
-            fields=[('z', float, args.z_col)])
+    target_list = qusp.target.load_target_list_from_args(args, fields=[('z', float, args.z_col)])
 
     if args.keep:
         keep_list = set(np.loadtxt(args.keep, dtype='S15').tolist())
@@ -62,7 +57,6 @@ def main():
 
 
     if args.tpcorr:
-        import scipy.interpolate
         tpcorr = h5py.File(args.tpcorr)
         tpcorr_wave = tpcorr['wave'].value
     else:
@@ -96,14 +90,25 @@ def main():
     def get_lite_spectra(target_list):
         for target in target_list:
             try:
-                yield target, qusp.target.get_lite_spectrum(target, paths=paths)
+                spec = qusp.target.get_lite_spectrum(target, paths=paths)
+                if tpcorr:
+                    from scipy.interpolate import interp1d
+                    wave = tpcorr['wave'].value
+                    try:
+                        value = tpcorr['%s/%s/%s' % (target['plate'], target['mjd'], target['fiber'])].value
+                    except KeyError:
+                        print 'No tpcorr entry for: %s' % target.to_string()
+                        continue
+                    correction = interp1d(wave, value, kind='linear', copy=False)
+                    spec = spec.create_corrected(correction)
+                yield target, spec
             except IOError:
                 continue
 
     if args.use_lite:
         spectrum_gen = get_lite_spectra(target_list)
     else:
-        spectrum_gen = qusp.target.get_combined_spectra(target_list, tpcorr=tpcorr, paths=paths, verbose=args.verbose)
+        spectrum_gen = qusp.target.get_corrected_spectrum(target_list, tpcorr=tpcorr, paths=paths)
 
     targets_used = []
 
@@ -120,16 +125,6 @@ def main():
         continuum_indices = fid_offset_indices - min_fid_index
 
         valid_pixels = (continuum_indices < fid_npixels) & (continuum_indices >= 0)
-
-        # if norm_min.observed(target['z']) < combined.wavelength[0]:
-        #     print 'norm region not in range', target.to_string(), target['z'] 
-        #     continue
-        # norm = combined.mean_flux(norm_min.observed(target['z']), norm_max.observed(target['z']))
-
-        if args.observed:
-            norm_min_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_min.observed(target['z'])))).astype(int)-min_fid_index
-            norm_max_index = np.round(qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_max.observed(target['z'])))).astype(int)-min_fid_index
-
         norm_pixels = (continuum_indices < norm_max_index) & (continuum_indices >=  norm_min_index)
 
         normfluxes = np.ma.masked_array(combined.flux.values[norm_pixels], mask=(combined.ivar.values[norm_pixels] == 0))
@@ -146,10 +141,7 @@ def main():
         redshifted_fluxes[ntargets, continuum_indices[valid_pixels]] = combined.flux.values[valid_pixels]/norm
 
         ntargets += 1
-        if args.use_lite:
-            targets_used.append('%d-%d-%d' %(target['boss_plate'], target['boss_mjd'], target['boss_fiber']))
-        else:
-            targets_used.append(target.to_string())
+        targets_used.append(target.to_string())
 
     print redshifted_fluxes.shape
     print ntargets
