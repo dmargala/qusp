@@ -123,7 +123,7 @@ def plotSpectrum(spectrum, **kwargs):
     ymin = min(0,1.2*np.percentile(spectrum.flux.values,1))
     plt.ylim([ymin,ymax])
       
-def plotTargets(specfits, targetIndices, boss_path):
+def plotTargets(specfits, targetIndices, paths):
     # construct list of Targets from specified indices
     targets = specfits['targets'].value
     redshifts = specfits['redshifts'].value
@@ -165,7 +165,7 @@ def plotTargets(specfits, targetIndices, boss_path):
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
 
     subplotIndex = 1
-    for target, combined in qusp.target.get_combined_spectra(mytargets, boss_path=boss_path):    
+    for target, combined in qusp.target.get_combined_spectra(mytargets, paths=paths):    
         plt.subplot(ntargets,1,subplotIndex)
         subplotIndex += 1
         ax = plt.gca()
@@ -341,7 +341,7 @@ def main():
         ## plot example spectra
         print 'Saving example spectra...'
         fig = plt.figure(figsize=(15,4*len(targetIndices)))
-        plotTargets(specfits, targetIndices, paths.boss_path)
+        plotTargets(specfits, targetIndices, paths)
         fig.savefig('%s-examples.png'%args.output, bbox_inches='tight')
 
         ## visualize Model Matrix

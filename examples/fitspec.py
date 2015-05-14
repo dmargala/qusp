@@ -94,7 +94,7 @@ def main():
     npixels = []
     if args.verbose:
         print '... adding observations to fit ...\n'
-    for target, combined in qusp.target.get_combined_spectra(targets, boss_path=paths.boss_path):
+    for target, combined in qusp.target.get_combined_spectra(targets, paths=paths):
         wavelength = combined.wavelength
         ivar = combined.ivar.values
         flux = combined.flux.values
