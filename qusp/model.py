@@ -43,7 +43,7 @@ class ContinuumModel(object):
     Represents a linearized quasar continuum model.
     """
     def __init__(self, transmission_min, transmission_max, continuum_min, continuum_max, continuum_nparams, tiltwave,
-                 absorption_min, absorption_max, absorption_modelexp, absorption_scale, 
+                 absorption_min, absorption_max, absorption_modelexp, absorption_scale,
                  fix_transmission=False, continuum=None, verbose=False):
         """
         Initializes a linearized quasar continuum model using the specified
@@ -70,7 +70,7 @@ class ContinuumModel(object):
         """
         self.verbose = verbose
         # the number of model params (excluding per target params)
-        self.model_nparams = 0 
+        self.model_nparams = 0
         # initialize transmission model params
         assert transmission_max > transmission_min, ('transmission_max must be greater than transmission_min')
         self.transmission_wave_min = transmission_min
@@ -595,7 +595,7 @@ class ContinuumModel(object):
             args (argparse.Namespace): argparse argument namespace
             save_model (bool, optional): whether or not to save the model
                 matrix and y values. Defaults to True.
-            save_chisq (bool, optional): whether or not to save per 
+            save_chisq (bool, optional): whether or not to save per
                 observation chisq values. Defaults to True.
 
         Returns:

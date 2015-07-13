@@ -7,6 +7,11 @@ import h5py
 
 import qusp
 
+import bossdata.path
+import bossdata.remote
+
+from astropy.io import fits
+
 def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
@@ -60,6 +65,13 @@ def main():
     # setup boss data directory path
     paths = qusp.Paths(**qusp.Paths.from_args(args))
 
+    try:
+        finder = bossdata.path.Finder()
+        mirror = bossdata.remote.Manager()
+    except ValueError as e:
+        print(e)
+        return -1
+
     # read target data
     fields = [('z', float, args.z_col)]
     if args.norm_col is not None:
@@ -94,7 +106,16 @@ def main():
     npixels = []
     if args.verbose:
         print '... adding observations to fit ...\n'
-    for target, combined in qusp.target.get_combined_spectra(targets, paths=paths):
+
+    def get_lite_spectra(targets, paths):
+        for target in targets:
+            remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
+            local_path = mirror.get(remote_path)
+            spec = fits.open(local_path)
+            yield target, qusp.spectrum.read_lite_spectrum(spec)
+
+    # for target, combined in qusp.target.get_combined_spectra(targets, paths=paths):
+    for target, combined in get_lite_spectra(targets, paths):
         wavelength = combined.wavelength
         ivar = combined.ivar.values
         flux = combined.flux.values

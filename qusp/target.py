@@ -1,8 +1,8 @@
 """
 Provides support for working with BOSS targets.
 
-In qusp, a target is identified by a unique plate-mjd-fiber. They are implemented as dictionaries and 
-must have at least 'plate', 'mjd', and 'fiber' keys specified. The Target model is designed to be flexible, 
+In qusp, a target is identified by a unique plate-mjd-fiber. They are implemented as dictionaries and
+must have at least 'plate', 'mjd', and 'fiber' keys specified. The Target model is designed to be flexible,
 in that other attributes can be added to targets as needed.
 
 Examples
@@ -20,7 +20,7 @@ Construct a target from a dictionary::
 
 Read a target list along with **ra**, **dec**, and **z** columns::
 
-    targets = qusp.target.load_target_list(filename, 
+    targets = qusp.target.load_target_list(filename,
         fields=[('ra', float, 1), ('dec', float, 2), ('z', float, 3)])
 
 
@@ -52,7 +52,7 @@ import qusp
 
 class Target(dict):
     """
-    Represents a BOSS target. 
+    Represents a BOSS target.
 
     Args:
         args: Variable length argument list.
@@ -64,12 +64,13 @@ class Target(dict):
     """
     def __init__(self, *args, **kwargs):
         super(Target, self).__init__(*args, **kwargs)
-        assert 'target' in self, \
-            'Target: must have plate-mjd-fiber identifier key'
-        plate, mjd, fiber = self['target'].split('-')
-        self['plate'] = int(plate)
-        self['mjd'] = int(mjd)
-        self['fiber'] = int(fiber)
+        # assert 'target' in self, \
+        #     'Target: must have plate-mjd-fiber identifier key'
+        # plate, mjd, fiber = self['target'].split('-')
+        self['target'] = '{}-{}-{}'.format(self['plate'], self['mjd'], self['fiber'])
+        self['plate'] = int(self['plate'])
+        self['mjd'] = int(self['mjd'])
+        self['fiber'] = int(self['fiber'])
 
     def to_string(self):
         """
@@ -129,13 +130,13 @@ def load_target_list(filename, fields=None, verbose=False):
     """
     if fields is None:
         fields = []
-    fields = [('target', 'S15', 0)] + fields
+    fields = [('plate', 'S4', 0), ('mjd', 'S5', 1), ('fiber', 'S4', 2)] + fields
     names, formats, cols = zip(*fields)
     if verbose:
         print 'Target list: %s' % filename
         print 'Reading fields: %s' % (', '.join(names))
     targets = np.genfromtxt(
-        filename, dtype={'names':names, 'formats':formats}, usecols=cols)
+        filename, dtype={'names':names, 'formats':formats}, usecols=cols, skip_header=1)
 
     return [Target(dict(zip(targets.dtype.names, t))) for t in targets]
 
@@ -204,7 +205,7 @@ def get_target_plates(targets, boss_path=None, sort=True, verbose=False):
     Args:
         targets (:class:`Target`): list of :class:`Target` objects
             to iterate through.
-        boss_path (str, optional): path to boss data directory. Default is to 
+        boss_path (str, optional): path to boss data directory. Default is to
             look this up using env var.
         sort (bool, optional): Whether or not to sort the provided targets
             by plate-mjd-fiber. Defaults to True.
@@ -245,7 +246,7 @@ def get_combined_spectra(targets, paths=None, sort=True, verbose=False, tpcorr=N
     Args:
         targets (:class:`Target`): list of :class:`Target` objects
             to iterate through.
-        boss_path (str, optional): path to boss data directory. Default is to 
+        boss_path (str, optional): path to boss data directory. Default is to
             look this up using env var.
         sort (bool, optional): Whether or not to sort the provided targets
             by plate-mjd-fiber. Defaults to True.
@@ -275,8 +276,8 @@ def get_combined_spectrum(target, paths=None):
     Returns the coadded spectrum of the specified target.
 
     Args:
-        target (:class:`Target`): a target 
-        paths (:class:`qusp.paths.Paths`, optional): paths object that knows 
+        target (:class:`Target`): a target
+        paths (:class:`qusp.paths.Paths`, optional): paths object that knows
             where the location of the boss data dir.
 
     Returns:
@@ -300,9 +301,9 @@ def get_corrected_spectrum(target, tpcorr, paths=None):
     Returns the coadded spectrum of the specified target.
 
     Args:
-        target (:class:`Target`): a target 
+        target (:class:`Target`): a target
         tpcorr (hdf5 File object): hdf5 file with throughput corrections
-        paths (:class:`qusp.paths.Paths`, optional): paths object that knows 
+        paths (:class:`qusp.paths.Paths`, optional): paths object that knows
             where the location of the boss data dir.
 
     Returns:
