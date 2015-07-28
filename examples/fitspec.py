@@ -145,6 +145,8 @@ def main():
         if npixels_added > 0:
             model_targets.append(target)
             npixels.append(npixels_added)
+            if args.verbose:
+                print target, npixels_added
 
     # Add constraints
     if args.continuum_normmax > args.continuum_normmin:
