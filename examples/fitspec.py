@@ -111,7 +111,7 @@ def main():
         for target in targets:
             remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
             try:
-                local_path = mirror.get(remote_path)
+                local_path = mirror.get(remote_path. auto_download=False)
             except RuntimeError as e:
                 print e
                 continue
