@@ -129,8 +129,8 @@ def main():
             if not hasattr(target, 'nu'):
                 # estimate quasar normalization
                 try:
-                norm = combined.mean_flux(args.continuum_normmin*(1+target['z']),
-                    args.continuum_normmax*(1+target['z']))
+                    norm = combined.mean_flux(args.continuum_normmin*(1+target['z']),
+                        args.continuum_normmax*(1+target['z']))
                 except RuntimeError:
                     continue
                 if norm <= 0:
