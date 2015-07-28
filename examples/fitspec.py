@@ -99,7 +99,7 @@ def main():
         continuum = qusp.spectrum.SpectralFluxDensity(wave, flux)
 
     # Initialize model
-    model = qusp.ContinuumModel(continuum=continuum,**qusp.ContinuumModel.from_args(args))
+    model = qusp.ContinuumModel(continuum=continuum, **qusp.ContinuumModel.from_args(args))
 
     # Add observations to model
     model_targets = []
@@ -107,15 +107,19 @@ def main():
     if args.verbose:
         print '... adding observations to fit ...\n'
 
-    def get_lite_spectra(targets, paths):
+    def get_lite_spectra(targets):
         for target in targets:
             remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
-            local_path = mirror.get(remote_path)
+            try:
+                local_path = mirror.get(remote_path)
+            except RuntimeError as e:
+                print e
+                continue
             spec = fits.open(local_path)
             yield target, qusp.spectrum.read_lite_spectrum(spec)
 
     # for target, combined in qusp.target.get_combined_spectra(targets, paths=paths):
-    for target, combined in get_lite_spectra(targets, paths):
+    for target, combined in get_lite_spectra(targets):
         wavelength = combined.wavelength
         ivar = combined.ivar.values
         flux = combined.flux.values

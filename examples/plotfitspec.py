@@ -23,34 +23,34 @@ def plotModelMatrix(specfits, targetList):
     modelIndPtr = specfits['model_indptr'].value
     modelShape = specfits['model_shape'].value
     npixels = specfits['npixels'].value
-    
+
     restWaveCenters = specfits['restWaveCenters'].value
     obsWaveCenters = specfits['obsWaveCenters'].value
     redshifts = specfits['redshifts'].value
     absorption = specfits['absorption'].value
     absorptionMin = specfits['absorption'].attrs['minRestIndex']
     absorptionMax = specfits['absorption'].attrs['maxRestIndex']
-    
+
     nRest = len(restWaveCenters)
     nObs = len(obsWaveCenters)
     nTargets = len(redshifts)
     nAbs = len(absorption)
-    
+
     model = scipy.sparse.csc_matrix((modelData,modelIndices,modelIndPtr), modelShape)
-    
+
     # pick out rows corresponding to targets in target list
     modelRowIndices = []
     for target in targetList:
         modelRowIndices.append(np.arange(np.sum(npixels[:target]),np.sum(npixels[:target+1])))
     m = scipy.sparse.coo_matrix(model[np.concatenate(modelRowIndices),:])
-    
+
     #print model[np.sum(npixels[:targetList[0]])]
-    
+
     plt.plot(m.col, m.row, 's', color='black',ms=1)
     ax = plt.gca()
     ax.set_xlim(0, m.shape[1])
     ax.set_ylim(0, m.shape[0])
-    
+
     # y axis labels
     yTicks = []
     yTickLabels = []
@@ -78,14 +78,14 @@ def plotModelMatrix(specfits, targetList):
     # draw lines at quasar breaks
     for i,target in enumerate(targetList):
         ax.axhline(np.sum(npixels[targetList][:i+1]), c='gray', ls='--')
-    
+
 # Plot rest frame continuum
 def plotContinuum(specfits, **kwargs):
     wavelengths = specfits['restWaveCenters'].value
     continuum = specfits['continuum'].value
     plt.plot(wavelengths, continuum, **kwargs)
     plt.xlim([wavelengths[0], wavelengths[-1]])
-    plt.xlabel(r'Rest Wavlength $(\AA)$')
+    plt.xlabel(r'Rest Wavelength $(\AA)$')
     plt.ylabel(r'Continuum')
 
 # Plot observed frame transmission
@@ -94,7 +94,7 @@ def plotTransmission(specfits, **kwargs):
     transmission = specfits['transmission'].value
     plt.plot(wavelengths, transmission, **kwargs)
     plt.xlim([wavelengths[0], wavelengths[-1]])
-    plt.xlabel(r'Observed Wavlength $(\AA)$')
+    plt.xlabel(r'Observed Wavelength $(\AA)$')
     plt.ylabel(r'Transmission')
     plt.axhline(1,ls='--',c='gray')
 
@@ -105,15 +105,18 @@ def drawNormWindow(wavedset):
 
 def plotAbsorption(specfits, **kwargs):
     absorption = specfits['absorption']
-    absmin = absorption.attrs['minRestIndex']
-    absmax = absorption.attrs['maxRestIndex']
-    restWaves = specfits['restWaveCenters'].value[absmin:absmax]
-    plt.plot(restWaves,absorption.value, **kwargs)
-    plt.axhline(0.0018,c='gray',ls='--')
-    plt.xlabel(r'Rest Wavelength $(\AA)$')
-    plt.ylabel(r'Absorption Coefficient $a$')
-    plt.xlim([restWaves[0],restWaves[-1]])
-    plt.grid()
+    if len(absorption.value) > 0:
+        absmin = absorption.attrs['minRestIndex']
+        absmax = absorption.attrs['maxRestIndex']
+        restWaves = specfits['restWaveCenters'].value[absmin:absmax]
+        plt.plot(restWaves,absorption.value, **kwargs)
+        plt.axhline(0.0018,c='gray',ls='--')
+        plt.xlabel(r'Rest Wavelength $(\AA)$')
+        plt.ylabel(r'Absorption Coefficient $a$')
+        plt.xlim([restWaves[0],restWaves[-1]])
+        plt.grid()
+    else:
+        print 'no absorption params'
 
 def plotSpectrum(spectrum, **kwargs):
     plt.plot(spectrum.wavelength, spectrum.flux.values, **kwargs)
@@ -122,13 +125,13 @@ def plotSpectrum(spectrum, **kwargs):
     ymax = 1.2*np.percentile(spectrum.flux.values,99)
     ymin = min(0,1.2*np.percentile(spectrum.flux.values,1))
     plt.ylim([ymin,ymax])
-      
+
 def plotTargets(specfits, targetIndices, paths):
     # construct list of Targets from specified indices
     targets = specfits['targets'].value
     redshifts = specfits['redshifts'].value
     amp = specfits['amplitude'].value
-    nu = specfits['nu'].value    
+    nu = specfits['nu'].value
     mytargets = []
     for i in targetIndices:
         try:
@@ -165,14 +168,14 @@ def plotTargets(specfits, targetIndices, paths):
         plt.xlim([obsWaveCenters[0], obsWaveCenters[-1]])
 
     subplotIndex = 1
-    for target, combined in qusp.target.get_combined_spectra(mytargets, paths=paths):    
+    for target, combined in qusp.target.get_lite_spectra(mytargets):
         plt.subplot(ntargets,1,subplotIndex)
         subplotIndex += 1
         ax = plt.gca()
         # draw observed spectrum
         plotSpectrum(combined, c='blue', lw=.5)
         # draw predication
-        plotPrediction(target, c='red', marker='', ls='-', lw=1)
+        plotPrediction(target, color='red', ls='-', lw=4)
         quasar_lines = qusp.wavelength.load_wavelengths('quasar')
         for line in quasar_lines:
             line *= (1+target['z'])
@@ -237,7 +240,7 @@ def main():
     plt.ylabel(r'Number of Targets')
     plt.grid()
     fig.savefig('%s-redshift.png'%args.output, bbox_inches='tight')
-    
+
     # S/N distribution
     print 'Saving signal to noise distribution...'
     fig = plt.figure(figsize=(8,6))
@@ -300,7 +303,7 @@ def main():
     print 'Saving amplitude distribution...'
     fig = plt.figure(figsize=(8,6))
     amp = specfits['amplitude'].value
-    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50), 
+    plt.hist(amp, bins=10**np.linspace(np.log10(min(amp)), np.log10(max(amp)), 50),
              linewidth=.1, alpha=.5)
     plt.xlabel(r'Amplitude A')
     plt.ylabel(r'Number of Targets')
@@ -317,7 +320,7 @@ def main():
     plt.yscale('log')
     cbar = plt.colorbar(label=r'Redshift $z$')
     cbar.solids.set_edgecolor("face")
-    cbar.solids.set_rasterized(True)     
+    cbar.solids.set_rasterized(True)
     plt.grid()
     fig.savefig('%s-nuVsA.png'%args.output, bbox_inches='tight')
 
@@ -368,4 +371,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

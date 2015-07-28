@@ -92,7 +92,9 @@ class Target(dict):
         Returns:
             :class:`Target` object
         """
-        return cls({'target':target_string})
+        plate, mjd, fiber = target_string.split('-')
+        return cls({'plate':plate, 'mjd':mjd, 'fiber':fiber})
+        # return cls({'target':target_string})
 
     @classmethod
     def from_plate_mjd_fiber(cls, plate, mjd, fiber):
@@ -107,8 +109,9 @@ class Target(dict):
         Returns:
             :class:`Target` object
         """
-        target_string = '-'.join([str(field) for field in [plate, mjd, fiber]])
-        return cls.from_string(target_string)
+        return cls({'plate':plate, 'mjd':mjd, 'fiber':fiber})
+        # target_string = '-'.join([str(field) for field in [plate, mjd, fiber]])
+        # return cls.from_string(target_string)
 
 def load_target_list(filename, fields=None, verbose=False):
     """
@@ -295,6 +298,23 @@ def get_lite_spectrum(target, paths=None):
     spec_filename = paths.get_spec_filename(target, lite=True)
     spec = fits.open(spec_filename)
     return qusp.spectrum.read_lite_spectrum(spec)
+
+def get_lite_spectra(targets):
+    import bossdata.path
+    import bossdata.remote
+
+    try:
+        finder = bossdata.path.Finder()
+        mirror = bossdata.remote.Manager()
+    except ValueError as e:
+        print(e)
+        yield StopIteration
+
+    for target in targets:
+        remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
+        local_path = mirror.get(remote_path)
+        spec = fits.open(local_path)
+        yield target, qusp.spectrum.read_lite_spectrum(spec)
 
 def get_corrected_spectrum(target, tpcorr, paths=None):
     """
