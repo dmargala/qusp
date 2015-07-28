@@ -442,8 +442,11 @@ class BOSSSpectrum(object):
         Returns:
             the mean flux between ``min_wavelength`` and ``max_wavelength``.
         """
-        min_pixel = self.find_pixel(min_wavelength)
-        max_pixel = self.find_pixel(max_wavelength)
+        try:
+            min_pixel = self.find_pixel(min_wavelength)
+            max_pixel = self.find_pixel(max_wavelength)
+        except ValueError:
+            raise RuntimeError('BOSSSpectrum.mean_flux: problem min/max pixels')
         if min_pixel > max_pixel:
             raise RuntimeError('BOSSSpectrum.mean_flux: min_pixel > max_pixel')
         pixels = slice(min_pixel, max_pixel+1)
@@ -700,6 +703,3 @@ if __name__ == '__main__':
                 print spec.find_pixel(testwave)
             except ValueError:
                 print spec.find_pixel(testwave, clip=True)
-
-
-
