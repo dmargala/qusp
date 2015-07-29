@@ -100,7 +100,7 @@ def main():
 
     for i, target in enumerate(targets):
         remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
-        local_path = mirror.get(remote_path)
+        local_path = mirror.get(remote_path, progress_min_size=0.1)
         spec = LiteSpecFile(local_path)
 
         skim_meta['ra'][i] = np.radians(np.asscalar(spec.hdulist[2]['RA'][:]))
