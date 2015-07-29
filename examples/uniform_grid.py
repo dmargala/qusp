@@ -118,14 +118,14 @@ def main():
         log_forest_lo = max(loglam.data[0], np.log10(args.forest_lo * (1.0 + z)))
         log_forest_hi = min(loglam.data[-1], np.log10(args.forest_hi * (1.0 + z)))
 
-        if log_forest_lo > log_forest_hi:
-            print 'no good pixels in forest'
-            continue
-
         forest_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_lo)
         forest_lo_index = np.round(forest_lo_index).astype(int)
         forest_hi_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_hi)
         forest_hi_index = np.round(forest_hi_index).astype(int)
+
+        if forest_lo_index > forest_hi_index:
+            print '{}: no good pixels in forest [{}:{}], z = {}'.format(target['target'], 10**loglam.data[0], 10**loglam.data[-1], z)
+            continue
 
         uniform_slice = slice(forest_lo_index, forest_hi_index)
 
@@ -145,7 +145,7 @@ def main():
         mean_slice = slice(mean_lo_index-offset, mean_hi_index-offset)
 
         if np.sum(ivar[mean_slice].data) <= 0:
-            print 'no good pixels in norm window'
+            print '{}: no good pixels in norm window'.format(target['target'])
             continue
 
         norm, norm_weight = ma.average(flux[mean_slice].data, weights=ivar[mean_slice].data, returned=True)
