@@ -88,9 +88,9 @@ def load_wavelengths(filename, ignore_labels=False):
             usecols=(0, 1))
         return [LabeledWavelength(*wave) for wave in wavelengths]
 
-def get_fiducial_wavelength(pixel_index, lambda0=3500.26):
+def get_fiducial_wavelength(pixel_index,  coeff1=1e-4, log10lam0=np.log10(3500.26)):
     """
-    Returns the wavelength at the center of the specified index 
+    Returns the wavelength at the center of the specified index
     of the BOSS co-add fiducial wavelength grid.
 
     Args:
@@ -99,9 +99,9 @@ def get_fiducial_wavelength(pixel_index, lambda0=3500.26):
     Returns:
         wavelength (float): central wavelength of the specified index on the fiducial wavelength grid
     """
-    return lambda0*(10**(1e-4*pixel_index))
+    return np.power(10.0, log10lam0 + coeff1*pixel_index)
 
-def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
+def get_fiducial_pixel_index_offset(loglam, coeff1=1e-4, log10lam0=np.log10(3500.26)):
     """
     Returns the pixel index offset from the start of the
     BOSS co-add fiducial wavelength grid.
@@ -113,13 +113,8 @@ def get_fiducial_pixel_index_offset(coeff0, coeff1=1e-4):
     Returns:
         pixel index offset from the start of the fiducial wavelength grid.
     """
-    if coeff1 != 1e-4:
-        return 0
-    delta = (np.log10(3500.26)-coeff0)/coeff1
-    offset = np.floor(delta+0.5).astype(int)
-    if np.any(np.fabs(delta-offset) > 0.01):
-        return -delta
-    return -offset
+    return np.round((loglam-log10lam0)/coeff1).astype(int)
+
 
 def draw_lines(waves, offset=0, delta=.1, **kwargs):
     """
@@ -162,4 +157,3 @@ if __name__ == '__main__':
     waves = load_wavelengths('balmer')
     for wave in waves:
         print waves.label
-

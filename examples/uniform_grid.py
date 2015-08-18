@@ -64,6 +64,10 @@ def main():
         help="min forest wavelength")
     parser.add_argument("--forest-hi", type=float, default=1200,
         help="max forest wavelength")
+    parser.add_argument("--norm-lo", type=float, default=1275,
+        help="min forest wavelength")
+    parser.add_argument("--norm-hi", type=float, default=1285,
+        help="max forest wavelength")
     parser.add_argument("--mask", type=int, default=None,
         help="pixel quality mask")
     args = parser.parse_args()
@@ -74,6 +78,8 @@ def main():
     except ValueError as e:
         print(e)
         return -1
+
+    quasar_catalog = bossdata.meta.Database(quasar_catalog=True)
 
     # read target data
     fields = [('z', float, args.z_col)]
@@ -145,19 +151,19 @@ def main():
         skim_flux[i, uniform_slice] = flux[spec_slice]
         skim_ivar[i, uniform_slice] = ivar[spec_slice]
         # find normalization window
-        mean_lo = 1275.0 * (1.0 + z)
-        mean_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(mean_lo))
-        mean_lo_index = np.round(mean_lo_index).astype(int)
-        mean_hi = 1285.0 * (1.0 + z)
-        mean_hi_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(mean_hi))
-        mean_hi_index = np.round(mean_hi_index).astype(int)
-        mean_slice = slice(mean_lo_index-offset, mean_hi_index-offset)
+        norm_lo = args.norm_lo * (1.0 + z)
+        norm_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_lo))
+        norm_lo_index = np.round(norm_lo_index).astype(int)
+        norm_hi = args.norm_hi * (1.0 + z)
+        norm_hi_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_hi))
+        norm_hi_index = np.round(norm_hi_index).astype(int)
+        norm_slice = slice(norm_lo_index-offset, norm_hi_index-offset)
         # check for valid weights in normalization window
         if np.sum(ivar[mean_slice].data) <= 0:
-            print '{}: no good pixels in norm window [{}:{}], z = {}'.format(target['target'], mean_lo, mean_hi, z)
+            print '{}: no good pixels in norm window [{}:{}], z = {}'.format(target['target'], norm_lo, norm_hi, z)
             continue
         # calculate normalization as ivar weighted mean flux
-        norm, norm_weight = ma.average(flux[mean_slice].data, weights=ivar[mean_slice].data, returned=True)
+        norm, norm_weight = ma.average(flux[norm_slice].data, weights=ivar[norm_slice].data, returned=True)
         # verify normalization is valid
         if norm <= 0:
             print '{}: norm <= 0'.format(target['target'])
@@ -185,6 +191,13 @@ def main():
     outfile.create_dataset('norm', data=skim_norm, compression="gzip")
     # save meta data
     outfile.create_dataset('meta', data=skim_meta, compression="gzip")
+
+    outfile.attrs['forest_lo'] = args.forest_lo
+    outfile.attrs['forest_hi'] = args.forest_hi
+    outfile.attrs['pixel_mask'] = args.mask
+    outfile.attrs['norm_lo'] = args.norm_lo
+    outfile.attrs['norm_hi'] = args.norm_hi
+    outfile.attrs['max_fid_index'] = max_index
 
     outfile.close()
 

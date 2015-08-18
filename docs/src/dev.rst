@@ -66,7 +66,7 @@ View stats in interactive session:
 Create a call tree diagram:
 
 .. code-block:: bash
-   
+
     $ gprof2dot -f pstats profile.out | dot -Tpng -o profile.png
 
 Might need to install ``gprof2dot``:
@@ -87,7 +87,7 @@ Run pylint to help keep everything nice and pretty.
 
 .. code-block:: bash
 
-    $ pylint qusp/*.py --reports=no
+    $ pylint qusp/*.py --reports=no --extension-pkg-whitelist=numpy
 
 The ``pylintrc`` file in the toplevel directory specifies configuration options. For example,
 we ignore ``bad-continuation`` and extend the character limit per line.
@@ -100,7 +100,7 @@ Data transfers
 
 Copy spPlates from darkmatter to hpc:
 
-.. code-block:: bash 
+.. code-block:: bash
 
     $ rsync -avz --prune-empty-dirs --include '*/' --include 'spPlate*.fits' --exclude '*' -e ssh dmargala@darkmatter.ps.uci.edu:/data/boss/v5_7_0 /share/dm/all/data/boss/
 
@@ -128,7 +128,7 @@ Environment Setup
 HPC
 ~~~
 
-Only tested using interactive session so far... 
+Only tested using interactive session so far...
 
 ::
 
