@@ -20,16 +20,11 @@ class LiteSpecFile(object):
         self.hdulist = fitsio.FITS(path, mode=fitsio.READONLY)
         self.header = self.hdulist[0].read_header()
 
-    def get_data(self, pixel_quality_mask=None):
+    def get_data(self):
         # Look up the HDU for this spectrum and its pixel quality bitmap.
         hdu = self.hdulist[1]
         pixel_bits = hdu['and_mask'][:]
         num_pixels = len(pixel_bits)
-
-        # Apply the pixel quality mask, if any.
-        if pixel_quality_mask is not None:
-            clear_allowed = np.bitwise_not(np.uint32(pixel_quality_mask))
-            pixel_bits = np.bitwise_and(pixel_bits, clear_allowed)
 
         # Identify the pixels with valid data.
         ivar = hdu['ivar'][:]
@@ -68,8 +63,6 @@ def main():
         help="min forest wavelength")
     parser.add_argument("--norm-hi", type=float, default=1285,
         help="max forest wavelength")
-    parser.add_argument("--mask", type=int, default=None,
-        help="pixel quality mask")
     args = parser.parse_args()
 
     try:
@@ -129,7 +122,7 @@ def main():
         skim_meta['thing_id'][i] = np.asscalar(spec.hdulist[2]['THING_ID'][:])
 
         # process spectrum data
-        data = spec.get_data(pixel_quality_mask=args.mask)
+        data = spec.get_data()
         loglam,flux,ivar = data['loglam'][:],data['flux'][:],data['ivar'][:]
         # determine fiducial wavelength offsets of forest data
         z = skim_redshift[i]
@@ -192,7 +185,6 @@ def main():
     # save args
     outfile.attrs['forest_lo'] = args.forest_lo
     outfile.attrs['forest_hi'] = args.forest_hi
-    outfile.attrs['pixel_mask'] = args.mask
     outfile.attrs['norm_lo'] = args.norm_lo
     outfile.attrs['norm_hi'] = args.norm_hi
     # save the index of the maximum observed forest wavelength
