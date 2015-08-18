@@ -142,9 +142,9 @@ def main():
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(loglam.data[0])
         spec_slice = slice(forest_lo_index-offset, forest_hi_index-offset)
         # check for valid weights in forest window
-        if np.sum(ivar[spec_slice].data) <= 0:
+        if ma.sum(ivar[spec_slice].mask) == len(ivar[spec_slice]):
             bad_forest.append(i)
-            print '{}: no good pixels in forest [{}:{}], z = {}'.format(target['target'],
+            print '{}: no unmasked pixels in forest [{}:{}], z = {}'.format(target['target'],
                 np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
             continue
         # find normalization window
