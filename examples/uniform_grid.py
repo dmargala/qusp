@@ -179,7 +179,7 @@ def main():
 
     masked_rows = (np.sum(skim_ivar.mask, axis=1) == max_index)
     save_rows = ~masked_rows
-    print 'Saving %d rows...' % len(save_rows)
+    print 'Saving %d rows...' % np.sum(save_rows)
 
     outfile = h5py.File(args.output, 'w')
     # save args
