@@ -79,8 +79,6 @@ def main():
         print(e)
         return -1
 
-    quasar_catalog = bossdata.meta.Database(quasar_catalog=True)
-
     # read target data
     fields = [('z', float, args.z_col)]
     targets = qusp.target.load_target_list(
