@@ -81,8 +81,7 @@ def main():
 
     # read target data
     fields = [('z', float, args.z_col)]
-    targets = qusp.target.load_target_list(
-        args.input, fields, verbose=args.verbose)
+    targets = qusp.target.load_target_list(args.input, fields, verbose=args.verbose)
 
     # use the first n targets or a random sample
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
@@ -109,6 +108,9 @@ def main():
 
     if args.verbose:
         progress_bar = ProgressBar(widgets=[Percentage(), Bar()], maxval=ntargets).start()
+
+    bad_forest = []
+    bad_norm = []
 
     for i, target in enumerate(targets):
         if args.verbose:
@@ -139,15 +141,13 @@ def main():
         forest_hi_index = np.round(forest_hi_index).astype(int)
         # check for valid forest window
         if forest_lo_index > forest_hi_index:
+            bad_forest.append(i)
             print '{}: no forest pixels [{}:{}], z = {}'.format(target['target'],
                 np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
             continue
         uniform_slice = slice(forest_lo_index, forest_hi_index)
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(loglam.data[0])
         spec_slice = slice(forest_lo_index-offset, forest_hi_index-offset)
-        # copy forest data to skim
-        skim_flux[i, uniform_slice] = flux[spec_slice]
-        skim_ivar[i, uniform_slice] = ivar[spec_slice]
         # find normalization window
         norm_lo = args.norm_lo * (1.0 + z)
         norm_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(norm_lo))
@@ -157,45 +157,61 @@ def main():
         norm_hi_index = np.round(norm_hi_index).astype(int)
         norm_slice = slice(norm_lo_index-offset, norm_hi_index-offset)
         # check for valid weights in normalization window
-        if np.sum(ivar[mean_slice].data) <= 0:
+        if np.sum(ivar[norm_slice].data) <= 0:
+            bad_norm.append(i)
             print '{}: no good pixels in norm window [{}:{}], z = {}'.format(target['target'], norm_lo, norm_hi, z)
             continue
         # calculate normalization as ivar weighted mean flux
         norm, norm_weight = ma.average(flux[norm_slice].data, weights=ivar[norm_slice].data, returned=True)
         # verify normalization is valid
         if norm <= 0:
+            bad_norm.append(i)
             print '{}: norm <= 0'.format(target['target'])
             continue
+
         # save normalization
         skim_norm[i] = norm
+        # copy forest data to skim
+        skim_flux[i, uniform_slice] = flux[spec_slice]
+        skim_ivar[i, uniform_slice] = ivar[spec_slice]
 
     if args.verbose:
         progress_bar.finish()
 
+    print 'Number of spectra with bad forest window: %d' % len(bad_forest)
+    print 'Number of spectra with bad norm: %d' % len(bad_norm)
+
     # verify flux and ivar masks are equal
     assert np.all(skim_flux.mask == skim_ivar.mask)
 
-    outfile = h5py.File(args.output, 'w')
-    # save pixel flux, ivar, and mask
-    outfile.create_dataset('flux', data=skim_flux.data, compression="gzip")
-    outfile.create_dataset('ivar', data=skim_ivar.data, compression="gzip")
-    outfile.create_dataset('mask', data=skim_ivar.mask, compression="gzip")
-    # save uniform wavelength grid
-    skim_loglam = np.log10(qusp.wavelength.get_fiducial_wavelength(np.arange(max_index)))
-    outfile.create_dataset('loglam', data=skim_loglam, compression="gzip")
-    # save redshifts from input target list
-    outfile.create_dataset('z', data=skim_redshift, compression="gzip")
-    # save additional quantities
-    outfile.create_dataset('norm', data=skim_norm, compression="gzip")
-    # save meta data
-    outfile.create_dataset('meta', data=skim_meta, compression="gzip")
+    masked_rows = (np.sum(skim_ivar.mask, axis=1) == max_index)
+    save_rows = ~masked_rows
+    print 'Saving %d rows...' % len(save_rows)
 
+    outfile = h5py.File(args.output, 'w')
+    # save args
     outfile.attrs['forest_lo'] = args.forest_lo
     outfile.attrs['forest_hi'] = args.forest_hi
     outfile.attrs['pixel_mask'] = args.mask
     outfile.attrs['norm_lo'] = args.norm_lo
     outfile.attrs['norm_hi'] = args.norm_hi
+    # save the index of the maximum observed forest wavelength
     outfile.attrs['max_fid_index'] = max_index
+    # save uniform wavelength grid
+    skim_loglam = np.log10(qusp.wavelength.get_fiducial_wavelength(np.arange(max_index)))
+    outfile.create_dataset('loglam', data=skim_loglam, compression="gzip")
+    # save pixel flux, ivar, and mask
+    outfile.create_dataset('flux', data=skim_flux.data[save_rows], compression="gzip")
+    outfile.create_dataset('ivar', data=skim_ivar.data[save_rows], compression="gzip")
+    outfile.create_dataset('mask', data=skim_ivar.mask[save_rows], compression="gzip")
+    # save redshifts from input target list
+    outfile.create_dataset('z', data=skim_redshift[save_rows], compression="gzip")
+    # save additional quantities
+    outfile.create_dataset('norm', data=skim_norm[save_rows], compression="gzip")
+    # save target meta data
+    outfile.create_dataset('meta', data=skim_meta[save_rows], compression="gzip")
+    # save masked target meta data
+    outfile.create_dataset('masked_meta', data=skim_meta[masked_rows], compression="gzip")
 
     outfile.close()
 
