@@ -59,7 +59,7 @@ def main():
 
     skim_norm = skim['norm'][:][:,np.newaxis]
     assert not np.any(skim_norm <= 0)
-    
+
     skim_flux = np.ma.MaskedArray(skim['flux'][:], mask=skim['mask'][:])/skim_norm
     skim_ivar = np.ma.MaskedArray(skim['ivar'][:], mask=skim['mask'][:])*skim_norm*skim_norm
     skim_loglam = skim['loglam'][:]
@@ -87,7 +87,9 @@ def main():
         outfile.attrs[attr_key] = skim.attrs[attr_key]
     # save down sampling number
     outfile.attrs['num_combine'] = args.num_combine
-
+    outfile.attrs['coeff0'] = loglam[0]
+    outfile.attrs['coeff1'] = args.num_combine*1e-4
+    outfile.attrs['max_fid_combined_index'] = len(loglam)
 
     outfile.close()
 
