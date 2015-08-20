@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import scipy.interpolate
 import fitsio
 
+from restframe_work import export_exact_image
+
 from progressbar import ProgressBar, Percentage, Bar
 
 def main():
@@ -20,15 +22,19 @@ def main():
     ## targets to fit
     parser.add_argument("--name", type=str, default=None,
         help="base name of combined skim file")
+    parser.add_argument("--subsample-step", type=int, default=1000,
+        help="step size used for subsampling observations")
+    parser.add_argument("--dont-save", action="store_true",
+        help="dont save delta field (just do all the preprocessing)")
     args = parser.parse_args()
 
     # import data
     skim = h5py.File(args.name+'.hdf5', 'r')
     norm = skim['norm'][:][:,np.newaxis]
-    flux = np.ma.MaskedArray(skim['flux'][:], mask=skim['mask'][:])
-    ivar = np.ma.MaskedArray(skim['ivar'][:], mask=skim['mask'][:])
     loglam = skim['loglam'][:]
     wave = np.power(10.0, loglam)
+
+    print loglam[1:]-loglam[:-1]
 
     quasar_redshifts = skim['z'][:]
 
@@ -61,13 +67,35 @@ def main():
         return a*np.power(wave/forest_wave_refs[:,np.newaxis], b)*continuum_interp(wave/(1+quasar_redshifts[:,np.newaxis]))*np.exp(-abs_coefs)
 
     mflux = model_flux(params_a[:,np.newaxis],params_b[:,np.newaxis])
+
+    # (1.0 + quasar_redshifts[:,np.newaxis])*forest_wave/args.wave_lya - 1.0
+
+    print forest_pixel_redshifts.shape
+
+    pixel_mask = skim['mask'][:]
+
+    print pixel_mask.shape
+
+    flux = np.ma.MaskedArray(skim['flux'][:], mask=pixel_mask)
+    ivar = np.ma.MaskedArray(skim['ivar'][:], mask=pixel_mask)
+
     delta_flux = flux/mflux - 1.0
     delta_ivar = ivar*mflux*mflux
 
     delta_weight = delta_ivar*var_pipe_scale(forest_pixel_redshifts)
     delta_weight = delta_weight/(1 + delta_weight*var_lss(forest_pixel_redshifts))
 
-    mask_params = (params_a > .01) & (params_a < 100) & (params_b > -20) & (params_b < 20)
+    redshift_order = np.argsort(quasar_redshifts)
+    export_exact_image(args.name+'-delta-flux.png', delta_flux[redshift_order][::args.subsample_step], dpi=100,
+        vmin=-5, vmax=5, cmap=plt.get_cmap('bwr'), origin='lower')
+    export_exact_image(args.name+'-delta-weight.png', ma.log10(delta_flux[redshift_order][::args.subsample_step]), dpi=100,
+        vmin=-5, vmax=2, cmap=plt.get_cmap('Purples'), origin='lower')
+    export_exact_image(args.name+'-delta-mask.png', pixel_mask[redshift_order][::args.subsample_step], dpi=100,
+        origin='lower')
+
+    print 'Computing mean delta...'
+
+    mask_params = (params_a > .1) & (params_a < 10) & (params_b > -10) & (params_b < 10)
 
     delta_mean = ma.average(delta_flux[mask_params], axis=0)
     delta_mean_weighted = ma.average(delta_flux[mask_params], weights=delta_weight[mask_params], axis=0)
@@ -83,6 +111,9 @@ def main():
     plt.grid()
     plt.savefig(args.name+'-lssweighted-delta-mean.png', dpi=100, bbox_inches='tight')
     plt.close()
+
+    if args.dont_save:
+        return -1
 
     outfile = h5py.File(args.name+'-delta.hdf5', 'w')
     # copy attributes from input files
@@ -102,19 +133,17 @@ def main():
     for i, z in enumerate(quasar_redshifts):
         progress_bar.update(i)
 
+        if not mask_params[i]:
+            # print 'fit param outside nominal range'
+            continue
+
         z = quasar_redshifts[i]
         a = params_a[i]
         b = params_b[i]
         norm_i = norm[i]
         meta = skim['meta'][i]
 
-        if norm_i <= 0:
-            print 'norm <= 0: %d' % i
-            continue
-
-        if not mask_params[i]:
-            print 'fit param outside nominal range'
-            continue
+        assert norm_i > 0
 
         ra = float(meta['ra'])
         dec = float(meta['dec'])
@@ -135,7 +164,7 @@ def main():
         los.attrs['p1'] = b
 
         los.create_dataset('loglam', data=loglam, dtype='f4')
-        los.create_dataset('delta', data=delta_flux[i]-delta_mean_weighted, dtype='f8')
+        los.create_dataset('delta', data=(delta_flux[i]-delta_mean_weighted), dtype='f8')
         los.create_dataset('weight', data=delta_weight[i], dtype='f8')
         los.create_dataset('r_comov', data=np.zeros_like(loglam), dtype='f4')
         # los.create_dataset('ivar', data=ivar[i]/(norm_i*norm_i), dtype='f4')
