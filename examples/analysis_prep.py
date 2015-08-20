@@ -43,8 +43,6 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--verbose", action="store_true",
-        help="print verbose output")
     ## targets to fit
     parser.add_argument("-i", "--input", type=str, default=None,
         help="target list")
@@ -52,6 +50,8 @@ def main():
         help="output file name")
     parser.add_argument("--num-combine", type=int, default=3,
         help="number of pixels to combine")
+    parser.add_argument("--wave-min", type=float, default=3600,
+        help="minimum observed wavelength")
     args = parser.parse_args()
 
     # import data
@@ -65,8 +65,10 @@ def main():
     skim_loglam = skim['loglam'][:]
     skim_wave = np.power(10.0, skim_loglam)
 
+    good_waves = skim_wave > args.wave_min
+
     print 'Combining input pixels...'
-    loglam, flux, ivar = combine_pixels(skim_loglam, skim_flux, skim_ivar, args.num_combine)
+    loglam, flux, ivar = combine_pixels(skim_loglam[good_waves], skim_flux[:,good_waves], skim_ivar[:,good_waves], args.num_combine)
     wave = np.power(10.0, loglam)
 
     outfile = h5py.File(args.output+'.hdf5', 'w')
@@ -85,11 +87,10 @@ def main():
     # copy attrs
     for attr_key in skim.attrs:
         outfile.attrs[attr_key] = skim.attrs[attr_key]
-    # save down sampling number
-    outfile.attrs['num_combine'] = args.num_combine
     outfile.attrs['coeff0'] = loglam[0]
     outfile.attrs['coeff1'] = args.num_combine*1e-4
-    outfile.attrs['max_fid_combined_index'] = len(loglam)
+    outfile.attrs['max_fid_index'] = len(loglam)
+    outfile.attrs['wave_min'] = args.wave_min
 
     outfile.close()
 

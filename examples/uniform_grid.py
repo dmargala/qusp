@@ -211,6 +211,10 @@ def main():
     # save masked target meta data
     outfile.create_dataset('masked_meta', data=skim_meta[masked_rows], compression="gzip")
 
+    outfile.attrs['coeff0'] = skim_loglam[0]
+    outfile.attrs['coeff1'] = 1e-4
+    outfile.attrs['wave_min'] = 0
+
     outfile.close()
 
 
