@@ -17,13 +17,9 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--verbose", action="store_true",
-        help="print verbose output")
     ## targets to fit
-    parser.add_argument("-i", "--input", type=str, default=None,
-        help="target list")
-    parser.add_argument("-o", "--output", type=str, default=None,
-        help="output file name")
+    parser.add_argument("--name", type=str, default=None,
+        help="skim file name")
     parser.add_argument("--abs-beta", type=float, default=3.92,
         help='absorption redshift scaling power')
     parser.add_argument("--abs-alpha", type=float, default=0.0018,
@@ -33,7 +29,7 @@ def main():
     args = parser.parse_args()
 
     # import data
-    forest_skim = h5py.File(args.input, 'r')
+    forest_skim = h5py.File(args.name+'-forest.hdf5', 'r')
     forest_flux = np.ma.MaskedArray(forest_skim['flux'][:], mask=forest_skim['mask'][:])
     forest_ivar = np.ma.MaskedArray(forest_skim['ivar'][:], mask=forest_skim['mask'][:])
     forest_loglam = forest_skim['loglam'][:]
@@ -48,7 +44,7 @@ def main():
 
     forest_pixel_redshifts = (1.0 + quasar_redshifts[:,np.newaxis])*forest_wave/wave_lya - 1.0
 
-    print forest_pixel_redshifts.shape
+    print 'Input data shape: ', forest_pixel_redshifts.shape
 
     #### Method 1, find which mean flux slice to use for which pixel
     ## uses: shifted_rows, shifted_cols, flux.shape, forest_flux, forest_weight, args.subsample_step
@@ -73,14 +69,14 @@ def main():
     # param_rows = np.arange(num_forests*num_forest_waves)
     # param_cols = np.repeat(np.arange(num_forests), num_forest_waves)
 
-    print param_coefs.shape, param_rows.shape, param_cols.shape
+    print 'Param coef shapes: ', param_coefs.shape, param_rows.shape, param_cols.shape
 
     #### Add continuum coefficients
     cont_coefs = np.tile(np.ones(num_forest_waves), num_forests)
     cont_rows = np.arange(num_forests*num_forest_waves)
     cont_cols = np.tile(np.arange(num_forest_waves), num_forests)
 
-    print cont_coefs.shape, cont_rows.shape, cont_cols.shape
+    print 'Continuum coef shapes: ', cont_coefs.shape, cont_rows.shape, cont_cols.shape
 
     #### Add absorption coefficients
     abs_coefs = args.abs_alpha*np.power(1+forest_pixel_redshifts, args.abs_beta)
@@ -110,21 +106,20 @@ def main():
     model_rows = np.concatenate((cont_rows, param_rows))
     model_cols = np.concatenate((cont_cols, num_forest_waves+param_cols))
 
-    print model_coefs.shape, model_rows.shape, model_cols.shape
+    print 'Model coef shapes: ', model_coefs.shape, model_rows.shape, model_cols.shape
 
     model_matrix = scipy.sparse.csc_matrix((model_coefs, (model_rows, model_cols)), shape=(num_forests*num_forest_waves,num_forest_waves+num_params*num_forests))
 
-    print model_matrix.shape
+    print 'Model matrix shape: ', model_matrix.shape
 
     model_y = ma.log(ma.masked_where(forest_flux <= 0, forest_flux)) + abs_coefs
 
-    print model_y.shape, np.sum(model_y.mask)
+    print 'y shape, num masked pixels: ', model_y.shape, np.sum(model_y.mask)
 
     # valid = ~model_y.mask.ravel()
 
     regr = linear_model.LinearRegression(fit_intercept=False)
-    if args.verbose:
-        print ('... performing fit using %s ...\n' % regr)
+    print ('... performing fit using %s ...\n' % regr)
 
     # regr.fit(model_matrix[valid], model_y.ravel()[valid])
     regr.fit(model_matrix, model_y.ravel())
@@ -135,9 +130,9 @@ def main():
     params_b = soln[num_forest_waves+1:num_forest_waves+num_params*num_forests:num_params]
     # mean_transmission = np.exp(soln[num_forest_waves+num_params*num_forests:])
 
-    print continuum.shape
+    print 'Number of continuum params: ', continuum.shape
 
-    outfile = h5py.File(args.output+'-linear-continuum.hdf5', 'w')
+    outfile = h5py.File(args.name+'-linear-continuum.hdf5', 'w')
     # copy attributes from input file
     for attr_key in forest_skim.attrs:
         outfile.attrs[attr_key] = forest_skim.attrs[attr_key]
@@ -157,7 +152,7 @@ def main():
     # plt.ylabel(r'z')
     # plt.xlabel(r'Mean F(z)')
     # plt.grid()
-    # plt.savefig(args.output+'-linear-mean-transmission.png', dpi=100, bbox_inches='tight')
+    # plt.savefig(args.name+'-linear-mean-transmission.png', dpi=100, bbox_inches='tight')
     # plt.close()
 
     plt.figure(figsize=(12,9))
@@ -174,21 +169,21 @@ def main():
     plt.ylabel(r'Continuum (arb. units)')
     plt.xlabel(r'Rest Wavelength ($\AA$)')
     plt.grid()
-    plt.savefig(args.output+'-linear-continuum.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-continuum.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     plt.figure(figsize=(12,9))
     plt.hist(params_a, bins=np.linspace(-0, 3, 51), histtype='stepfilled', alpha=0.5)
     plt.xlabel('a')
     plt.grid()
-    plt.savefig(args.output+'-linear-param-a-dist.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-param-a-dist.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     plt.figure(figsize=(12,9))
     plt.hist(params_b, bins=np.linspace(-20, 20, 51), histtype='stepfilled', alpha=0.5)
     plt.xlabel('b')
     plt.grid()
-    plt.savefig(args.output+'-linear-param-b-dist.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-param-b-dist.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     plt.figure(figsize=(12,9))
@@ -198,7 +193,7 @@ def main():
     plt.ylim(-20,20)
     plt.xlim(0,3)
     plt.grid()
-    plt.savefig(args.output+'-linear-param-scatter.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-param-scatter.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     # rest and obs refer to pixel grid
@@ -232,7 +227,7 @@ def main():
     plt.xlabel(r'Observed Wavelength ($\AA$)')
     plt.ylabel(r'Delta Mean')
     plt.grid()
-    plt.savefig(args.output+'-linear-delta-mean.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-delta-mean.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     delta_flux_var = ma.average((delta_flux_obs[mask_params] - delta_flux_mean)**2, axis=0, weights=delta_ivar_obs[mask_params])
@@ -242,7 +237,7 @@ def main():
     plt.xlabel(r'Observed Wavelength ($\AA$)')
     plt.ylabel(r'Delta Variance')
     plt.grid()
-    plt.savefig(args.output+'-linear-delta-var.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-linear-delta-var.png', dpi=100, bbox_inches='tight')
     plt.close()
 
 

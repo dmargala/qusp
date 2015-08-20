@@ -25,25 +25,18 @@ def main():
     # parse command-line arguments
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--verbose", action="store_true",
-        help="print verbose output")
-    ## targets to fit
-    parser.add_argument("-i", "--input", type=str, default=None,
-        help="target list")
-    parser.add_argument("-o", "--output", type=str, default=None,
-        help="output file name")
+    parser.add_argument("--name", type=str, default=None,
+        help="combined filename")
     parser.add_argument("--subsample-step", type=int, default=1000,
         help="step size used for subsampling observations")
     parser.add_argument("--wave-lya", type=float, default=1216.0,
         help="lyman alpha wavelength")
-    parser.add_argument("--forest-min-z", type=float, default=2,
-        help="minimum forest pixel redshift")
     parser.add_argument("--forest-max-z", type=float, default=3.5,
         help="maximum forest pixel redshift")
     args = parser.parse_args()
 
     # import data
-    skim = h5py.File(args.input, 'r')
+    skim = h5py.File(args.name+'.hdf5', 'r')
     norm = skim['norm'][:][:,np.newaxis]
     flux = np.ma.MaskedArray(skim['flux'][:], mask=skim['mask'][:])
     ivar = np.ma.MaskedArray(skim['ivar'][:], mask=skim['mask'][:])
@@ -64,7 +57,7 @@ def main():
     plt.ylabel(r'Number of Quasars per $\Delta z = %.3f$' % quasar_dz)
     plt.xlabel(r'Redshift $z$')
     plt.grid()
-    plt.savefig(args.output+'-quasar-redshift-dist.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-quasar-redshift-dist.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     plt.figure(figsize=(12,9))
@@ -73,7 +66,7 @@ def main():
     plt.ylabel(r'Number of pixels per bin')
     plt.xlabel(r'Inv. Variance')
     plt.grid()
-    plt.savefig(args.output+'-ivar-dist.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-ivar-dist.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     ############################
@@ -107,20 +100,21 @@ def main():
 
     forest_pixel_redshifts = (1.0 + quasar_redshifts[:,np.newaxis])*forest_wave/args.wave_lya - 1.0
 
-    forest_flux = ma.masked_where(forest_pixel_redshifts < args.forest_min_z, forest_flux, copy=False)
-    forest_ivar = ma.masked_where(forest_pixel_redshifts < args.forest_min_z, forest_ivar, copy=False)
+    forest_min_z = skim.attrs['wave_min']/args.wave_lya - 1.0
+    forest_flux = ma.masked_where(forest_pixel_redshifts < forest_min_z, forest_flux, copy=False)
+    forest_ivar = ma.masked_where(forest_pixel_redshifts < forest_min_z, forest_ivar, copy=False)
 
     forest_pixel_redshifts = ma.MaskedArray(forest_pixel_redshifts, mask=forest_flux.mask)
 
     print 'Alignment complete! ', forest_flux.shape
 
-    outfile = h5py.File(args.output+'-forest.hdf5', 'w')
+    outfile = h5py.File(args.name+'-forest.hdf5', 'w')
     # copy attributes from input file
     for attr_key in skim.attrs:
         outfile.attrs[attr_key] = skim.attrs[attr_key]
     # save args
     outfile.attrs['wave_lya'] = args.wave_lya
-    outfile.attrs['forest_min_z'] = args.forest_min_z
+    outfile.attrs['forest_min_z'] = forest_min_z
     outfile.attrs['forest_max_z'] = args.forest_max_z
     # save pixel flux, ivar, and mask
     outfile.create_dataset('flux', data=forest_flux.data, compression="gzip")
@@ -141,23 +135,23 @@ def main():
     plt.figure(figsize=(12,9))
     extent = (forest_wave[0],forest_wave[-1],1,num_rows)
     plt.imshow(forest_pixel_redshifts[redshift_order][::args.subsample_step], aspect='auto',
-               vmin=args.forest_min_z, vmax=args.forest_max_z, cmap=plt.get_cmap('YlGn'),
+               vmin=forest_min_z, vmax=args.forest_max_z, cmap=plt.get_cmap('YlGn'),
                origin='lower', extent=extent)
     plt.xlabel(r'Rest Wavelength ($\AA$)')
     plt.ylabel(r'Observation Index (sorted by $z$)')
     plt.colorbar()
-    plt.savefig(args.output+'-forest-redshift-subsample.png', dpi=100, bbox_inches='tight')
+    plt.savefig(args.name+'-forest-redshift-subsample.png', dpi=100, bbox_inches='tight')
     plt.close()
 
     print 'Saving exact images...'
 
-    export_exact_image(args.output+'-forest-redshift.png', forest_pixel_redshifts[redshift_order][::args.subsample_step], dpi=100,
-        vmin=args.forest_min_z, vmax=args.forest_max_z, cmap=plt.get_cmap('YlGn'), origin='lower')
+    export_exact_image(args.name+'-forest-redshift.png', forest_pixel_redshifts[redshift_order][::args.subsample_step], dpi=100,
+        vmin=forest_min_z, vmax=args.forest_max_z, cmap=plt.get_cmap('YlGn'), origin='lower')
 
-    export_exact_image(args.output+'-forest-flux.png', forest_flux[redshift_order][::args.subsample_step], dpi=100,
+    export_exact_image(args.name+'-forest-flux.png', forest_flux[redshift_order][::args.subsample_step], dpi=100,
         vmin=0, vmax=3, cmap=plt.get_cmap('YlGn'), origin='lower')
 
-    export_exact_image(args.output+'-flux.png', flux[redshift_order][::args.subsample_step], dpi=100,
+    export_exact_image(args.name+'-flux.png', flux[redshift_order][::args.subsample_step], dpi=100,
         vmin=0, vmax=3, cmap=plt.get_cmap('YlGn'), origin='lower')
 
 
