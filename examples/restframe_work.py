@@ -79,23 +79,17 @@ def main():
     ############################
 
     print 'Aligning observed pixels to forest pixels...'
-    num_combine = skim.attrs['num_combine']
     forest_lo = skim.attrs['forest_lo']
     forest_hi = skim.attrs['forest_hi']
-    log10lam0 = loglam[0]
-    coeff1 = num_combine*1e-4
+    log10lam0 = skim.attrs['coeff0']
+    coeff1 = skim.attrs['coeff1']
 
-    forest_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(\
-        np.log10(forest_lo), coeff1=coeff1, log10lam0=log10lam0)
-    forest_hi_index = qusp.wavelength.get_fiducial_pixel_index_offset(\
-        np.log10(forest_hi), coeff1=coeff1, log10lam0=log10lam0)
+    forest_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(forest_lo), coeff1=coeff1, log10lam0=log10lam0)
+    forest_hi_index = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(forest_hi), coeff1=coeff1, log10lam0=log10lam0)
 
-    forest_wave = qusp.wavelength.get_fiducial_wavelength(\
-        np.arange(forest_lo_index, forest_hi_index), coeff1, log10lam0)
+    forest_wave = qusp.wavelength.get_fiducial_wavelength(np.arange(forest_lo_index, forest_hi_index), coeff1, log10lam0)
 
-    lo_indices = qusp.wavelength.get_fiducial_pixel_index_offset(\
-        np.log10(forest_wave[0]*(1 + quasar_redshifts)),
-        coeff1, log10lam0)
+    lo_indices = qusp.wavelength.get_fiducial_pixel_index_offset(np.log10(forest_wave[0]*(1 + quasar_redshifts)), coeff1, log10lam0)
 
     print lo_indices
     offsets = np.zeros_like(lo_indices)
@@ -105,8 +99,7 @@ def main():
     num_forest_waves = len(forest_wave)
     num_rows = flux.shape[0]
 
-    shifted_cols = np.mod(np.tile(np.arange(num_forest_waves), num_rows).reshape(num_rows, num_forest_waves) \
-        + lo_indices.reshape(-1,1), (num_forest_waves+offsets).reshape(-1,1))
+    shifted_cols = np.mod(np.tile(np.arange(num_forest_waves), num_rows).reshape(num_rows, num_forest_waves) + lo_indices.reshape(-1,1), (num_forest_waves+offsets).reshape(-1,1))
     shifted_rows = np.repeat(np.arange(num_rows), num_forest_waves).reshape(num_rows, num_forest_waves)
 
     forest_flux = flux[shifted_rows, shifted_cols]
