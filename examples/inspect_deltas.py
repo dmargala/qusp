@@ -43,10 +43,9 @@ def main():
     infile = h5py.File(args.input, 'r')
     lines_of_sight = infile['lines_of_sight']
     # read attributes with info on processing so far
-    num_combine = infile.attrs['num_combine']
     coeff0 = infile.attrs['coeff0']
     coeff1 = infile.attrs['coeff1']
-    num_wave_obs = infile.attrs['max_fid_combined_index']
+    num_wave_obs = infile.attrs['max_fid_index']
     wave_lya = infile.attrs['wave_lya']
 
     num_sightlines = len(lines_of_sight.keys())
@@ -103,6 +102,8 @@ def main():
     wmean_delta = ma.masked_all(num_wave_obs)
     for i in np.unique(wave_bin_indices):
         i_indices = wave_bin_indices == i
+        if i-1 >= num_wave_obs:
+	    continue
         counts_per_obs_pixel[i-1] = ma.count(all_waves[i_indices])
         mean_delta[i-1] = ma.average(all_deltas[i_indices])
         wmean_delta[i-1] = ma.average(all_deltas[i_indices], weights=all_weights[i_indices])
