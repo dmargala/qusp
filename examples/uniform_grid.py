@@ -8,6 +8,7 @@ import h5py
 import bossdata.path
 import bossdata.remote
 import bossdata.spec
+import bossdata.meta
 
 import qusp
 
@@ -15,7 +16,7 @@ import fitsio
 
 from progressbar import ProgressBar, Percentage, Bar
 
-class LiteSpecFile(object):
+class FullSpecFile(object):
     def __init__(self, path):
         self.hdulist = fitsio.FITS(path, mode=fitsio.READONLY)
         self.header = self.hdulist[0].read_header()
@@ -51,8 +52,6 @@ def main():
         help="target list")
     parser.add_argument("-n", "--ntargets", type=int, default=0,
         help="number of targets to use, 0 for all")
-    parser.add_argument("--z-col", type=int, default=3,
-        help="column index of redshift values in input target list")
     parser.add_argument("-o", "--output", type=str, default=None,
         help="output file name")
     parser.add_argument("--forest-lo", type=float, default=1040,
@@ -63,6 +62,10 @@ def main():
         help="min forest wavelength")
     parser.add_argument("--norm-hi", type=float, default=1285,
         help="max forest wavelength")
+    parser.add_argument("--spall-redshift", action="store_true",
+        help="Use redshift from hdu 2 of spec file, instead of quasar catalog redshift")
+    parser.add_argument("--max-fid-index", type=int, default=1900,
+        help="Maximum fiducial pixel index")
     args = parser.parse_args()
 
     try:
@@ -73,8 +76,7 @@ def main():
         return -1
 
     # read target data
-    fields = [('z', float, args.z_col)]
-    targets = qusp.target.load_target_list(args.input, fields, verbose=args.verbose)
+    targets = qusp.target.load_target_list(args.input, verbose=args.verbose)
 
     # use the first n targets or a random sample
     ntargets = args.ntargets if args.ntargets > 0 else len(targets)
@@ -82,13 +84,14 @@ def main():
 
     # determine maximum forest wavelength observed
     skim_redshift = np.empty(ntargets)
-    for i, target in enumerate(targets):
-        skim_redshift[i] = target['z']
-    log_forest_max_obs = np.log10(args.forest_hi*(1+np.max(skim_redshift)))
-
+    if not args.spall_redshift:
+        quasar_catalog = bossdata.meta.Database(quasar_catalog=True, lite=False)
+    
+    #log_forest_max_obs = np.log10(args.forest_hi*(1+np.max(skim_redshift)))
     # convert max observed wavelength to fiducial pixel index
-    max_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_max_obs)
-    max_index = np.ceil(max_index).astype(int)
+    #max_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_max_obs)
+    max_index = args.max_fid_index 
+    #max_index = np.ceil(max_index).astype(int)
 
     # arrays for skim data
     skim_flux = ma.masked_all((ntargets, max_index))
@@ -104,14 +107,16 @@ def main():
 
     bad_forest = []
     bad_norm = []
+    bad_target = []
 
     for i, target in enumerate(targets):
         if args.verbose:
             progress_bar.update(i)
+
         # get lite spec filename and load data
-        remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=True)
+        remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=False)
         local_path = mirror.get(remote_path, progress_min_size=0.1)
-        spec = LiteSpecFile(local_path)
+        spec = FullSpecFile(local_path)
 
         # copy meta data
         skim_meta['ra'][i] = np.radians(np.asscalar(spec.hdulist[2]['RA'][:]))
@@ -121,11 +126,23 @@ def main():
         skim_meta['fiber'][i] = target['fiber']
         skim_meta['thing_id'][i] = np.asscalar(spec.hdulist[2]['THING_ID'][:])
 
+        # look up redshift
+        if args.spall_redshift:
+            z = np.asscalar(spec.hdulist[2]['Z'][:])
+        else:
+            where = 'PLATE=%s and MJD=%s and FIBER=%s' % (target['plate'], target['mjd'], target['fiber'])
+            result = quasar_catalog.select_all(where=where, what='Z_VI', max_rows=1)
+            if result is None:
+                bad_target.append(i)
+                print '{}: not in quasar catalog'.format(target['target'])
+                continue
+            z = result['Z_VI'][0]
+        skim_redshift[i] = z
+
         # process spectrum data
         data = spec.get_data()
         loglam,flux,ivar = data['loglam'][:],data['flux'][:],data['ivar'][:]
         # determine fiducial wavelength offsets of forest data
-        z = skim_redshift[i]
         log_forest_lo = max(loglam.data[0], np.log10(args.forest_lo * (1.0 + z)))
         forest_lo_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_lo)
         forest_lo_index = np.round(forest_lo_index).astype(int)
@@ -179,6 +196,7 @@ def main():
 
     print 'Number of spectra with bad forest window: %d' % len(bad_forest)
     print 'Number of spectra with bad norm: %d' % len(bad_norm)
+    print 'Number of spectra not in quasar catalog: %d' % len(bad_target)
 
     # verify flux and ivar masks are equal
     assert np.all(skim_flux.mask == skim_ivar.mask)
