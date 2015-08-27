@@ -34,8 +34,6 @@ def main():
     loglam = skim['loglam'][:]
     wave = np.power(10.0, loglam)
 
-    print loglam[1:]-loglam[:-1]
-
     quasar_redshifts = skim['z'][:]
 
     linear_continuum = h5py.File(args.name+'-linear-continuum.hdf5', 'r')
@@ -102,13 +100,14 @@ def main():
     delta_mean_ivar_weighted = ma.average(delta_flux[mask_params], weights=delta_ivar[mask_params], axis=0)
 
     plt.figure(figsize=(12,9))
-    plt.plot(wave, delta_mean)
-    plt.plot(wave, delta_mean_weighted)
-    plt.plot(wave, delta_mean_ivar_weighted)
+    plt.plot(wave, delta_mean, label='Unweighted Mean')
+    plt.plot(wave, delta_mean_weighted, label='LSS weighted Mean')
+    plt.plot(wave, delta_mean_ivar_weighted, label='Ivar weighted Mean')
     # plt.ylim(0.06*np.array([-1,1]))
     plt.xlabel(r'Observed Wavelength ($\AA$)')
     plt.ylabel(r'Delta Mean')
     plt.grid()
+    plt.legend()
     plt.savefig(args.name+'-lssweighted-delta-mean.png', dpi=100, bbox_inches='tight')
     plt.close()
 
