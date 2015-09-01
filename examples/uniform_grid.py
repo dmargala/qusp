@@ -86,11 +86,11 @@ def main():
     skim_redshift = np.empty(ntargets)
     if not args.spall_redshift:
         quasar_catalog = bossdata.meta.Database(quasar_catalog=True, lite=False)
-    
+
     #log_forest_max_obs = np.log10(args.forest_hi*(1+np.max(skim_redshift)))
     # convert max observed wavelength to fiducial pixel index
     #max_index = qusp.wavelength.get_fiducial_pixel_index_offset(log_forest_max_obs)
-    max_index = args.max_fid_index 
+    max_index = args.max_fid_index
     #max_index = np.ceil(max_index).astype(int)
 
     # arrays for skim data
@@ -134,7 +134,7 @@ def main():
             result = quasar_catalog.select_all(where=where, what='Z_VI', max_rows=1)
             if result is None:
                 bad_target.append(i)
-                print '{}: not in quasar catalog'.format(target['target'])
+                #print '{}: not in quasar catalog'.format(target['target'])
                 continue
             z = result['Z_VI'][0]
         skim_redshift[i] = z
@@ -152,8 +152,8 @@ def main():
         # check for valid forest window
         if forest_lo_index > forest_hi_index:
             bad_forest.append(i)
-            print '{}: no forest pixels [{}:{}], z = {}'.format(target['target'],
-                np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
+            #print '{}: no forest pixels [{}:{}], z = {}'.format(target['target'],
+            #    np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
             continue
         uniform_slice = slice(forest_lo_index, forest_hi_index)
         offset = qusp.wavelength.get_fiducial_pixel_index_offset(loglam.data[0])
@@ -161,8 +161,8 @@ def main():
         # check for valid weights in forest window
         if ma.sum(ivar[spec_slice].mask) == len(ivar[spec_slice]):
             bad_forest.append(i)
-            print '{}: no unmasked pixels in forest [{}:{}], z = {}'.format(target['target'],
-                np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
+            #print '{}: no unmasked pixels in forest [{}:{}], z = {}'.format(target['target'],
+            #    np.power(10.0, log_forest_lo), np.power(10.0, log_forest_hi), z)
             continue
         # find normalization window
         norm_lo = args.norm_lo * (1.0 + z)
@@ -175,14 +175,14 @@ def main():
         # check for valid weights in normalization window
         if np.sum(ivar[norm_slice].data) <= 0:
             bad_norm.append(i)
-            print '{}: no good pixels in norm window [{}:{}], z = {}'.format(target['target'], norm_lo, norm_hi, z)
+            #print '{}: no good pixels in norm window [{}:{}], z = {}'.format(target['target'], norm_lo, norm_hi, z)
             continue
         # calculate normalization as ivar weighted mean flux
         norm, norm_weight = ma.average(flux[norm_slice].data, weights=ivar[norm_slice].data, returned=True)
         # verify normalization is valid
         if norm <= 0:
             bad_norm.append(i)
-            print '{}: norm <= 0'.format(target['target'])
+            #print '{}: norm <= 0'.format(target['target'])
             continue
 
         # save normalization
