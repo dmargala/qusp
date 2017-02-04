@@ -66,6 +66,8 @@ def main():
         help="Use redshift from hdu 2 of spec file, instead of quasar catalog redshift")
     parser.add_argument("--max-fid-index", type=int, default=1900,
         help="Maximum fiducial pixel index")
+    parser.add_argument("--mock", action="store_true",
+        help="Mock input data")
     args = parser.parse_args()
 
     try:
@@ -114,7 +116,9 @@ def main():
             progress_bar.update(i)
 
         # get lite spec filename and load data
-        remote_path = finder.get_spec_path(plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'], lite=False)
+        remote_path = finder.get_spec_path(
+            plate=target['plate'], mjd=target['mjd'], fiber=target['fiber'],
+            lite=False, compressed=args.mock, mock=args.mock)
         local_path = mirror.get(remote_path, progress_min_size=0.1)
         spec = FullSpecFile(local_path)
 

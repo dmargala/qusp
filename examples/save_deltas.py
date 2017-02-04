@@ -7,6 +7,8 @@ import h5py
 
 import qusp
 
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import scipy.interpolate
 import fitsio
